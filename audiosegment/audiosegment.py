@@ -248,7 +248,7 @@ if __name__ == "__main__":
     print("Channels:", seg.channels)
     print("Bits per sample:", seg.sample_width * 8)
     print("Sampling frequency:", seg.frame_rate)
-    print("Length:", self.duration)
+    print("Length:", seg.duration_seconds, "seconds")
 
     print("Detecting voice...")
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
