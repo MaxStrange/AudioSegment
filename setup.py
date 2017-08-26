@@ -6,14 +6,15 @@ from setuptools import setup
 
 setup(
     name="audiosegment",
-    version="0.1.0",
+    version="0.4.0",
     author="Max Strange",
     author_email="maxfieldstrange@gmail.com",
     description="Wrapper for pydub.AudioSegment for additional methods.",
+    install_requires=["pydub", "webrtcvad"],
     license="MIT",
     keywords="audio sound pydub",
     url="https://github.com/MaxStrange/AudioSegment",
-    packages=["audiosegment"],
+    py_modules=["audiosegment"],
     python_requires="~=3.4",
     long_description=__doc__,
     classifiers=[

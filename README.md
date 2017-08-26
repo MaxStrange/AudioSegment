@@ -7,8 +7,7 @@ import pydub
 import audiosegment
 
 print("Reading in the wave file...")
-dubseg = pydub.AudioSegment.from_wav("whatever.wav")
-seg = AudioSegment(dubseg, name="whatever.wav")
+seg = audiosegment.from_file("whatever.wav")
 
 print("Information:")
 print("Channels:", seg.channels)

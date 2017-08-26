@@ -181,6 +181,14 @@ class AudioSegment:
             zeros = bytes(bytes_per_frame - len(rest))
             yield Frame(rest + zeros, timestamp, frame_duration_s)
 
+    def generate_frames_as_segments(self, frame_duration_ms, zero_pad=True):
+        """
+        Does the same thing as generate_frames, but yields tuples of (Segment, timestamp) instead of Frames.
+        """
+        for frame in self.generate_frames(frame_duration_ms, zero_pad=zero_pad):
+            seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width, frame_rate=self.frame_rate, channels=self.channels), self.name)
+            yield seg, frame.timestamp
+
     def reduce(self, others):
         """
         Reduces others into this one by concatenating all the others onto this one.
@@ -234,6 +242,19 @@ class AudioSegment:
 
         return wav_outs
 
+def from_file(path):
+    """
+    Returns an AudioSegment object from the given file based on its file extension.
+    If the extension is wrong, this will throw some sort of error.
+
+    :param path: The path to the file, including the file extension.
+    :returns: An AudioSegment instance from the file.
+    """
+    _name, ext = os.path.splitext(path)
+    ext = ext.lower()[1:]
+    seg = pydub.AudioSegment.from_file(path, ext)
+    return AudioSegment(seg, path)
+
 # Tests
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -241,8 +262,7 @@ if __name__ == "__main__":
         exit(1)
 
     print("Reading in the wave file...")
-    dubseg = pydub.AudioSegment.from_wav(sys.argv[1])
-    seg = AudioSegment(dubseg, sys.argv[1])
+    seg = from_file(sys.argv[1])
 
     print("Information:")
     print("Channels:", seg.channels)
@@ -261,6 +281,10 @@ if __name__ == "__main__":
     print("  |-> reducing unvoiced segments to a single wav file 'unvoiced.wav'")
     unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
     unvoiced_segment.export("unvoiced.wav", format="WAV")
+
+    print("Splitting into frames...")
+    segments = [s for s in seg.generate_frames_as_segments(frame_duration_ms=1000, zero_pad=True)]
+    print("Got this many segments after splitting them up into one second frames:", len(segments))
 
     print("Removing silence from voiced...")
     seg = voiced_segment.filter_silence()
