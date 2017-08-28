@@ -372,7 +372,7 @@ class AudioSegment:
 
         rets = [self.fft(start_sample=start, num_samples=window_length_samples, zero_pad=True) for start in starts]
         bins = rets[0][0]
-        values = [np.real(ret[1]) for ret in rets]
+        values = [ret[1] for ret in rets]
         times = [start_sample / self.frame_rate for start_sample in starts]
         return np.array(bins), np.array(times), np.array(values)
 
@@ -410,11 +410,10 @@ if __name__ == "__main__":
     print("Doing FFT and plotting the histogram...")
     print("  |-> Computing the FFT...")
     hist_bins, hist_vals = seg.fft()
-    hist_vals = np.real(hist_vals)
-    hist_vals = abs(hist_vals) / len(hist_vals)
+    hist_vals = np.abs(hist_vals) / len(hist_vals)
     print("  |-> Plotting...")
     hist_vals_for_plot = 10 * np.log10(hist_vals + 1e-9)
-    plt.plot(hist_bins / 1000, hist_vals_for_plot, linewidth=0.02)
+    plt.plot(hist_bins / 1000, hist_vals_for_plot)#, linewidth=0.02)
     plt.xlabel("kHz")
     plt.ylabel("dB")
     plt.show()
@@ -423,7 +422,7 @@ if __name__ == "__main__":
     print("  |-> Computing overlapping FFTs...")
     hist_bins, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)
     hist_bins = hist_bins / 1000
-    amplitudes = abs(amplitudes) / len(amplitudes)
+    amplitudes = np.abs(amplitudes) / len(amplitudes)
     amplitudes = 10 * np.log10(amplitudes + 1e-9)
     print("  |-> Plotting...")
     x, y = np.mgrid[:len(times), :len(hist_bins)]
