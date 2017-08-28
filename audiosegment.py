@@ -168,7 +168,7 @@ class AudioSegment:
         self = other
         return self
 
-    def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None):
+    def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):
         """
         Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins
         and the values.
@@ -185,6 +185,8 @@ class AudioSegment:
                              If this is specified, you cannot specify start_s.
         :param num_samples: The number of samples to include in the slice. If this is specified, you cannot
                             specify duration_s.
+        :param zero_pad: If True and the combination of start and duration result in running off the end of
+                         the AudioSegment, the end is zero padded to prevent this.
         :returns: np.ndarray of frequencies, np.ndarray of amount of each frequency
         :raises ValueError: If start_s and start_sample are both specified and/or if both duration_s and num_samples
                             are specified.
@@ -203,11 +205,17 @@ class AudioSegment:
         if start_s is not None:
             start_sample = int(round(start_s * self.frame_rate))
 
-        if start_sample + num_samples - 1 >= len(self.get_array_of_samples()):
-            raise ValueError("The combination of start and duration will run off the end of the AudioSegment object.")
-
         end_sample = start_sample + num_samples  # end_sample is excluded
-        audioslice = np.array(self.get_array_of_samples()[start_sample:end_sample])
+        if end_sample > len(self.get_array_of_samples()) and not zero_pad:
+            raise ValueError("The combination of start and duration will run off the end of the AudioSegment object.")
+        elif end_sample > len(self.get_array_of_samples()) and zero_pad:
+            arr = np.array(self.get_array_of_samples())
+            zeros = np.zeros(end_sample - len(arr))
+            arr = np.append(arr, zeros)
+        else:
+            arr = np.array(self.get_array_of_samples())
+
+        audioslice = np.array(arr[start_sample:end_sample])
         fft_result = np.real(np.fft.fft(audioslice))[range(int(round(num_samples/2)) + 1)]
         bins = np.arange(0, int(round(num_samples/2)) + 1, 1.0) * (self.frame_rate / num_samples)
         return bins, fft_result
@@ -337,7 +345,7 @@ class AudioSegment:
             raise ValueError("Only one of duration_s and num_samples may be specified.")
         if window_length_s is not None and window_length_samples is not None:
             raise ValueError("Only one of window_length_s and window_length_samples may be specified.")
-        if window_length_samples is None and window_length_samples is None:
+        if window_length_s is None and window_length_samples is None:
             raise ValueError("You must specify a window length, either in window_length_s or in window_length_samples.")
 
         if start_s is None and start_sample is None:
@@ -350,11 +358,23 @@ class AudioSegment:
         if start_s is not None:
             start_sample = int(round(start_s * self.frame_rate))
 
-        if start_sample + num_samples - 1 >= len(self.get_array_of_samples()):
+        if window_length_s is not None:
+            window_length_samples = int(round(window_length_s * self.frame_rate))
+
+        if start_sample + num_samples > len(self.get_array_of_samples()):
             raise ValueError("The combination of start and duration will run off the end of the AudioSegment object.")
 
-        # TODO
+        starts = []
+        next_start = start_sample
+        while next_start < len(self.get_array_of_samples()):
+            starts.append(next_start)
+            next_start = next_start + int(round(overlap * window_length_samples))
 
+        rets = [self.fft(start_sample=start, num_samples=window_length_samples, zero_pad=True) for start in starts]
+        bins = rets[0][0]
+        values = [ret[1] for ret in rets]
+        times = [start_sample / self.frame_rate for start_sample in starts]
+        return np.array(bins), np.array(times), np.array(values)
 
 def from_file(path):
     """
@@ -371,7 +391,8 @@ def from_file(path):
 
 # Tests
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    #Uncomment to test
+    #import matplotlib.pyplot as plt
 
     if len(sys.argv) != 2:
         print("For testing this module, USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
@@ -399,8 +420,15 @@ if __name__ == "__main__":
 
     print("Doing a spectrogram...")
     print("  |-> Computing overlapping FFTs...")
-    hist_bins, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)
+    hist_bins, times, amplitudes = seg.spectrogram(start_s=10, duration_s=1.2, window_length_s=0.03, overlap=0.5)
+    hist_bins = hist_bins / 1000
+    amplitudes = abs(amplitudes) / len(amplitudes)
+    amplitudes = 10 * np.log10(amplitudes + 1e-9)
     print("  |-> Plotting...")
+    x, y = np.mgrid[:len(times), :len(hist_bins)]
+    fig, ax = plt.subplots()
+    ax.pcolormesh(x, y, amplitudes)
+    plt.show()
 
     print("Detecting voice...")
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
