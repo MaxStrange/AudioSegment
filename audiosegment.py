@@ -65,6 +65,12 @@ class AudioSegment:
     def __radd__(self, rarg):
         return self.seg.__radd__(rarg)
 
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return str(self.get_array_of_samples())
+
     def __sub__(self, arg):
         if type(arg) == AudioSegment:
             self.seg = self.seg - arg.seg
@@ -84,9 +90,12 @@ class AudioSegment:
         Returns self as a list of tuples:
         [('v', voiced segment), ('u', unvoiced segment), (etc.)]
 
-        The overall order of the Segment is preserved.
+        The overall order of the AudioSegment is preserved.
 
-        :returns: The described list. Does not modify self.
+        .. note:: This function does not currently work exactly as described. Specifically, the unvoiced segments
+                  are not all returned.
+
+        :returns: The described list.
         """
         assert self.frame_rate in (48000, 32000, 16000, 8000), "Try resampling to one of the allowed frame rates."
         assert self.sample_width == 2, "Try resampling to 16 bit."
@@ -97,7 +106,7 @@ class AudioSegment:
 
             Yields tuples, one at a time, either ('v', Segment) or ('u', Segment).
             """
-            # TODO: Replace this with a Bayesian update algorithm.
+            # TODO: Replace this with a Bayesian inference algorithm.
             #       We should mark each frame as voiced or unvoiced, then collect them
             #       and update our belief about whether the sequence is voiced or not.
             #       Once we get to a threshold probability that we are voiced, go back
@@ -149,11 +158,63 @@ class AudioSegment:
         v = webrtcvad.Vad(int(aggressiveness))
         return [tup for tup in vad_collector(window_size, padding_duration_ms, v, frames)]
 
+    def dice(self, seconds, zero_pad=False):
+        """
+        Cuts the AudioSegment into `seconds` segments (at most). So for example, if seconds=10,
+        this will return a list of AudioSegments, in order, where each one is at most 10 seconds
+        long. If `zero_pad` is True, the last item AudioSegment object will be zero padded to result
+        in `seconds` seconds.
+
+        :param seconds: The length of each segment in seconds. Can be either a float/int, in which case
+                        `self.duration_seconds` / `seconds` are made, each of `seconds` length, or a
+                        list-like can be given, in which case the given list must sum to
+                        `self.duration_seconds` and each segment is specified by the list - e.g.
+                        the 9th AudioSegment in the returned list will be `seconds[8]` seconds long.
+        :param zero_pad: Whether to zero_pad the final segment if necessary. Ignored if `seconds` is
+                         a list-like.
+        :returns: A list of AudioSegments, each of which is the appropriate number of seconds long.
+        :raises: ValueError if a list-like is given for `seconds` and the list's durations do not sum
+                 to `self.duration_seconds`.
+        """
+        try:
+            total_s = sum(seconds)
+            if not (self.duration_seconds <= total_s + 1 and self.duration_seconds >= total_s - 1):
+                raise ValueError("`seconds` does not sum to within one second of the duration of this AudioSegment.\
+                                 given total seconds: %s and self.duration_seconds: %s" % (total_s, self.duration_seconds))
+            starts = []
+            stops = []
+            time_ms = 0
+            for dur in seconds:
+                starts.append(time_ms)
+                time_ms += dur * MS_PER_S
+                stops.append(time_ms)
+            zero_pad = False
+        except TypeError:
+            # `seconds` is not a list
+            starts = range(0, int(round(self.duration_seconds * MS_PER_S)), int(round(seconds * MS_PER_S)))
+            stops = (min(self.duration_seconds * MS_PER_S, start + seconds * MS_PER_S) for start in starts)
+        outs = [self[start:stop] for start, stop in zip(starts, stops)]
+        out_lens = [out.duration_seconds for out in outs]
+        # Check if our last slice is within one ms of expected - if so, we don't need to zero pad
+        if zero_pad and not (out_lens[-1] <= seconds * MS_PER_S + 1 and out_lens[-1] >= seconds * MS_PER_S - 1):
+            num_zeros = self.frame_rate * (seconds * MS_PER_S - out_lens[-1])
+            outs[-1] = outs[-1].zero_extend(num_samples=num_zeros)
+        return outs
+
     def filter_silence(self, duration_s=1, threshold_percentage=1):
         """
-        Removes all silence from this segment and returns itself after modification.
+        Returns a copy of this AudioSegment, but whose silence has been removed.
 
-        :returns: self, for convenience (self is modified in place as well)
+        .. note:: This method requires that you have the program 'sox' installed.
+
+        .. warning:: This method uses the program 'sox' to perform the task. While this is very fast for a single
+                     function call, the IO may add up for a large numbers of AudioSegment objects.
+
+        :param duration_s: The number of seconds of "silence" that must be present in a row to
+                           be stripped.
+        :param threshold_percentage: Silence is defined as any samples whose absolute value is below
+                                     `threshold_percentage * max(abs(samples in this segment))`.
+        :returns: A copy of this AudioSegment, but whose silence has been removed.
         """
         tmp = tempfile.NamedTemporaryFile()
         othertmp = tempfile.NamedTemporaryFile()
@@ -165,31 +226,30 @@ class AudioSegment:
         other = AudioSegment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
         tmp.close()
         othertmp.close()
-        self = other
-        return self
+        return other
 
     def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):
         """
         Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins
         and the values.
 
-        If neither start_s or start_sample is specified, the first sample of the slice will be the first sample
-        of the audio segment.
+        If neither `start_s` or `start_sample` is specified, the first sample of the slice will be the first sample
+        of the AudioSegment.
 
-        If neither duration_s or num_samples is specified, the slice will be from the specified start
+        If neither `duration_s` or `num_samples` is specified, the slice will be from the specified start
         to the end of the segment.
 
-        :param start_s: The start time in seconds. If this is specified, you cannot specify start_sample.
-        :param duration_s: The duration of the slice in seconds. If this is specified, you cannot specify num_samples.
+        :param start_s: The start time in seconds. If this is specified, you cannot specify `start_sample`.
+        :param duration_s: The duration of the slice in seconds. If this is specified, you cannot specify `num_samples`.
         :param start_sample: The zero-based index of the first sample to include in the slice.
-                             If this is specified, you cannot specify start_s.
+                             If this is specified, you cannot specify `start_s`.
         :param num_samples: The number of samples to include in the slice. If this is specified, you cannot
-                            specify duration_s.
+                            specify `duration_s`.
         :param zero_pad: If True and the combination of start and duration result in running off the end of
                          the AudioSegment, the end is zero padded to prevent this.
         :returns: np.ndarray of frequencies, np.ndarray of amount of each frequency
-        :raises ValueError: If start_s and start_sample are both specified and/or if both duration_s and num_samples
-                            are specified.
+        :raises: ValueError If `start_s` and `start_sample` are both specified and/or if both `duration_s` and
+                            `num_samples` are specified.
         """
         if start_s is not None and start_sample is not None:
             raise ValueError("Only one of start_s and start_sample can be specified.")
@@ -227,9 +287,9 @@ class AudioSegment:
         This function adapted from pywebrtc's example [https://github.com/wiseman/py-webrtcvad/blob/master/example.py].
 
         :param frame_duration_ms: The length of each frame in ms.
-        :param zero_pad: Whether or not to zero pad the end of the Segment object to get all
+        :param zero_pad: Whether or not to zero pad the end of the AudioSegment object to get all
                          the audio data out as frames. If not, there may be a part at the end
-                         of the Segment that is cut off (the part will be <= frame_duration_ms in length).
+                         of the Segment that is cut off (the part will be <= `frame_duration_ms` in length).
         :returns: A Frame object with properties 'bytes (the data)', 'timestamp (start time)', and 'duration'.
         """
         Frame = collections.namedtuple("Frame", "bytes timestamp duration")
@@ -252,31 +312,40 @@ class AudioSegment:
 
     def generate_frames_as_segments(self, frame_duration_ms, zero_pad=True):
         """
-        Does the same thing as generate_frames, but yields tuples of (Segment, timestamp) instead of Frames.
+        Does the same thing as `generate_frames`, but yields tuples of (AudioSegment, timestamp) instead of Frames.
         """
         for frame in self.generate_frames(frame_duration_ms, zero_pad=zero_pad):
-            seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width, frame_rate=self.frame_rate, channels=self.channels), self.name)
+            seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width,
+                               frame_rate=self.frame_rate, channels=self.channels), self.name)
             yield seg, frame.timestamp
 
     def reduce(self, others):
         """
-        Reduces others into this one by concatenating all the others onto this one.
+        Reduces others into this one by concatenating all the others onto this one and
+        returning the result. Does not modify self, instead, makes a copy and returns that.
 
-        :param others: The other Segment objects to append to this one.
-        :returns: self, for convenience (self is modified in place as well)
+        :param others: The other AudioSegment objects to append to this one.
+        :returns: The concatenated result.
         """
-        self.seg._data = b''.join([self.seg._data] + [o.seg._data for o in others])
+        ret = AudioSegment(self.seg, "")
+        ret.seg._data = b''.join([self.seg._data] + [o.seg._data for o in others])
 
-        return self
+        return ret
 
     def resample(self, sample_rate_Hz=None, sample_width=None, channels=None):
         """
-        Resamples self and returns self with the new characteristics. Any paramter that is left as None will be unchanged.
+        Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the
+        specified characteristics. Any parameter left None will be unchanged.
+
+        .. note:: This method requires that you have the program 'sox' installed.
+
+        .. warning:: This method uses the program 'sox' to perform the task. While this is very fast for a single
+                     function call, the IO may add up for a large numbers of AudioSegment objects.
 
         :param sample_rate_Hz: The new sample rate in Hz.
         :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
         :param channels: The new number of channels.
-        :returns: self, and also changes self in place
+        :returns: The newly sampled AudioSegment.
         """
         infile, outfile = tempfile.NamedTemporaryFile(), tempfile.NamedTemporaryFile()
         self.export(infile.name, format="wav")
@@ -286,45 +355,39 @@ class AudioSegment:
         other = AudioSegment(pydub.AudioSegment.from_wav(outfile.name), self.name)
         infile.close()
         outfile.close()
-        self = other
-        return self
-
-    def trim_to_minutes(self, strip_last_seconds=False):
-        """
-        Does not modify self, but instead returns a list of minute-long (at most) Segment objects.
-
-        :param strip_last_seconds: If True, this method will return minute-long segments, but the last three seconds of this Segment won't be returned.
-                                   This is useful for removing the microphone artifact at the end of the recording.
-        :returns: A list of Segment objects, each of which is one minute long at most (and only the last one - if any - will be less than one minute).
-        """
-        starts = range(0, int(round(self.duration_seconds * MS_PER_S)), MS_PER_MIN)
-        stops = (min(self.duration_seconds * MS_PER_S, start + MS_PER_MIN) for start in starts)
-        wav_outs = [self[start:stop] for start, stop in zip(starts, stops)]
-
-        # Now cut out the last three seconds of the last item in wav_outs (it will just be microphone artifact)
-        # or, if the last item is less than three seconds, just get rid of it
-        if strip_last_seconds:
-            if wav_outs[-1].duration_seconds > 3:
-                wav_outs[-1] = wav_outs[-1][:-MS_PER_S * 3]
-            else:
-                wav_outs = wav_outs[:-1]
-
-        return wav_outs
+        return other
 
     def spectrogram(self, start_s=None, duration_s=None, start_sample=None, num_samples=None,
                     window_length_s=None, window_length_samples=None, overlap=0.5):
         """
-        Does a series of FFTs from start_s or start_sample for duration_s or num_samples.
+        Does a series of FFTs from `start_s` or `start_sample` for `duration_s` or `num_samples`.
         Effectively, transforms a slice of the AudioSegment into the frequency domain across different
         time bins.
 
-        :param start_s: The start time. Starts at the beginning if neither this nor start_sample is specified.
+        .. code-block:: python
+
+            # Example for plotting a spectrogram using this function
+            import audiosegment
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            seg = audiosegment.from_file("somebodytalking.wav")
+            hist_bins, times, amplitudes = seg.spectrogram(start_s=4.3, duration_s=1, window_length_s=0.03, overlap=0.5)
+            hist_bins_khz = hist_bins / 1000
+            amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)
+            amplitudes_logged = 10 * np.log10(amplitudes_real_normed + 1e-9)  # for numerical stability
+            x, y = np.mgrid[:len(times), :len(hist_bins_khz)]
+            fig, ax = plt.subplots()
+            ax.pcolormesh(x, y, amplitudes_logged)
+            plt.show()
+
+        :param start_s: The start time. Starts at the beginning if neither this nor `start_sample` is specified.
         :param duration_s: The duration of the spectrogram in seconds. Goes to the end if neither this nor
-                           num_samples is specified.
+                           `num_samples` is specified.
         :param start_sample: The index of the first sample to use. Starts at the beginning if neither this nor
-                             start_s is specified.
+                             `start_s` is specified.
         :param num_samples: The number of samples in the spectrogram. Goes to the end if neither this nor
-                            duration_s is specified.
+                            `duration_s` is specified.
         :param window_length_s: The length of each FFT in seconds. If the total number of samples in the spectrogram
                                 is not a multiple of the window length in samples, the last window will be zero-padded.
         :param window_length_samples: The length of each FFT in number of samples. If the total number of samples in the
@@ -332,11 +395,11 @@ class AudioSegment:
                                 be zero-padded.
         :param overlap: The fraction of each window to overlap.
         :returns: Three np.ndarrays: The frequency values in Hz (the y-axis in a spectrogram), the time values starting
-                  at start time and then increasing by duration_s each step (the x-axis in a spectrogram), and
+                  at start time and then increasing by `duration_s` each step (the x-axis in a spectrogram), and
                   the dB of each time/frequency bin as a 2D array of shape [len(frequency values), len(duration)].
-        :raises ValueError: If start_s and start_sample are both specified, if duration_s and num_samples are both
+        :raises ValueError: If `start_s` and `start_sample` are both specified, if `duration_s` and `num_samples` are both
                             specified, if the first window's duration plus start time lead to running off the end
-                            of the AudioSegment, or if window_length_s and window_length_samples are either
+                            of the AudioSegment, or if `window_length_s` and `window_length_samples` are either
                             both specified or if they are both not specified.
         """
         if start_s is not None and start_sample is not None:
@@ -376,6 +439,57 @@ class AudioSegment:
         times = [start_sample / self.frame_rate for start_sample in starts]
         return np.array(bins), np.array(times), np.array(values)
 
+    def trim_to_minutes(self, strip_last_seconds=False):
+        """
+        Returns a list of minute-long (at most) Segment objects.
+
+        .. note:: I will likely depricate this method at some point. I have used it for a specific purpose, but
+                  now we can just use the dice function.
+
+        :param strip_last_seconds: If True, this method will return minute-long segments,
+                                   but the last three seconds of this AudioSegment won't be returned.
+                                   This is useful for removing the microphone artifact at the end of the recording.
+        :returns: A list of AudioSegment objects, each of which is one minute long at most
+                  (and only the last one - if any - will be less than one minute).
+        """
+        outs = self.dice(seconds=60, zero_pad=False)
+
+        # Now cut out the last three seconds of the last item in outs (it will just be microphone artifact)
+        # or, if the last item is less than three seconds, just get rid of it
+        if strip_last_seconds:
+            if outs[-1].duration_seconds > 3:
+                outs[-1] = outs[-1][:-MS_PER_S * 3]
+            else:
+                outs = outs[:-1]
+
+        return outs
+
+    def zero_extend(self, duration_s=None, num_samples=None):
+        """
+        Adds a number of zeros (digital silence) to the AudioSegment (returning a new one).
+
+        :param duration_s: The number of seconds of zeros to add. If this is specified, `num_samples` must be None.
+        :param num_samples: The number of zeros to add. If this is specified, `duration_s` must be None.
+        :returns: A new AudioSegment object that has been zero extended.
+        :raises: ValueError if duration_s and num_samples are both specified.
+        """
+        if duration_s is not None and num_samples is not None:
+            raise ValueError("`duration_s` and `num_samples` cannot both be specified.")
+        elif duration_s is not None:
+            num_samples = self.frame_rate * duration_s
+        seg = AudioSegment(self.seg, self.name)
+        zeros = silent(duration=num_samples / self.frame_rate, frame_rate=self.frame_rate)
+        return zeros.overlay(seg)
+
+def empty():
+    """
+    Creates a zero-duration AudioSegment object.
+
+    :returns: An empty AudioSegment object.
+    """
+    dubseg = pydub.AudioSegment.empty()
+    return AudioSegment(dubseg, "")
+
 def from_file(path):
     """
     Returns an AudioSegment object from the given file based on its file extension.
@@ -388,6 +502,26 @@ def from_file(path):
     ext = ext.lower()[1:]
     seg = pydub.AudioSegment.from_file(path, ext)
     return AudioSegment(seg, path)
+
+def from_mono_audiosegments(*args):
+    """
+    Creates a multi-channel AudioSegment out of multiple mono AudioSegments (two or more). Each mono
+    AudioSegment passed in should be exactly the same number of samples.
+
+    :returns: An AudioSegment of multiple channels formed from the given mono AudioSegments.
+    """
+    return AudioSegment(pydub.AudioSegment.from_mono_audiosegments(*args), "")
+
+def silent(duration=1000, frame_rate=11025):
+    """
+    Creates an AudioSegment object of the specified duration/frame_rate filled with digital silence.
+
+    :param duration: The duration of the returned object in ms.
+    :param frame_rate: The samples per second of the returned object.
+    :returns: AudioSegment object filled with pure digital silence.
+    """
+    seg = pydub.AudioSegment.silent(duration=duration, frame_rate=frame_rate)
+    return AudioSegment(seg, "")
 
 # Tests
 if __name__ == "__main__":
@@ -407,13 +541,18 @@ if __name__ == "__main__":
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
 
+    print("Trimming to 30 ms slices...")
+    slices = seg.dice(seconds=0.03, zero_pad=True)
+    print("  |-> Got", len(slices), "slices.")
+    print("  |-> Durations in seconds of each slice:", [sl.duration_seconds for sl in slices])
+
     print("Doing FFT and plotting the histogram...")
     print("  |-> Computing the FFT...")
     hist_bins, hist_vals = seg.fft()
     hist_vals = np.abs(hist_vals) / len(hist_vals)
     print("  |-> Plotting...")
-    hist_vals_for_plot = 10 * np.log10(hist_vals + 1e-9)
-    plt.plot(hist_bins / 1000, hist_vals_for_plot)#, linewidth=0.02)
+#    hist_vals = 10 * np.log10(hist_vals + 1e-9)
+    plt.plot(hist_bins / 1000, hist_vals)#, linewidth=0.02)
     plt.xlabel("kHz")
     plt.ylabel("dB")
     plt.show()
