@@ -347,6 +347,13 @@ class AudioSegment:
         :param channels: The new number of channels.
         :returns: The newly sampled AudioSegment.
         """
+        if sample_rate_Hz is None:
+            sample_rate_Hz = self.frame_rate
+        if sample_width is None:
+            sample_width = self.sample_width
+        if channels is None:
+            channels = self.channels
+
         infile, outfile = tempfile.NamedTemporaryFile(), tempfile.NamedTemporaryFile()
         self.export(infile.name, format="wav")
         command = "sox " + infile.name + " -b" + str(sample_width * 8) + " -r " + str(sample_rate_Hz) + " -t wav " + outfile.name + " channels " + str(channels)
