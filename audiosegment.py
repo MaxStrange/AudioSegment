@@ -223,7 +223,8 @@ class AudioSegment:
         self.export(tmp.name, format="WAV")
         command = "sox " + tmp.name + " -t wav " + othertmp.name + " silence -l 1 0.1 "\
                    + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
-        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE if console_output else subprocess.DEVNULL)
+        stdout = stderr = subprocess.PIPE if console_output else subprocess.DEVNULL
+        res = subprocess.run(command.split(' '), stdout=stdout, stderr=stderr)
         assert res.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
         other = AudioSegment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
         tmp.close()
@@ -360,7 +361,8 @@ class AudioSegment:
         infile, outfile = tempfile.NamedTemporaryFile(), tempfile.NamedTemporaryFile()
         self.export(infile.name, format="wav")
         command = "sox " + infile.name + " -b" + str(sample_width * 8) + " -r " + str(sample_rate_Hz) + " -t wav " + outfile.name + " channels " + str(channels)
-        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE if console_output else subprocess.DEVNULL)
+        stdout = stderr = subprocess.PIPE if console_output else subprocess.DEVNULL
+        res = subprocess.run(command.split(' '), stdout=stdout, stderr=stderr)
         res.check_returncode()
         other = AudioSegment(pydub.AudioSegment.from_wav(outfile.name), self.name)
         infile.close()
