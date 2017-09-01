@@ -2,6 +2,7 @@
 This module simply exposes a wrapper of a pydub.AudioSegment object.
 """
 from __future__ import division
+from __future__ import print_function
 
 import collections
 import numpy as np
@@ -201,7 +202,7 @@ class AudioSegment:
             outs[-1] = outs[-1].zero_extend(num_samples=num_zeros)
         return outs
 
-    def filter_silence(self, duration_s=1, threshold_percentage=1):
+    def filter_silence(self, duration_s=1, threshold_percentage=1, console_output=False):
         """
         Returns a copy of this AudioSegment, but whose silence has been removed.
 
@@ -214,6 +215,7 @@ class AudioSegment:
                            be stripped.
         :param threshold_percentage: Silence is defined as any samples whose absolute value is below
                                      `threshold_percentage * max(abs(samples in this segment))`.
+        :param console_output: If True, will pipe all sox output to the console.
         :returns: A copy of this AudioSegment, but whose silence has been removed.
         """
         tmp = tempfile.NamedTemporaryFile()
@@ -221,7 +223,7 @@ class AudioSegment:
         self.export(tmp.name, format="WAV")
         command = "sox " + tmp.name + " -t wav " + othertmp.name + " silence -l 1 0.1 "\
                    + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
-        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE)
+        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE if console_output else subprocess.DEVNULL)
         assert res.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
         other = AudioSegment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
         tmp.close()
@@ -332,7 +334,7 @@ class AudioSegment:
 
         return ret
 
-    def resample(self, sample_rate_Hz=None, sample_width=None, channels=None):
+    def resample(self, sample_rate_Hz=None, sample_width=None, channels=None, console_output=False):
         """
         Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the
         specified characteristics. Any parameter left None will be unchanged.
@@ -345,6 +347,7 @@ class AudioSegment:
         :param sample_rate_Hz: The new sample rate in Hz.
         :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
         :param channels: The new number of channels.
+        :param console_output: Will print the output of sox to the console if True.
         :returns: The newly sampled AudioSegment.
         """
         if sample_rate_Hz is None:
@@ -357,7 +360,7 @@ class AudioSegment:
         infile, outfile = tempfile.NamedTemporaryFile(), tempfile.NamedTemporaryFile()
         self.export(infile.name, format="wav")
         command = "sox " + infile.name + " -b" + str(sample_width * 8) + " -r " + str(sample_rate_Hz) + " -t wav " + outfile.name + " channels " + str(channels)
-        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE)
+        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE if console_output else subprocess.DEVNULL)
         res.check_returncode()
         other = AudioSegment(pydub.AudioSegment.from_wav(outfile.name), self.name)
         infile.close()

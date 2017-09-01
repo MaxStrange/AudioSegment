@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name="audiosegment",
-    version="0.6.1",
+    version="0.7.0",
     author="Max Strange",
     author_email="maxfieldstrange@gmail.com",
     description="Wrapper for pydub.AudioSegment for additional methods.",
