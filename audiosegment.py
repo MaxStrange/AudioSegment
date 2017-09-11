@@ -5,9 +5,12 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import itertools
+import math
 import numpy as np
 import pydub
 import os
+import random
 import subprocess
 import sys
 import tempfile
@@ -101,63 +104,91 @@ class AudioSegment:
         assert self.frame_rate in (48000, 32000, 16000, 8000), "Try resampling to one of the allowed frame rates."
         assert self.sample_width == 2, "Try resampling to 16 bit."
         assert self.channels == 1, "Try resampling to one channel."
-        def vad_collector(frame_duration_ms, padding_duration_ms, v, frames):
-            """
-            Collects self into segments of VAD and non VAD.
 
-            Yields tuples, one at a time, either ('v', Segment) or ('u', Segment).
-            """
-            # TODO: Replace this with a Bayesian inference algorithm.
-            #       We should mark each frame as voiced or unvoiced, then collect them
-            #       and update our belief about whether the sequence is voiced or not.
-            #       Once we get to a threshold probability that we are voiced, go back
-            #       and collect the last consecutive voiced frames and trigger, so that
-            #       until our probability drops below a different threshold (hysteresis),
-            #       we keep collecting frames as voiced regardless of what they are.
-            construct_segment = lambda frames: AudioSegment(pydub.AudioSegment(data=b''.join([f.bytes for f in frames]),
-                                                                          sample_width=self.sample_width,
-                                                                          frame_rate=self.frame_rate,
-                                                                          channels=self.channels), self.name)
-            num_padding_frames = int(padding_duration_ms / frame_duration_ms)
-            ring_buffer = collections.deque(maxlen=num_padding_frames)
-            triggered = False
-            voiced_frames = []
-            for frame in frames:
-                # Until we have collected 90% of num_padding_frames that we think are voiced,
-                # keep shoving frames into the ring buffer. Since it is a ring buffer, it
-                # drops old frames once we are at capacity.
-                if not triggered:
-                    ring_buffer.append(frame)
-                    num_voiced = len([f for f in ring_buffer if v.is_speech(f.bytes, self.frame_rate)])
-                    if num_voiced > 0.9 * ring_buffer.maxlen:
-                        # We have collected enough voiced frames "in a row" to trigger
-                        triggered = True
-                        voiced_frames.extend(ring_buffer)
-                        ring_buffer.clear()
+        class model_class:
+            def __init__(self, aggressiveness):
+                self.v = webrtcvad.Vad(int(aggressiveness))
+
+            def predict(self, vector):
+                if self.v.is_speech(vector.raw_data, vector.frame_rate):
+                    return 1
                 else:
-                    # We are triggered, so collect each frame into voiced_frames until
-                    # enough of them "in a row" are unvoiced.
-                    voiced_frames.append(frame)
-                    ring_buffer.append(frame)
-                    num_unvoiced = len([f for f in ring_buffer if not v.is_speech(f.bytes, self.frame_rate)])
-                    if num_unvoiced > 0.9 * ring_buffer.maxlen:
-                        triggered = False
-                        yield 'v', construct_segment(voiced_frames)
-                        yield 'u', construct_segment(ring_buffer)
-                        ring_buffer.clear()
-                        voiced_frames = []
-            if voiced_frames:
-                yield 'v', construct_segment(voiced_frames)
-            if ring_buffer:
-                yield 'u', construct_segment(ring_buffer)
+                    return 0
 
-        aggressiveness = 2
-        window_size = 20
-        padding_duration_ms = 200
+        model = model_class(aggressiveness=2)
+        pyesno = 0.3  # Probability of the next 20 ms being unvoiced given that this 20 ms was voiced
+        pnoyes = 0.2  # Probability of the next 20 ms being voiced given that this 20 ms was unvoiced
+        p_realyes_outputyes = 0.4  # WebRTCVAD has a very high FP rate - just because it says yes, doesn't mean much
+        p_realyes_outputno  = 0.05  # If it says no, we can be very certain that it really is a no
+        p_yes_raw = 0.7
+        filtered = self.filter(model=model,
+                           ms_per_input=20,
+                           transition_matrix=(pyesno, pnoyes),
+                           model_stats=(p_realyes_outputyes, p_realyes_outputno),
+                           prob_raw_yes=p_yes_raw)
+        ret = []
+        for tup in filtered:
+            t = ('v', tup[1]) if tup[0] == 'y' else ('u', tup[1])
+            ret.append(t)
+        return ret
 
-        frames = self.generate_frames(frame_duration_ms=window_size, zero_pad=True)
-        v = webrtcvad.Vad(int(aggressiveness))
-        return [tup for tup in vad_collector(window_size, padding_duration_ms, v, frames)]
+#        def vad_collector(frame_duration_ms, padding_duration_ms, v, frames):
+#            """
+#            Collects self into segments of VAD and non VAD.
+#
+#            Yields tuples, one at a time, either ('v', Segment) or ('u', Segment).
+#            """
+#            # TODO: Replace this with a Bayesian inference algorithm.
+#            #       We should mark each frame as voiced or unvoiced, then collect them
+#            #       and update our belief about whether the sequence is voiced or not.
+#            #       Once we get to a threshold probability that we are voiced, go back
+#            #       and collect the last consecutive voiced frames and trigger, so that
+#            #       until our probability drops below a different threshold (hysteresis),
+#            #       we keep collecting frames as voiced regardless of what they are.
+#            construct_segment = lambda frames: AudioSegment(pydub.AudioSegment(data=b''.join([f.bytes for f in frames]),
+#                                                                          sample_width=self.sample_width,
+#                                                                          frame_rate=self.frame_rate,
+#                                                                          channels=self.channels), self.name)
+#            num_padding_frames = int(padding_duration_ms / frame_duration_ms)
+#            ring_buffer = collections.deque(maxlen=num_padding_frames)
+#            triggered = False
+#            voiced_frames = []
+#            for frame in frames:
+#                # Until we have collected 90% of num_padding_frames that we think are voiced,
+#                # keep shoving frames into the ring buffer. Since it is a ring buffer, it
+#                # drops old frames once we are at capacity.
+#                if not triggered:
+#                    ring_buffer.append(frame)
+#                    num_voiced = len([f for f in ring_buffer if v.is_speech(f.bytes, self.frame_rate)])
+#                    if num_voiced > 0.9 * ring_buffer.maxlen:
+#                        # We have collected enough voiced frames "in a row" to trigger
+#                        triggered = True
+#                        voiced_frames.extend(ring_buffer)
+#                        ring_buffer.clear()
+#                else:
+#                    # We are triggered, so collect each frame into voiced_frames until
+#                    # enough of them "in a row" are unvoiced.
+#                    voiced_frames.append(frame)
+#                    ring_buffer.append(frame)
+#                    num_unvoiced = len([f for f in ring_buffer if not v.is_speech(f.bytes, self.frame_rate)])
+#                    if num_unvoiced > 0.9 * ring_buffer.maxlen:
+#                        triggered = False
+#                        yield 'v', construct_segment(voiced_frames)
+#                        yield 'u', construct_segment(ring_buffer)
+#                        ring_buffer.clear()
+#                        voiced_frames = []
+#            if voiced_frames:
+#                yield 'v', construct_segment(voiced_frames)
+#            if ring_buffer:
+#                yield 'u', construct_segment(ring_buffer)
+#
+#        aggressiveness = 2
+#        window_size = 20
+#        padding_duration_ms = 200
+#
+#        frames = self.generate_frames(frame_duration_ms=window_size, zero_pad=True)
+#        v = webrtcvad.Vad(int(aggressiveness))
+#        return [tup for tup in vad_collector(window_size, padding_duration_ms, v, frames)]
 
     def dice(self, seconds, zero_pad=False):
         """
@@ -201,6 +232,127 @@ class AudioSegment:
             num_zeros = self.frame_rate * (seconds * MS_PER_S - out_lens[-1])
             outs[-1] = outs[-1].zero_extend(num_samples=num_zeros)
         return outs
+
+    def filter(self, model, ms_per_input, transition_matrix, model_stats, start_as_yes=False, prob_raw_yes=0.5):
+        """
+        A list of tuples of the form [('n', AudioSegment), ('y', AudioSegment), etc.] is returned, where tuples
+        of the form ('n', AudioSegment) are the segments of sound that were filtered out, while ('y', AudioSegment) tuples
+        were filtered in.
+
+        :param model:               The model. The model must have a predict() function which takes an AudioSegment
+                                    of `ms_per_input` number of ms and which outputs 1 if the audio event is detected
+                                    in that input, and 0 if not. Make sure to resample the AudioSegment to the right
+                                    values before calling this function on it.
+
+        :param ms_per_input:        The number of ms of AudioSegment to be fed into the model at a time. If this does not
+                                    come out even, the last AudioSegment will be zero-padded.
+
+        :param transition_matrix:   An iterable of the form: [p(yes->no), p(no->yes)]. That is, the probability of moving
+                                    from a 'yes' state to a 'no' state and the probability of vice versa.
+
+        :param model_stats:         An iterable of the form: [p(reality=1|output=1), p(reality=1|output=0)]. That is,
+                                    the probability of the ground truth really being a 1, given that the model output a 1,
+                                    and the probability of the ground truth being a 0, given that the model output a 1.
+
+        :param start_as_yes:        If True, the first `ms_per_input` will be in the 'y' category. Otherwise it will be
+                                    in the 'n' category.
+
+        :param prob_raw_yes:        The raw probability of finding the event in any given `ms_per_input` vector.
+
+        :returns:                   A list of tuples of the form [('n', AudioSegment), ('y', AudioSegment), etc.],
+                                    where over the course of the list, the AudioSegment in tuple 3 picks up
+                                    where the one in tuple 2 left off.
+
+        :raises:                    ValueError if `ms_per_input` is negative or larger than the number of ms in this
+                                    AudioSegment; if `transition_matrix` or `model_stats` do not have a __len__ attribute
+                                    or are not length 2; if the values in `transition_matrix` or `model_stats` are not
+                                    in the closed interval [0.0, 1.0].
+        """
+        #       hypothesis = K * p(H|lastH) * p(H|D)
+        #       ph_lasth <- look up in transition matrix
+        #           p(cur=yes|last=yes) ; p(cur=no|last=yes) ; p(cur=yes|last=no) ; p(cur=no|last=no)
+        #           1.0 - tm[0]         ; tm[0]              ; tm[1]              ; 1.0 - tm[1]
+        #       phd <- get from model's statistics :
+        #           p(h=yes|data=yes) ; p(h=no|data=yes) ; p(h=yes|data=no) ; p(h=no|data=no)
+        #           model_stats[0]    ; 1.0 - stats[0]   ; model_stats[1]   ; 1.0 - stats[1]
+        #       hypothesis_yes = K * p(hypothesis=yes|last_hypothesis) * p(hypothesis=yes|data)
+        #       hypothesis_no  = K * p(hypothesis=no |last_hypothesis) * p(hypothesis=no |data)
+        #       cur_state = yes if hypothesis=yes > hypothesis=no
+
+        if ms_per_input < 0 or ms_per_input / MS_PER_S > self.duration_seconds:
+            raise ValueError("ms_per_input cannot be negative and cannot be longer than the duration of the AudioSegment."\
+                             " The given value was " + str(ms_per_input))
+        elif not hasattr(transition_matrix, "__len__") or len(transition_matrix) != 2:
+            raise ValueError("transition_matrix must be an iterable of length 2.")
+        elif not hasattr(model_stats, "__len__") or len(model_stats) != 2:
+            raise ValueError("model_stats must be an iterable of length 2.")
+        elif any([True for prob in transition_matrix if prob > 1.0 or prob < 0.0]):
+            raise ValueError("Values in transition_matrix are probabilities, and so must be in the range [0.0, 1.0].")
+        elif any([True for prob in model_stats if prob > 1.0 or prob < 0.0]):
+            raise ValueError("Values in model_stats are probabilities, and so must be in the range [0.0, 1.0].")
+        elif prob_raw_yes > 1.0 or prob_raw_yes < 0.0:
+            raise ValueError("`prob_raw_yes` is a probability, and so must be in the range [0.0, 1.0]")
+
+        filter_indices = []
+        filter_triggered = start_as_yes
+        prob_raw_no = 1.0 - prob_raw_yes
+        debug_log = open("debug_log.csv", 'w')
+        for segment, _timestamp in self.generate_frames_as_segments(ms_per_input):
+            filter_indices.append(filter_triggered)
+            observation = int(round(model.predict(segment)))
+            assert observation == 1 or observation == 0, "The given model did not output a 1 or a 0, output: "\
+                   + str(observation)
+            prob_hyp_yes_given_last_hyp = 1.0 - transition_matrix[0] if filter_triggered else transition_matrix[1]
+            prob_hyp_no_given_last_hyp  = transition_matrix[0] if filter_triggered else 1.0 - transition_matrix[1]
+            prob_hyp_yes_given_data = model_stats[0] if observation == 1 else model_stats[1]
+            prob_hyp_no_given_data = 1.0 - model_stats[0] if observation == 1 else 1.0 - model_stats[1]
+            hypothesis_yes = prob_raw_yes * prob_hyp_yes_given_last_hyp * prob_hyp_yes_given_data
+            hypothesis_no  = prob_raw_no * prob_hyp_no_given_last_hyp  * prob_hyp_no_given_data
+            # make a list of ints - each is 0 or 1. The number of 1s is hypotheis_yes * 100
+            # the number of 0s is hypothesis_no * 100
+            distribution = [1 for i in range(int(round(hypothesis_yes * 100)))]
+            distribution.extend([0 for i in range(int(round(hypothesis_no * 100)))])
+            # shuffle
+            random.shuffle(distribution)
+            filter_triggered = random.choice(distribution) == 1
+            debug_filt = "1" if filter_triggered else "0"
+            debug_log.write(str(len([i for i in distribution if i == 1])/100) + ", " + str(len([i for i in distribution if i == 0])/100) + ", " + str(observation) + ", " + debug_filt + os.linesep)
+
+        debug_log.close()
+
+        ret = []
+        for filter_value, (_segment, timestamp) in enumerate(self.generate_frames_as_segments(ms_per_input)):
+            if filter_value == 1:
+                if len(ret) > 1 and ret[-1][0] == 'n':
+                    ret.append(['y', timestamp])  # The last one was different, so we create a new one
+                elif len(ret) > 1 and ret[-1][0] == 'y':
+                    ret[-1][1] = timestamp  # The last one was the same as this one, so just update the timestamp
+                else:
+                    ret.append(['y', timestamp])  # This is the first one
+            else:
+                if len(ret) > 1 and ret[-1][0] == 'n':
+                    ret[-1][1] = timestamp
+                elif len(ret) > 1 and ret[-1][0] == 'y':
+                    ret.append(['n', timestamp])
+                else:
+                    ret.append(['n', timestamp])
+        # TODO
+        print(ret)
+        ts = 0
+        for i, tup in enumerate(ret):
+            if i + 1 < len(tup):
+                next_tup = ret[i+1]
+                next_time = next_tup[1]
+            else:
+                next_time = None
+
+            data = self[ts:next_time].raw_data if next_time is not None else self[ts:].raw_data
+            tup[1] = AudioSegment(pydub.AudioSegment(data=data, sample_width=self.sample_width,
+                                                     frame_rate=self.frame_rate, channels=self.channels), self.name)
+            ts = next_time
+        print([[t[0], len(t[1])] for t in ret])
+
+        return ret
 
     def filter_silence(self, duration_s=1, threshold_percentage=1, console_output=False):
         """
@@ -331,7 +483,9 @@ class AudioSegment:
         :returns: The concatenated result.
         """
         ret = AudioSegment(self.seg, "")
-        ret.seg._data = b''.join([self.seg._data] + [o.seg._data for o in others])
+        selfdata = [self.seg._data]
+        otherdata = [o.seg._data for o in others]
+        ret.seg._data = b''.join(selfdata + otherdata)
 
         return ret
 
@@ -538,7 +692,7 @@ def silent(duration=1000, frame_rate=11025):
 # Tests
 if __name__ == "__main__":
     #Uncomment to test
-    #import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
     if len(sys.argv) != 2:
         print("For testing this module, USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
@@ -553,53 +707,68 @@ if __name__ == "__main__":
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
 
+    print("Resampling to 32kHz, mono, 16-bit...")
+    seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+
     print("Trimming to 30 ms slices...")
     slices = seg.dice(seconds=0.03, zero_pad=True)
     print("  |-> Got", len(slices), "slices.")
-    print("  |-> Durations in seconds of each slice:", [sl.duration_seconds for sl in slices])
+#    print("  |-> Durations in seconds of each slice:", [sl.duration_seconds for sl in slices])
 
-    print("Doing FFT and plotting the histogram...")
-    print("  |-> Computing the FFT...")
-    hist_bins, hist_vals = seg.fft()
-    hist_vals = np.abs(hist_vals) / len(hist_vals)
-    print("  |-> Plotting...")
-#    hist_vals = 10 * np.log10(hist_vals + 1e-9)
-    plt.plot(hist_bins / 1000, hist_vals)#, linewidth=0.02)
-    plt.xlabel("kHz")
-    plt.ylabel("dB")
-    plt.show()
-
-    print("Doing a spectrogram...")
-    print("  |-> Computing overlapping FFTs...")
-    hist_bins, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)
-    hist_bins = hist_bins / 1000
-    amplitudes = np.abs(amplitudes) / len(amplitudes)
-    amplitudes = 10 * np.log10(amplitudes + 1e-9)
-    print("  |-> Plotting...")
-    x, y = np.mgrid[:len(times), :len(hist_bins)]
-    fig, ax = plt.subplots()
-    ax.pcolormesh(x, y, amplitudes)
-    plt.show()
+#    print("Doing FFT and plotting the histogram...")
+#    print("  |-> Computing the FFT...")
+#    hist_bins, hist_vals = seg[1:3000].fft()
+#    hist_vals = np.abs(hist_vals) / len(hist_vals)
+#    print("  |-> Plotting...")
+##    hist_vals = 10 * np.log10(hist_vals + 1e-9)
+#    plt.plot(hist_bins / 1000, hist_vals)#, linewidth=0.02)
+#    plt.xlabel("kHz")
+#    plt.ylabel("dB")
+#    plt.show()
+#
+#    print("Doing a spectrogram...")
+#    print("  |-> Computing overlapping FFTs...")
+#    hist_bins, times, amplitudes = seg[1:3000].spectrogram(window_length_s=0.03, overlap=0.5)
+#    hist_bins = hist_bins / 1000
+#    amplitudes = np.abs(amplitudes) / len(amplitudes)
+#    amplitudes = 10 * np.log10(amplitudes + 1e-9)
+#    print("  |-> Plotting...")
+#    x, y = np.mgrid[:len(times), :len(hist_bins)]
+#    fig, ax = plt.subplots()
+#    ax.pcolormesh(x, y, amplitudes)
+#    plt.show()
 
     print("Detecting voice...")
-    seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
     results = seg.detect_voice()
     voiced = [tup[1] for tup in results if tup[0] == 'v']
     unvoiced = [tup[1] for tup in results if tup[0] == 'u']
     print("  |-> reducing voiced segments to a single wav file 'voiced.wav'")
-    voiced_segment = voiced[0].reduce(voiced[1:])
-    voiced_segment.export("voiced.wav", format="WAV")
+    if len(voiced) > 1:
+        voiced_segment = voiced[0].reduce(voiced[1:])
+    elif len(voiced) > 0:
+        voiced_segment = voiced[0]
+    else:
+        voiced_segment = None
+    if voiced_segment is not None:
+        voiced_segment.export("voiced.wav", format="WAV")
     print("  |-> reducing unvoiced segments to a single wav file 'unvoiced.wav'")
-    unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
-    unvoiced_segment.export("unvoiced.wav", format="WAV")
+    if len(unvoiced) > 1:
+        unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
+    elif len(unvoiced) > 0:
+        unvoiced_segment = unvoiced[0]
+    else:
+        unvoiced_segment = None
+    if unvoiced_segment is not None:
+        unvoiced_segment.export("unvoiced.wav", format="WAV")
 
     print("Splitting into frames...")
     segments = [s for s in seg.generate_frames_as_segments(frame_duration_ms=1000, zero_pad=True)]
     print("Got this many segments after splitting them up into one second frames:", len(segments))
 
-    print("Removing silence from voiced...")
-    seg = voiced_segment.filter_silence()
-    outname_silence = "nosilence.wav"
-    seg.export(outname_silence, format="wav")
-    print("After removal:", outname_silence)
+    if voiced_segment is not None:
+        print("Removing silence from voiced...")
+        seg = voiced_segment.filter_silence()
+        outname_silence = "nosilence.wav"
+        seg.export(outname_silence, format="wav")
+        print("After removal:", outname_silence)
 
