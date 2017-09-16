@@ -89,16 +89,15 @@ class AudioSegment:
             self.seg = self.seg * arg
         return self
 
-    def detect_voice(self):
+    def detect_voice(self, prob_detect_voice=0.5):
         """
         Returns self as a list of tuples:
         [('v', voiced segment), ('u', unvoiced segment), (etc.)]
 
         The overall order of the AudioSegment is preserved.
 
-        .. note:: This function does not currently work exactly as described. Specifically, the unvoiced segments
-                  are not all returned.
-
+        :param prob_detect_voice: The raw probability that any random 20ms window of the audio file
+                                  contains voice.
         :returns: The described list.
         """
         assert self.frame_rate in (48000, 32000, 16000, 8000), "Try resampling to one of the allowed frame rates."
@@ -120,75 +119,18 @@ class AudioSegment:
         pnoyes = 0.2  # Probability of the next 20 ms being voiced given that this 20 ms was unvoiced
         p_realyes_outputyes = 0.4  # WebRTCVAD has a very high FP rate - just because it says yes, doesn't mean much
         p_realyes_outputno  = 0.05  # If it says no, we can be very certain that it really is a no
-        p_yes_raw = 0.7
-        filtered = self.filter(model=model,
-                           ms_per_input=20,
-                           transition_matrix=(pyesno, pnoyes),
-                           model_stats=(p_realyes_outputyes, p_realyes_outputno),
-                           prob_raw_yes=p_yes_raw)
+        p_yes_raw = prob_detect_voice
+        filtered = self.detect_event(model=model,
+                                     ms_per_input=20,
+                                     transition_matrix=(pyesno, pnoyes),
+                                     model_stats=(p_realyes_outputyes, p_realyes_outputno),
+                                     event_length_s=0.25,
+                                     prob_raw_yes=p_yes_raw)
         ret = []
         for tup in filtered:
             t = ('v', tup[1]) if tup[0] == 'y' else ('u', tup[1])
             ret.append(t)
         return ret
-
-#        def vad_collector(frame_duration_ms, padding_duration_ms, v, frames):
-#            """
-#            Collects self into segments of VAD and non VAD.
-#
-#            Yields tuples, one at a time, either ('v', Segment) or ('u', Segment).
-#            """
-#            # TODO: Replace this with a Bayesian inference algorithm.
-#            #       We should mark each frame as voiced or unvoiced, then collect them
-#            #       and update our belief about whether the sequence is voiced or not.
-#            #       Once we get to a threshold probability that we are voiced, go back
-#            #       and collect the last consecutive voiced frames and trigger, so that
-#            #       until our probability drops below a different threshold (hysteresis),
-#            #       we keep collecting frames as voiced regardless of what they are.
-#            construct_segment = lambda frames: AudioSegment(pydub.AudioSegment(data=b''.join([f.bytes for f in frames]),
-#                                                                          sample_width=self.sample_width,
-#                                                                          frame_rate=self.frame_rate,
-#                                                                          channels=self.channels), self.name)
-#            num_padding_frames = int(padding_duration_ms / frame_duration_ms)
-#            ring_buffer = collections.deque(maxlen=num_padding_frames)
-#            triggered = False
-#            voiced_frames = []
-#            for frame in frames:
-#                # Until we have collected 90% of num_padding_frames that we think are voiced,
-#                # keep shoving frames into the ring buffer. Since it is a ring buffer, it
-#                # drops old frames once we are at capacity.
-#                if not triggered:
-#                    ring_buffer.append(frame)
-#                    num_voiced = len([f for f in ring_buffer if v.is_speech(f.bytes, self.frame_rate)])
-#                    if num_voiced > 0.9 * ring_buffer.maxlen:
-#                        # We have collected enough voiced frames "in a row" to trigger
-#                        triggered = True
-#                        voiced_frames.extend(ring_buffer)
-#                        ring_buffer.clear()
-#                else:
-#                    # We are triggered, so collect each frame into voiced_frames until
-#                    # enough of them "in a row" are unvoiced.
-#                    voiced_frames.append(frame)
-#                    ring_buffer.append(frame)
-#                    num_unvoiced = len([f for f in ring_buffer if not v.is_speech(f.bytes, self.frame_rate)])
-#                    if num_unvoiced > 0.9 * ring_buffer.maxlen:
-#                        triggered = False
-#                        yield 'v', construct_segment(voiced_frames)
-#                        yield 'u', construct_segment(ring_buffer)
-#                        ring_buffer.clear()
-#                        voiced_frames = []
-#            if voiced_frames:
-#                yield 'v', construct_segment(voiced_frames)
-#            if ring_buffer:
-#                yield 'u', construct_segment(ring_buffer)
-#
-#        aggressiveness = 2
-#        window_size = 20
-#        padding_duration_ms = 200
-#
-#        frames = self.generate_frames(frame_duration_ms=window_size, zero_pad=True)
-#        v = webrtcvad.Vad(int(aggressiveness))
-#        return [tup for tup in vad_collector(window_size, padding_duration_ms, v, frames)]
 
     def dice(self, seconds, zero_pad=False):
         """
@@ -233,11 +175,12 @@ class AudioSegment:
             outs[-1] = outs[-1].zero_extend(num_samples=num_zeros)
         return outs
 
-    def filter(self, model, ms_per_input, transition_matrix, model_stats, start_as_yes=False, prob_raw_yes=0.5):
+    def detect_event(self, model, ms_per_input, transition_matrix, model_stats, event_length_s,
+                     start_as_yes=False, prob_raw_yes=0.5):
         """
         A list of tuples of the form [('n', AudioSegment), ('y', AudioSegment), etc.] is returned, where tuples
-        of the form ('n', AudioSegment) are the segments of sound that were filtered out, while ('y', AudioSegment) tuples
-        were filtered in.
+        of the form ('n', AudioSegment) are the segments of sound where the event was not detected,
+        while ('y', AudioSegment) tuples were the segments of sound where the event was detected.
 
         :param model:               The model. The model must have a predict() function which takes an AudioSegment
                                     of `ms_per_input` number of ms and which outputs 1 if the audio event is detected
@@ -254,6 +197,8 @@ class AudioSegment:
                                     the probability of the ground truth really being a 1, given that the model output a 1,
                                     and the probability of the ground truth being a 0, given that the model output a 1.
 
+        :param event_length_s:      The typical duration of the event you are looking for in seconds (can be a float).
+
         :param start_as_yes:        If True, the first `ms_per_input` will be in the 'y' category. Otherwise it will be
                                     in the 'n' category.
 
@@ -268,17 +213,6 @@ class AudioSegment:
                                     or are not length 2; if the values in `transition_matrix` or `model_stats` are not
                                     in the closed interval [0.0, 1.0].
         """
-        #       hypothesis = K * p(H|lastH) * p(H|D)
-        #       ph_lasth <- look up in transition matrix
-        #           p(cur=yes|last=yes) ; p(cur=no|last=yes) ; p(cur=yes|last=no) ; p(cur=no|last=no)
-        #           1.0 - tm[0]         ; tm[0]              ; tm[1]              ; 1.0 - tm[1]
-        #       phd <- get from model's statistics :
-        #           p(h=yes|data=yes) ; p(h=no|data=yes) ; p(h=yes|data=no) ; p(h=no|data=no)
-        #           model_stats[0]    ; 1.0 - stats[0]   ; model_stats[1]   ; 1.0 - stats[1]
-        #       hypothesis_yes = K * p(hypothesis=yes|last_hypothesis) * p(hypothesis=yes|data)
-        #       hypothesis_no  = K * p(hypothesis=no |last_hypothesis) * p(hypothesis=no |data)
-        #       cur_state = yes if hypothesis=yes > hypothesis=no
-
         if ms_per_input < 0 or ms_per_input / MS_PER_S > self.duration_seconds:
             raise ValueError("ms_per_input cannot be negative and cannot be longer than the duration of the AudioSegment."\
                              " The given value was " + str(ms_per_input))
@@ -293,12 +227,30 @@ class AudioSegment:
         elif prob_raw_yes > 1.0 or prob_raw_yes < 0.0:
             raise ValueError("`prob_raw_yes` is a probability, and so must be in the range [0.0, 1.0]")
 
-        filter_indices = []
-        filter_triggered = start_as_yes
+        # Get the yeses or nos for when the filter is triggered (when the event is on/off)
+        filter_indices = [yes_or_no for yes_or_no in self._get_filter_indices(start_as_yes,
+                                                                              prob_raw_yes,
+                                                                              ms_per_input,
+                                                                              model,
+                                                                              transition_matrix,
+                                                                              model_stats)]
+        # Run a homogeneity filter over the values to make local regions more self-similar (reduce noise)
+        ret = self._homogeneity_filter(filter_indices, window_size=int(round(0.25 * MS_PER_S / ms_per_input)))
+        # Group the consecutive ones together
+        ret = self._group_filter_values(ret, ms_per_input)
+        # Take the groups and turn them into AudioSegment objects
+        real_ret = self._reduce_filtered_segments(ret)
+
+        return real_ret
+
+    def _get_filter_indices(self, start_as_yes, prob_raw_yes, ms_per_input, model, transition_matrix, model_stats):
+        """
+        This has been broken out of the `filter` function to reduce cognitive load.
+        """
+        filter_triggered = 1 if start_as_yes else 0
         prob_raw_no = 1.0 - prob_raw_yes
-        debug_log = open("debug_log.csv", 'w')
         for segment, _timestamp in self.generate_frames_as_segments(ms_per_input):
-            filter_indices.append(filter_triggered)
+            yield filter_triggered
             observation = int(round(model.predict(segment)))
             assert observation == 1 or observation == 0, "The given model did not output a 1 or a 0, output: "\
                    + str(observation)
@@ -314,45 +266,64 @@ class AudioSegment:
             distribution.extend([0 for i in range(int(round(hypothesis_no * 100)))])
             # shuffle
             random.shuffle(distribution)
-            filter_triggered = random.choice(distribution) == 1
-            debug_filt = "1" if filter_triggered else "0"
-            debug_log.write(str(len([i for i in distribution if i == 1])/100) + ", " + str(len([i for i in distribution if i == 0])/100) + ", " + str(observation) + ", " + debug_filt + os.linesep)
+            filter_triggered = random.choice(distribution)
 
-        debug_log.close()
-
+    def _group_filter_values(self, filter_indices, ms_per_input):
+        """
+        This has been broken out of the `filter` function to reduce cognitive load.
+        """
         ret = []
-        for filter_value, (_segment, timestamp) in enumerate(self.generate_frames_as_segments(ms_per_input)):
+        for filter_value, (_segment, timestamp) in zip(filter_indices, self.generate_frames_as_segments(ms_per_input)):
             if filter_value == 1:
-                if len(ret) > 1 and ret[-1][0] == 'n':
+                if len(ret) > 0 and ret[-1][0] == 'n':
                     ret.append(['y', timestamp])  # The last one was different, so we create a new one
-                elif len(ret) > 1 and ret[-1][0] == 'y':
+                elif len(ret) > 0 and ret[-1][0] == 'y':
                     ret[-1][1] = timestamp  # The last one was the same as this one, so just update the timestamp
                 else:
                     ret.append(['y', timestamp])  # This is the first one
             else:
-                if len(ret) > 1 and ret[-1][0] == 'n':
+                if len(ret) > 0 and ret[-1][0] == 'n':
                     ret[-1][1] = timestamp
-                elif len(ret) > 1 and ret[-1][0] == 'y':
+                elif len(ret) > 0 and ret[-1][0] == 'y':
                     ret.append(['n', timestamp])
                 else:
                     ret.append(['n', timestamp])
-        # TODO
-        print(ret)
-        ts = 0
-        for i, tup in enumerate(ret):
-            if i + 1 < len(tup):
-                next_tup = ret[i+1]
-                next_time = next_tup[1]
-            else:
-                next_time = None
-
-            data = self[ts:next_time].raw_data if next_time is not None else self[ts:].raw_data
-            tup[1] = AudioSegment(pydub.AudioSegment(data=data, sample_width=self.sample_width,
-                                                     frame_rate=self.frame_rate, channels=self.channels), self.name)
-            ts = next_time
-        print([[t[0], len(t[1])] for t in ret])
-
         return ret
+
+    def _homogeneity_filter(self, ls, window_size):
+        """
+        This has been broken out of the `filter` function to reduce cognitive load.
+
+        ls is a list of 1s or 0s for when the filter is on or off
+        """
+        k = window_size
+        i = k
+        while i <= len(ls) - k:
+            # Get a window of k items
+            window = [ls[i + j] for j in range(k)]
+            # Change the items in the window to be more like the mode of that window
+            mode = 1 if sum(window) >= k / 2 else 0
+            for j in range(k):
+                ls[i+j] = mode
+            i += k
+        return ls
+
+    def _reduce_filtered_segments(self, ret):
+        """
+        This has been broken out of the `filter` function to reduce cognitive load.
+        """
+        real_ret = []
+        for i, (this_yesno, next_timestamp) in enumerate(ret):
+            if i > 0:
+                _next_yesno, timestamp = ret[i - 1]
+            else:
+                timestamp = 0
+
+            data = self[timestamp * MS_PER_S:next_timestamp * MS_PER_S].raw_data
+            seg = AudioSegment(pydub.AudioSegment(data=data, sample_width=self.sample_width,
+                                                  frame_rate=self.frame_rate, channels=self.channels), self.name)
+            real_ret.append((this_yesno, seg))
+        return real_ret
 
     def filter_silence(self, duration_s=1, threshold_percentage=1, console_output=False):
         """
@@ -692,7 +663,7 @@ def silent(duration=1000, frame_rate=11025):
 # Tests
 if __name__ == "__main__":
     #Uncomment to test
-    import matplotlib.pyplot as plt
+    #import matplotlib.pyplot as plt
 
     if len(sys.argv) != 2:
         print("For testing this module, USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
@@ -713,33 +684,33 @@ if __name__ == "__main__":
     print("Trimming to 30 ms slices...")
     slices = seg.dice(seconds=0.03, zero_pad=True)
     print("  |-> Got", len(slices), "slices.")
-#    print("  |-> Durations in seconds of each slice:", [sl.duration_seconds for sl in slices])
+    print("  |-> Durations in seconds of each slice:", [sl.duration_seconds for sl in slices])
 
-#    print("Doing FFT and plotting the histogram...")
-#    print("  |-> Computing the FFT...")
-#    hist_bins, hist_vals = seg[1:3000].fft()
-#    hist_vals = np.abs(hist_vals) / len(hist_vals)
-#    print("  |-> Plotting...")
-##    hist_vals = 10 * np.log10(hist_vals + 1e-9)
-#    plt.plot(hist_bins / 1000, hist_vals)#, linewidth=0.02)
-#    plt.xlabel("kHz")
-#    plt.ylabel("dB")
-#    plt.show()
-#
-#    print("Doing a spectrogram...")
-#    print("  |-> Computing overlapping FFTs...")
-#    hist_bins, times, amplitudes = seg[1:3000].spectrogram(window_length_s=0.03, overlap=0.5)
-#    hist_bins = hist_bins / 1000
-#    amplitudes = np.abs(amplitudes) / len(amplitudes)
-#    amplitudes = 10 * np.log10(amplitudes + 1e-9)
-#    print("  |-> Plotting...")
-#    x, y = np.mgrid[:len(times), :len(hist_bins)]
-#    fig, ax = plt.subplots()
-#    ax.pcolormesh(x, y, amplitudes)
-#    plt.show()
+    print("Doing FFT and plotting the histogram...")
+    print("  |-> Computing the FFT...")
+    hist_bins, hist_vals = seg[1:3000].fft()
+    hist_vals = np.abs(hist_vals) / len(hist_vals)
+    print("  |-> Plotting...")
+#    hist_vals = 10 * np.log10(hist_vals + 1e-9)
+    plt.plot(hist_bins / 1000, hist_vals)#, linewidth=0.02)
+    plt.xlabel("kHz")
+    plt.ylabel("dB")
+    plt.show()
+
+    print("Doing a spectrogram...")
+    print("  |-> Computing overlapping FFTs...")
+    hist_bins, times, amplitudes = seg[1:3000].spectrogram(window_length_s=0.03, overlap=0.5)
+    hist_bins = hist_bins / 1000
+    amplitudes = np.abs(amplitudes) / len(amplitudes)
+    amplitudes = 10 * np.log10(amplitudes + 1e-9)
+    print("  |-> Plotting...")
+    x, y = np.mgrid[:len(times), :len(hist_bins)]
+    fig, ax = plt.subplots()
+    ax.pcolormesh(x, y, amplitudes)
+    plt.show()
 
     print("Detecting voice...")
-    results = seg.detect_voice()
+    results = seg.detect_voice(prob_detect_voice=0.7)
     voiced = [tup[1] for tup in results if tup[0] == 'v']
     unvoiced = [tup[1] for tup in results if tup[0] == 'u']
     print("  |-> reducing voiced segments to a single wav file 'voiced.wav'")
