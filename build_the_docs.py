@@ -41,6 +41,7 @@ if __name__ == "__main__":
         print("Is the API directory open in another program? Couldn't remove it completely. May not matter.")
     result = subprocess.run(["sphinx-apidoc", "--force", "-o", apipath, "--full", "-H", PROJECT, home, "exclude_pattern", "setup.py", "setup.cfg", "build_the_docs.py", "conf.py"])
     result.check_returncode()
+    shutil.copyfile(os.sep.join([home, "audiosegment.py"]), os.sep.join([apipath, "audiosegment.py"]))
 
     # get the version from setup.py
     version = None
@@ -101,11 +102,6 @@ if __name__ == "__main__":
 
     # cd into the Makefile's directory and execute make clean and make
     os.chdir(apipath)
-    if "PYTHONPATH" in os.environ:
-        os.environ["PYTHONPATH"] += os.pathsep + home
-    else:
-        os.environ["PYTHONPATH"] = home
-    print(os.environ["PYTHONPATH"])
     if sys.platform == "win32":
         if not "SPHINXBUILD" in os.environ:
             os.environ["SPHINXBUILD"] = python_interp + " -m sphinx"
