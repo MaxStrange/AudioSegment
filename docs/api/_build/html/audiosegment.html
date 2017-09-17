@@ -1,0 +1,658 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>audiosegment module &mdash; AudioSegment  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="AudioSegment  documentation" href="index.html"/>
+        <link rel="prev" title="Welcome to AudioSegment’s documentation!" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> AudioSegment
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.8.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">audiosegment module</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">AudioSegment</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>audiosegment module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/audiosegment.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-audiosegment">
+<span id="audiosegment-module"></span><h1>audiosegment module<a class="headerlink" href="#module-audiosegment" title="Permalink to this headline">¶</a></h1>
+<p>This module simply exposes a wrapper of a pydub.AudioSegment object.</p>
+<dl class="class">
+<dt id="audiosegment.AudioSegment">
+<em class="property">class </em><code class="descclassname">audiosegment.</code><code class="descname">AudioSegment</code><span class="sig-paren">(</span><em>pydubseg</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This class is a wrapper for a pydub.AudioSegment that provides additional methods.</p>
+<dl class="method">
+<dt id="audiosegment.AudioSegment.detect_event">
+<code class="descname">detect_event</code><span class="sig-paren">(</span><em>model</em>, <em>ms_per_input</em>, <em>transition_matrix</em>, <em>model_stats</em>, <em>event_length_s</em>, <em>start_as_yes=False</em>, <em>prob_raw_yes=0.5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.detect_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.detect_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list of tuples of the form [(‘n’, AudioSegment), (‘y’, AudioSegment), etc.] is returned, where tuples
+of the form (‘n’, AudioSegment) are the segments of sound where the event was not detected,
+while (‘y’, AudioSegment) tuples were the segments of sound where the event was detected.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> – The model. The model must have a predict() function which takes an AudioSegment
+of <cite>ms_per_input</cite> number of ms and which outputs 1 if the audio event is detected
+in that input, and 0 if not. Make sure to resample the AudioSegment to the right
+values before calling this function on it.</li>
+<li><strong>ms_per_input</strong> – The number of ms of AudioSegment to be fed into the model at a time. If this does not
+come out even, the last AudioSegment will be zero-padded.</li>
+<li><strong>transition_matrix</strong> – An iterable of the form: [p(yes-&gt;no), p(no-&gt;yes)]. That is, the probability of moving
+from a ‘yes’ state to a ‘no’ state and the probability of vice versa.</li>
+<li><strong>model_stats</strong> – An iterable of the form: [p(reality=1|output=1), p(reality=1|output=0)]. That is,
+the probability of the ground truth really being a 1, given that the model output a 1,
+and the probability of the ground truth being a 1, given that the model output a 0.</li>
+<li><strong>event_length_s</strong> – The typical duration of the event you are looking for in seconds (can be a float).</li>
+<li><strong>start_as_yes</strong> – If True, the first <cite>ms_per_input</cite> will be in the ‘y’ category. Otherwise it will be
+in the ‘n’ category.</li>
+<li><strong>prob_raw_yes</strong> – The raw probability of finding the event in any given <cite>ms_per_input</cite> vector.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A list of tuples of the form [(‘n’, AudioSegment), (‘y’, AudioSegment), etc.],
+where over the course of the list, the AudioSegment in tuple 3 picks up
+where the one in tuple 2 left off.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">ValueError if <cite>ms_per_input</cite> is negative or larger than the number of ms in this
+AudioSegment; if <cite>transition_matrix</cite> or <cite>model_stats</cite> do not have a __len__ attribute
+or are not length 2; if the values in <cite>transition_matrix</cite> or <cite>model_stats</cite> are not
+in the closed interval [0.0, 1.0].</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.detect_voice">
+<code class="descname">detect_voice</code><span class="sig-paren">(</span><em>prob_detect_voice=0.5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.detect_voice"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.detect_voice" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns self as a list of tuples:
+[(‘v’, voiced segment), (‘u’, unvoiced segment), (etc.)]</p>
+<p>The overall order of the AudioSegment is preserved.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>prob_detect_voice</strong> – The raw probability that any random 20ms window of the audio file
+contains voice.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">The described list.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.dice">
+<code class="descname">dice</code><span class="sig-paren">(</span><em>seconds</em>, <em>zero_pad=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.dice"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.dice" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cuts the AudioSegment into <cite>seconds</cite> segments (at most). So for example, if seconds=10,
+this will return a list of AudioSegments, in order, where each one is at most 10 seconds
+long. If <cite>zero_pad</cite> is True, the last item AudioSegment object will be zero padded to result
+in <cite>seconds</cite> seconds.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>seconds</strong> – The length of each segment in seconds. Can be either a float/int, in which case
+<cite>self.duration_seconds</cite> / <cite>seconds</cite> are made, each of <cite>seconds</cite> length, or a
+list-like can be given, in which case the given list must sum to
+<cite>self.duration_seconds</cite> and each segment is specified by the list - e.g.
+the 9th AudioSegment in the returned list will be <cite>seconds[8]</cite> seconds long.</li>
+<li><strong>zero_pad</strong> – Whether to zero_pad the final segment if necessary. Ignored if <cite>seconds</cite> is
+a list-like.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A list of AudioSegments, each of which is the appropriate number of seconds long.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">ValueError if a list-like is given for <cite>seconds</cite> and the list’s durations do not sum
+to <cite>self.duration_seconds</cite>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.fft">
+<code class="descname">fft</code><span class="sig-paren">(</span><em>start_s=None</em>, <em>duration_s=None</em>, <em>start_sample=None</em>, <em>num_samples=None</em>, <em>zero_pad=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.fft"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.fft" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins
+and the values.</p>
+<p>If neither <cite>start_s</cite> or <cite>start_sample</cite> is specified, the first sample of the slice will be the first sample
+of the AudioSegment.</p>
+<p>If neither <cite>duration_s</cite> or <cite>num_samples</cite> is specified, the slice will be from the specified start
+to the end of the segment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>start_s</strong> – The start time in seconds. If this is specified, you cannot specify <cite>start_sample</cite>.</li>
+<li><strong>duration_s</strong> – The duration of the slice in seconds. If this is specified, you cannot specify <cite>num_samples</cite>.</li>
+<li><strong>start_sample</strong> – The zero-based index of the first sample to include in the slice.
+If this is specified, you cannot specify <cite>start_s</cite>.</li>
+<li><strong>num_samples</strong> – The number of samples to include in the slice. If this is specified, you cannot
+specify <cite>duration_s</cite>.</li>
+<li><strong>zero_pad</strong> – If True and the combination of start and duration result in running off the end of
+the AudioSegment, the end is zero padded to prevent this.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">np.ndarray of frequencies, np.ndarray of amount of each frequency</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">ValueError If <cite>start_s</cite> and <cite>start_sample</cite> are both specified and/or if both <cite>duration_s</cite> and
+<cite>num_samples</cite> are specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.filter_silence">
+<code class="descname">filter_silence</code><span class="sig-paren">(</span><em>duration_s=1</em>, <em>threshold_percentage=1</em>, <em>console_output=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.filter_silence"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.filter_silence" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a copy of this AudioSegment, but whose silence has been removed.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This method requires that you have the program ‘sox’ installed.</p>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This method uses the program ‘sox’ to perform the task. While this is very fast for a single
+function call, the IO may add up for a large numbers of AudioSegment objects.</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>duration_s</strong> – The number of seconds of “silence” that must be present in a row to
+be stripped.</li>
+<li><strong>threshold_percentage</strong> – Silence is defined as any samples whose absolute value is below
+<cite>threshold_percentage * max(abs(samples in this segment))</cite>.</li>
+<li><strong>console_output</strong> – If True, will pipe all sox output to the console.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A copy of this AudioSegment, but whose silence has been removed.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.generate_frames">
+<code class="descname">generate_frames</code><span class="sig-paren">(</span><em>frame_duration_ms</em>, <em>zero_pad=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.generate_frames"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.generate_frames" title="Permalink to this definition">¶</a></dt>
+<dd><p>Yields self’s data in chunks of frame_duration_ms.</p>
+<p>This function adapted from pywebrtc’s example [<a class="reference external" href="https://github.com/wiseman/py-webrtcvad/blob/master/example.py">https://github.com/wiseman/py-webrtcvad/blob/master/example.py</a>].</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>frame_duration_ms</strong> – The length of each frame in ms.</li>
+<li><strong>zero_pad</strong> – Whether or not to zero pad the end of the AudioSegment object to get all
+the audio data out as frames. If not, there may be a part at the end
+of the Segment that is cut off (the part will be &lt;= <cite>frame_duration_ms</cite> in length).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A Frame object with properties ‘bytes (the data)’, ‘timestamp (start time)’, and ‘duration’.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.generate_frames_as_segments">
+<code class="descname">generate_frames_as_segments</code><span class="sig-paren">(</span><em>frame_duration_ms</em>, <em>zero_pad=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.generate_frames_as_segments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.generate_frames_as_segments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Does the same thing as <cite>generate_frames</cite>, but yields tuples of (AudioSegment, timestamp) instead of Frames.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.reduce">
+<code class="descname">reduce</code><span class="sig-paren">(</span><em>others</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.reduce"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.reduce" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reduces others into this one by concatenating all the others onto this one and
+returning the result. Does not modify self, instead, makes a copy and returns that.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>others</strong> – The other AudioSegment objects to append to this one.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">The concatenated result.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.resample">
+<code class="descname">resample</code><span class="sig-paren">(</span><em>sample_rate_Hz=None</em>, <em>sample_width=None</em>, <em>channels=None</em>, <em>console_output=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.resample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.resample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the
+specified characteristics. Any parameter left None will be unchanged.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This method requires that you have the program ‘sox’ installed.</p>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This method uses the program ‘sox’ to perform the task. While this is very fast for a single
+function call, the IO may add up for a large numbers of AudioSegment objects.</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>sample_rate_Hz</strong> – The new sample rate in Hz.</li>
+<li><strong>sample_width</strong> – The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.</li>
+<li><strong>channels</strong> – The new number of channels.</li>
+<li><strong>console_output</strong> – Will print the output of sox to the console if True.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The newly sampled AudioSegment.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.spectrogram">
+<code class="descname">spectrogram</code><span class="sig-paren">(</span><em>start_s=None</em>, <em>duration_s=None</em>, <em>start_sample=None</em>, <em>num_samples=None</em>, <em>window_length_s=None</em>, <em>window_length_samples=None</em>, <em>overlap=0.5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.spectrogram"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.spectrogram" title="Permalink to this definition">¶</a></dt>
+<dd><p>Does a series of FFTs from <cite>start_s</cite> or <cite>start_sample</cite> for <cite>duration_s</cite> or <cite>num_samples</cite>.
+Effectively, transforms a slice of the AudioSegment into the frequency domain across different
+time bins.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="c1"># Example for plotting a spectrogram using this function</span>
+<span class="kn">import</span> <span class="nn">audiosegment</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="n">seg</span> <span class="o">=</span> <span class="n">audiosegment</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;somebodytalking.wav&quot;</span><span class="p">)</span>
+<span class="n">hist_bins</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">start_s</span><span class="o">=</span><span class="mf">4.3</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">window_length_s</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">hist_bins_khz</span> <span class="o">=</span> <span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span>
+<span class="n">amplitudes_real_normed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>
+<span class="n">amplitudes_logged</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">amplitudes_real_normed</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">)</span>  <span class="c1"># for numerical stability</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">hist_bins_khz</span><span class="p">)]</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">amplitudes_logged</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>start_s</strong> – The start time. Starts at the beginning if neither this nor <cite>start_sample</cite> is specified.</li>
+<li><strong>duration_s</strong> – The duration of the spectrogram in seconds. Goes to the end if neither this nor
+<cite>num_samples</cite> is specified.</li>
+<li><strong>start_sample</strong> – The index of the first sample to use. Starts at the beginning if neither this nor
+<cite>start_s</cite> is specified.</li>
+<li><strong>num_samples</strong> – The number of samples in the spectrogram. Goes to the end if neither this nor
+<cite>duration_s</cite> is specified.</li>
+<li><strong>window_length_s</strong> – The length of each FFT in seconds. If the total number of samples in the spectrogram
+is not a multiple of the window length in samples, the last window will be zero-padded.</li>
+<li><strong>window_length_samples</strong> – The length of each FFT in number of samples. If the total number of samples in the
+spectrogram is not a multiple of the window length in samples, the last window will
+be zero-padded.</li>
+<li><strong>overlap</strong> – The fraction of each window to overlap.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Three np.ndarrays: The frequency values in Hz (the y-axis in a spectrogram), the time values starting
+at start time and then increasing by <cite>duration_s</cite> each step (the x-axis in a spectrogram), and
+the dB of each time/frequency bin as a 2D array of shape [len(frequency values), len(duration)].</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><strong>ValueError</strong> – If <cite>start_s</cite> and <cite>start_sample</cite> are both specified, if <cite>duration_s</cite> and <cite>num_samples</cite> are both
+specified, if the first window’s duration plus start time lead to running off the end
+of the AudioSegment, or if <cite>window_length_s</cite> and <cite>window_length_samples</cite> are either
+both specified or if they are both not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.trim_to_minutes">
+<code class="descname">trim_to_minutes</code><span class="sig-paren">(</span><em>strip_last_seconds=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.trim_to_minutes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.trim_to_minutes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of minute-long (at most) Segment objects.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">I will likely depricate this method at some point. I have used it for a specific purpose, but
+now we can just use the dice function.</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>strip_last_seconds</strong> – If True, this method will return minute-long segments,
+but the last three seconds of this AudioSegment won’t be returned.
+This is useful for removing the microphone artifact at the end of the recording.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A list of AudioSegment objects, each of which is one minute long at most
+(and only the last one - if any - will be less than one minute).</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.zero_extend">
+<code class="descname">zero_extend</code><span class="sig-paren">(</span><em>duration_s=None</em>, <em>num_samples=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.zero_extend"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.zero_extend" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a number of zeros (digital silence) to the AudioSegment (returning a new one).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>duration_s</strong> – The number of seconds of zeros to add. If this is specified, <cite>num_samples</cite> must be None.</li>
+<li><strong>num_samples</strong> – The number of zeros to add. If this is specified, <cite>duration_s</cite> must be None.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A new AudioSegment object that has been zero extended.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">ValueError if duration_s and num_samples are both specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="audiosegment.empty">
+<code class="descclassname">audiosegment.</code><code class="descname">empty</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#empty"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.empty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a zero-duration AudioSegment object.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An empty AudioSegment object.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="audiosegment.from_file">
+<code class="descclassname">audiosegment.</code><code class="descname">from_file</code><span class="sig-paren">(</span><em>path</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#from_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.from_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns an AudioSegment object from the given file based on its file extension.
+If the extension is wrong, this will throw some sort of error.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>path</strong> – The path to the file, including the file extension.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">An AudioSegment instance from the file.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="audiosegment.from_mono_audiosegments">
+<code class="descclassname">audiosegment.</code><code class="descname">from_mono_audiosegments</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#from_mono_audiosegments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.from_mono_audiosegments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a multi-channel AudioSegment out of multiple mono AudioSegments (two or more). Each mono
+AudioSegment passed in should be exactly the same number of samples.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An AudioSegment of multiple channels formed from the given mono AudioSegments.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="audiosegment.silent">
+<code class="descclassname">audiosegment.</code><code class="descname">silent</code><span class="sig-paren">(</span><em>duration=1000</em>, <em>frame_rate=11025</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#silent"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.silent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates an AudioSegment object of the specified duration/frame_rate filled with digital silence.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>duration</strong> – The duration of the returned object in ms.</li>
+<li><strong>frame_rate</strong> – The samples per second of the returned object.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">AudioSegment object filled with pure digital silence.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Welcome to AudioSegment’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright Max Strange (MIT License).
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

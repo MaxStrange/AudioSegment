@@ -195,7 +195,7 @@ class AudioSegment:
 
         :param model_stats:         An iterable of the form: [p(reality=1|output=1), p(reality=1|output=0)]. That is,
                                     the probability of the ground truth really being a 1, given that the model output a 1,
-                                    and the probability of the ground truth being a 0, given that the model output a 1.
+                                    and the probability of the ground truth being a 1, given that the model output a 0.
 
         :param event_length_s:      The typical duration of the event you are looking for in seconds (can be a float).
 

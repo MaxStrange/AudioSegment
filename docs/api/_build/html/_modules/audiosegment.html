@@ -1,0 +1,968 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>audiosegment &mdash; AudioSegment  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="AudioSegment  documentation" href="../index.html"/>
+        <link rel="up" title="Module code" href="index.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> AudioSegment
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.8.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../audiosegment.html">audiosegment module</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AudioSegment</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>audiosegment</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for audiosegment</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module simply exposes a wrapper of a pydub.AudioSegment object.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">division</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">print_function</span>
+
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pydub</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">webrtcvad</span>
+
+<span class="n">MS_PER_S</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">S_PER_MIN</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="n">MS_PER_MIN</span> <span class="o">=</span> <span class="n">MS_PER_S</span> <span class="o">*</span> <span class="n">S_PER_MIN</span>
+
+<div class="viewcode-block" id="AudioSegment"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment">[docs]</a><span class="k">class</span> <span class="nc">AudioSegment</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class is a wrapper for a pydub.AudioSegment that provides additional methods.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pydubseg</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="n">pydubseg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
+        <span class="n">orig_attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">orig_attr</span><span class="p">):</span>
+            <span class="k">def</span> <span class="nf">hooked</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">orig_attr</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span>
+                <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span>  <span class="n">result</span>
+            <span class="k">return</span> <span class="n">hooked</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">orig_attr</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">==</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="nf">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">!=</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">millisecond</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">[</span><span class="n">millisecond</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="o">==</span> <span class="n">AudioSegment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span> <span class="o">+</span> <span class="n">arg</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">+</span> <span class="n">arg</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rarg</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="fm">__radd__</span><span class="p">(</span><span class="n">rarg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="o">==</span> <span class="n">AudioSegment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">-</span> <span class="n">arg</span><span class="o">.</span><span class="n">seg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">-</span> <span class="n">arg</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="o">==</span> <span class="n">AudioSegment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">*</span> <span class="n">arg</span><span class="o">.</span><span class="n">seg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">*</span> <span class="n">arg</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+<div class="viewcode-block" id="AudioSegment.detect_voice"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.detect_voice">[docs]</a>    <span class="k">def</span> <span class="nf">detect_voice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prob_detect_voice</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns self as a list of tuples:</span>
+<span class="sd">        [(&#39;v&#39;, voiced segment), (&#39;u&#39;, unvoiced segment), (etc.)]</span>
+
+<span class="sd">        The overall order of the AudioSegment is preserved.</span>
+
+<span class="sd">        :param prob_detect_voice: The raw probability that any random 20ms window of the audio file</span>
+<span class="sd">                                  contains voice.</span>
+<span class="sd">        :returns: The described list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">48000</span><span class="p">,</span> <span class="mi">32000</span><span class="p">,</span> <span class="mi">16000</span><span class="p">,</span> <span class="mi">8000</span><span class="p">),</span> <span class="s2">&quot;Try resampling to one of the allowed frame rates.&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Try resampling to 16 bit.&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Try resampling to one channel.&quot;</span>
+
+        <span class="k">class</span> <span class="nc">model_class</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aggressiveness</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">webrtcvad</span><span class="o">.</span><span class="n">Vad</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">aggressiveness</span><span class="p">))</span>
+
+            <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vector</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="o">.</span><span class="n">is_speech</span><span class="p">(</span><span class="n">vector</span><span class="o">.</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">vector</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="mi">0</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="n">model_class</span><span class="p">(</span><span class="n">aggressiveness</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">pyesno</span> <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># Probability of the next 20 ms being unvoiced given that this 20 ms was voiced</span>
+        <span class="n">pnoyes</span> <span class="o">=</span> <span class="mf">0.2</span>  <span class="c1"># Probability of the next 20 ms being voiced given that this 20 ms was unvoiced</span>
+        <span class="n">p_realyes_outputyes</span> <span class="o">=</span> <span class="mf">0.4</span>  <span class="c1"># WebRTCVAD has a very high FP rate - just because it says yes, doesn&#39;t mean much</span>
+        <span class="n">p_realyes_outputno</span>  <span class="o">=</span> <span class="mf">0.05</span>  <span class="c1"># If it says no, we can be very certain that it really is a no</span>
+        <span class="n">p_yes_raw</span> <span class="o">=</span> <span class="n">prob_detect_voice</span>
+        <span class="n">filtered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">detect_event</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                                     <span class="n">ms_per_input</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                                     <span class="n">transition_matrix</span><span class="o">=</span><span class="p">(</span><span class="n">pyesno</span><span class="p">,</span> <span class="n">pnoyes</span><span class="p">),</span>
+                                     <span class="n">model_stats</span><span class="o">=</span><span class="p">(</span><span class="n">p_realyes_outputyes</span><span class="p">,</span> <span class="n">p_realyes_outputno</span><span class="p">),</span>
+                                     <span class="n">event_length_s</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+                                     <span class="n">prob_raw_yes</span><span class="o">=</span><span class="n">p_yes_raw</span><span class="p">)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">filtered</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;v&#39;</span><span class="p">,</span> <span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;y&#39;</span> <span class="k">else</span> <span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="AudioSegment.dice"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.dice">[docs]</a>    <span class="k">def</span> <span class="nf">dice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Cuts the AudioSegment into `seconds` segments (at most). So for example, if seconds=10,</span>
+<span class="sd">        this will return a list of AudioSegments, in order, where each one is at most 10 seconds</span>
+<span class="sd">        long. If `zero_pad` is True, the last item AudioSegment object will be zero padded to result</span>
+<span class="sd">        in `seconds` seconds.</span>
+
+<span class="sd">        :param seconds: The length of each segment in seconds. Can be either a float/int, in which case</span>
+<span class="sd">                        `self.duration_seconds` / `seconds` are made, each of `seconds` length, or a</span>
+<span class="sd">                        list-like can be given, in which case the given list must sum to</span>
+<span class="sd">                        `self.duration_seconds` and each segment is specified by the list - e.g.</span>
+<span class="sd">                        the 9th AudioSegment in the returned list will be `seconds[8]` seconds long.</span>
+<span class="sd">        :param zero_pad: Whether to zero_pad the final segment if necessary. Ignored if `seconds` is</span>
+<span class="sd">                         a list-like.</span>
+<span class="sd">        :returns: A list of AudioSegments, each of which is the appropriate number of seconds long.</span>
+<span class="sd">        :raises: ValueError if a list-like is given for `seconds` and the list&#39;s durations do not sum</span>
+<span class="sd">                 to `self.duration_seconds`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">total_s</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">seconds</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="o">&lt;=</span> <span class="n">total_s</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="o">&gt;=</span> <span class="n">total_s</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`seconds` does not sum to within one second of the duration of this AudioSegment.</span><span class="se">\</span>
+<span class="s2">                                 given total seconds: </span><span class="si">%s</span><span class="s2"> and self.duration_seconds: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">total_s</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span><span class="p">))</span>
+            <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">stops</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">time_ms</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">dur</span> <span class="ow">in</span> <span class="n">seconds</span><span class="p">:</span>
+                <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_ms</span><span class="p">)</span>
+                <span class="n">time_ms</span> <span class="o">+=</span> <span class="n">dur</span> <span class="o">*</span> <span class="n">MS_PER_S</span>
+                <span class="n">stops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_ms</span><span class="p">)</span>
+            <span class="n">zero_pad</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="c1"># `seconds` is not a list</span>
+            <span class="n">starts</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span><span class="p">)),</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span><span class="p">)))</span>
+            <span class="n">stops</span> <span class="o">=</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span><span class="p">)</span> <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">)</span>
+        <span class="n">outs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span> <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">starts</span><span class="p">,</span> <span class="n">stops</span><span class="p">)]</span>
+        <span class="n">out_lens</span> <span class="o">=</span> <span class="p">[</span><span class="n">out</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="k">for</span> <span class="n">out</span> <span class="ow">in</span> <span class="n">outs</span><span class="p">]</span>
+        <span class="c1"># Check if our last slice is within one ms of expected - if so, we don&#39;t need to zero pad</span>
+        <span class="k">if</span> <span class="n">zero_pad</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">out_lens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">out_lens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">num_zeros</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">*</span> <span class="p">(</span><span class="n">seconds</span> <span class="o">*</span> <span class="n">MS_PER_S</span> <span class="o">-</span> <span class="n">out_lens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">outs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">outs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">zero_extend</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="n">num_zeros</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">outs</span></div>
+
+<div class="viewcode-block" id="AudioSegment.detect_event"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.detect_event">[docs]</a>    <span class="k">def</span> <span class="nf">detect_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ms_per_input</span><span class="p">,</span> <span class="n">transition_matrix</span><span class="p">,</span> <span class="n">model_stats</span><span class="p">,</span> <span class="n">event_length_s</span><span class="p">,</span>
+                     <span class="n">start_as_yes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prob_raw_yes</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A list of tuples of the form [(&#39;n&#39;, AudioSegment), (&#39;y&#39;, AudioSegment), etc.] is returned, where tuples</span>
+<span class="sd">        of the form (&#39;n&#39;, AudioSegment) are the segments of sound where the event was not detected,</span>
+<span class="sd">        while (&#39;y&#39;, AudioSegment) tuples were the segments of sound where the event was detected.</span>
+
+<span class="sd">        :param model:               The model. The model must have a predict() function which takes an AudioSegment</span>
+<span class="sd">                                    of `ms_per_input` number of ms and which outputs 1 if the audio event is detected</span>
+<span class="sd">                                    in that input, and 0 if not. Make sure to resample the AudioSegment to the right</span>
+<span class="sd">                                    values before calling this function on it.</span>
+
+<span class="sd">        :param ms_per_input:        The number of ms of AudioSegment to be fed into the model at a time. If this does not</span>
+<span class="sd">                                    come out even, the last AudioSegment will be zero-padded.</span>
+
+<span class="sd">        :param transition_matrix:   An iterable of the form: [p(yes-&gt;no), p(no-&gt;yes)]. That is, the probability of moving</span>
+<span class="sd">                                    from a &#39;yes&#39; state to a &#39;no&#39; state and the probability of vice versa.</span>
+
+<span class="sd">        :param model_stats:         An iterable of the form: [p(reality=1|output=1), p(reality=1|output=0)]. That is,</span>
+<span class="sd">                                    the probability of the ground truth really being a 1, given that the model output a 1,</span>
+<span class="sd">                                    and the probability of the ground truth being a 1, given that the model output a 0.</span>
+
+<span class="sd">        :param event_length_s:      The typical duration of the event you are looking for in seconds (can be a float).</span>
+
+<span class="sd">        :param start_as_yes:        If True, the first `ms_per_input` will be in the &#39;y&#39; category. Otherwise it will be</span>
+<span class="sd">                                    in the &#39;n&#39; category.</span>
+
+<span class="sd">        :param prob_raw_yes:        The raw probability of finding the event in any given `ms_per_input` vector.</span>
+
+<span class="sd">        :returns:                   A list of tuples of the form [(&#39;n&#39;, AudioSegment), (&#39;y&#39;, AudioSegment), etc.],</span>
+<span class="sd">                                    where over the course of the list, the AudioSegment in tuple 3 picks up</span>
+<span class="sd">                                    where the one in tuple 2 left off.</span>
+
+<span class="sd">        :raises:                    ValueError if `ms_per_input` is negative or larger than the number of ms in this</span>
+<span class="sd">                                    AudioSegment; if `transition_matrix` or `model_stats` do not have a __len__ attribute</span>
+<span class="sd">                                    or are not length 2; if the values in `transition_matrix` or `model_stats` are not</span>
+<span class="sd">                                    in the closed interval [0.0, 1.0].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ms_per_input</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">ms_per_input</span> <span class="o">/</span> <span class="n">MS_PER_S</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ms_per_input cannot be negative and cannot be longer than the duration of the AudioSegment.&quot;</span>\
+                             <span class="s2">&quot; The given value was &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">ms_per_input</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">transition_matrix</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">transition_matrix</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;transition_matrix must be an iterable of length 2.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model_stats</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_stats</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;model_stats must be an iterable of length 2.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">([</span><span class="kc">True</span> <span class="k">for</span> <span class="n">prob</span> <span class="ow">in</span> <span class="n">transition_matrix</span> <span class="k">if</span> <span class="n">prob</span> <span class="o">&gt;</span> <span class="mf">1.0</span> <span class="ow">or</span> <span class="n">prob</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Values in transition_matrix are probabilities, and so must be in the range [0.0, 1.0].&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">([</span><span class="kc">True</span> <span class="k">for</span> <span class="n">prob</span> <span class="ow">in</span> <span class="n">model_stats</span> <span class="k">if</span> <span class="n">prob</span> <span class="o">&gt;</span> <span class="mf">1.0</span> <span class="ow">or</span> <span class="n">prob</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Values in model_stats are probabilities, and so must be in the range [0.0, 1.0].&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">prob_raw_yes</span> <span class="o">&gt;</span> <span class="mf">1.0</span> <span class="ow">or</span> <span class="n">prob_raw_yes</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`prob_raw_yes` is a probability, and so must be in the range [0.0, 1.0]&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get the yeses or nos for when the filter is triggered (when the event is on/off)</span>
+        <span class="n">filter_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">yes_or_no</span> <span class="k">for</span> <span class="n">yes_or_no</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filter_indices</span><span class="p">(</span><span class="n">start_as_yes</span><span class="p">,</span>
+                                                                              <span class="n">prob_raw_yes</span><span class="p">,</span>
+                                                                              <span class="n">ms_per_input</span><span class="p">,</span>
+                                                                              <span class="n">model</span><span class="p">,</span>
+                                                                              <span class="n">transition_matrix</span><span class="p">,</span>
+                                                                              <span class="n">model_stats</span><span class="p">)]</span>
+        <span class="c1"># Run a homogeneity filter over the values to make local regions more self-similar (reduce noise)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_homogeneity_filter</span><span class="p">(</span><span class="n">filter_indices</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="mf">0.25</span> <span class="o">*</span> <span class="n">MS_PER_S</span> <span class="o">/</span> <span class="n">ms_per_input</span><span class="p">)))</span>
+        <span class="c1"># Group the consecutive ones together</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group_filter_values</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">ms_per_input</span><span class="p">)</span>
+        <span class="c1"># Take the groups and turn them into AudioSegment objects</span>
+        <span class="n">real_ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce_filtered_segments</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">real_ret</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_filter_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_as_yes</span><span class="p">,</span> <span class="n">prob_raw_yes</span><span class="p">,</span> <span class="n">ms_per_input</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">transition_matrix</span><span class="p">,</span> <span class="n">model_stats</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This has been broken out of the `filter` function to reduce cognitive load.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filter_triggered</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">start_as_yes</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">prob_raw_no</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">prob_raw_yes</span>
+        <span class="k">for</span> <span class="n">segment</span><span class="p">,</span> <span class="n">_timestamp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_frames_as_segments</span><span class="p">(</span><span class="n">ms_per_input</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">filter_triggered</span>
+            <span class="n">observation</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">segment</span><span class="p">)))</span>
+            <span class="k">assert</span> <span class="n">observation</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">observation</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;The given model did not output a 1 or a 0, output: &quot;</span>\
+                   <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">observation</span><span class="p">)</span>
+            <span class="n">prob_hyp_yes_given_last_hyp</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">transition_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">filter_triggered</span> <span class="k">else</span> <span class="n">transition_matrix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">prob_hyp_no_given_last_hyp</span>  <span class="o">=</span> <span class="n">transition_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">filter_triggered</span> <span class="k">else</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">transition_matrix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">prob_hyp_yes_given_data</span> <span class="o">=</span> <span class="n">model_stats</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">observation</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">model_stats</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">prob_hyp_no_given_data</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">model_stats</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">observation</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">model_stats</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">hypothesis_yes</span> <span class="o">=</span> <span class="n">prob_raw_yes</span> <span class="o">*</span> <span class="n">prob_hyp_yes_given_last_hyp</span> <span class="o">*</span> <span class="n">prob_hyp_yes_given_data</span>
+            <span class="n">hypothesis_no</span>  <span class="o">=</span> <span class="n">prob_raw_no</span> <span class="o">*</span> <span class="n">prob_hyp_no_given_last_hyp</span>  <span class="o">*</span> <span class="n">prob_hyp_no_given_data</span>
+            <span class="c1"># make a list of ints - each is 0 or 1. The number of 1s is hypotheis_yes * 100</span>
+            <span class="c1"># the number of 0s is hypothesis_no * 100</span>
+            <span class="n">distribution</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">hypothesis_yes</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)))]</span>
+            <span class="n">distribution</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="mi">0</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">hypothesis_no</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)))])</span>
+            <span class="c1"># shuffle</span>
+            <span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">distribution</span><span class="p">)</span>
+            <span class="n">filter_triggered</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">distribution</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_group_filter_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filter_indices</span><span class="p">,</span> <span class="n">ms_per_input</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This has been broken out of the `filter` function to reduce cognitive load.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">filter_value</span><span class="p">,</span> <span class="p">(</span><span class="n">_segment</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">filter_indices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_frames_as_segments</span><span class="p">(</span><span class="n">ms_per_input</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">filter_value</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">ret</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;n&#39;</span><span class="p">:</span>
+                    <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">])</span>  <span class="c1"># The last one was different, so we create a new one</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">ret</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span>
+                    <span class="n">ret</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">timestamp</span>  <span class="c1"># The last one was the same as this one, so just update the timestamp</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">])</span>  <span class="c1"># This is the first one</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">ret</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;n&#39;</span><span class="p">:</span>
+                    <span class="n">ret</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">timestamp</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">ret</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span>
+                    <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="s1">&#39;n&#39;</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="s1">&#39;n&#39;</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">ret</span>
+
+    <span class="k">def</span> <span class="nf">_homogeneity_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ls</span><span class="p">,</span> <span class="n">window_size</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This has been broken out of the `filter` function to reduce cognitive load.</span>
+
+<span class="sd">        ls is a list of 1s or 0s for when the filter is on or off</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">window_size</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">k</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ls</span><span class="p">)</span> <span class="o">-</span> <span class="n">k</span><span class="p">:</span>
+            <span class="c1"># Get a window of k items</span>
+            <span class="n">window</span> <span class="o">=</span> <span class="p">[</span><span class="n">ls</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+            <span class="c1"># Change the items in the window to be more like the mode of that window</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">window</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">k</span> <span class="o">/</span> <span class="mi">2</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+                <span class="n">ls</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">mode</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="n">k</span>
+        <span class="k">return</span> <span class="n">ls</span>
+
+    <span class="k">def</span> <span class="nf">_reduce_filtered_segments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ret</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This has been broken out of the `filter` function to reduce cognitive load.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">real_ret</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">this_yesno</span><span class="p">,</span> <span class="n">next_timestamp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ret</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">_next_yesno</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">ret</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">timestamp</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">timestamp</span> <span class="o">*</span> <span class="n">MS_PER_S</span><span class="p">:</span><span class="n">next_timestamp</span> <span class="o">*</span> <span class="n">MS_PER_S</span><span class="p">]</span><span class="o">.</span><span class="n">raw_data</span>
+            <span class="n">seg</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">,</span>
+                                                  <span class="n">frame_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">real_ret</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">this_yesno</span><span class="p">,</span> <span class="n">seg</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">real_ret</span>
+
+<div class="viewcode-block" id="AudioSegment.filter_silence"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.filter_silence">[docs]</a>    <span class="k">def</span> <span class="nf">filter_silence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">threshold_percentage</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">console_output</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a copy of this AudioSegment, but whose silence has been removed.</span>
+
+<span class="sd">        .. note:: This method requires that you have the program &#39;sox&#39; installed.</span>
+
+<span class="sd">        .. warning:: This method uses the program &#39;sox&#39; to perform the task. While this is very fast for a single</span>
+<span class="sd">                     function call, the IO may add up for a large numbers of AudioSegment objects.</span>
+
+<span class="sd">        :param duration_s: The number of seconds of &quot;silence&quot; that must be present in a row to</span>
+<span class="sd">                           be stripped.</span>
+<span class="sd">        :param threshold_percentage: Silence is defined as any samples whose absolute value is below</span>
+<span class="sd">                                     `threshold_percentage * max(abs(samples in this segment))`.</span>
+<span class="sd">        :param console_output: If True, will pipe all sox output to the console.</span>
+<span class="sd">        :returns: A copy of this AudioSegment, but whose silence has been removed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
+        <span class="n">othertmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox &quot;</span> <span class="o">+</span> <span class="n">tmp</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; -t wav &quot;</span> <span class="o">+</span> <span class="n">othertmp</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; silence -l 1 0.1 &quot;</span>\
+                   <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;% -1 &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">duration_s</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;%&quot;</span>
+        <span class="n">stdout</span> <span class="o">=</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span> <span class="k">if</span> <span class="n">console_output</span> <span class="k">else</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">res</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Sox did not work as intended, or perhaps you don&#39;t have Sox installed?&quot;</span>
+        <span class="n">other</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_wav</span><span class="p">(</span><span class="n">othertmp</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">tmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">othertmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">other</span></div>
+
+<div class="viewcode-block" id="AudioSegment.fft"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins</span>
+<span class="sd">        and the values.</span>
+
+<span class="sd">        If neither `start_s` or `start_sample` is specified, the first sample of the slice will be the first sample</span>
+<span class="sd">        of the AudioSegment.</span>
+
+<span class="sd">        If neither `duration_s` or `num_samples` is specified, the slice will be from the specified start</span>
+<span class="sd">        to the end of the segment.</span>
+
+<span class="sd">        :param start_s: The start time in seconds. If this is specified, you cannot specify `start_sample`.</span>
+<span class="sd">        :param duration_s: The duration of the slice in seconds. If this is specified, you cannot specify `num_samples`.</span>
+<span class="sd">        :param start_sample: The zero-based index of the first sample to include in the slice.</span>
+<span class="sd">                             If this is specified, you cannot specify `start_s`.</span>
+<span class="sd">        :param num_samples: The number of samples to include in the slice. If this is specified, you cannot</span>
+<span class="sd">                            specify `duration_s`.</span>
+<span class="sd">        :param zero_pad: If True and the combination of start and duration result in running off the end of</span>
+<span class="sd">                         the AudioSegment, the end is zero padded to prevent this.</span>
+<span class="sd">        :returns: np.ndarray of frequencies, np.ndarray of amount of each frequency</span>
+<span class="sd">        :raises: ValueError If `start_s` and `start_sample` are both specified and/or if both `duration_s` and</span>
+<span class="sd">                            `num_samples` are specified.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only one of start_s and start_sample can be specified.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only one of duration_s and num_samples can be specified.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start_sample</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start_sample</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">start_sample</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">duration_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start_sample</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">start_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
+
+        <span class="n">end_sample</span> <span class="o">=</span> <span class="n">start_sample</span> <span class="o">+</span> <span class="n">num_samples</span>  <span class="c1"># end_sample is excluded</span>
+        <span class="k">if</span> <span class="n">end_sample</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">zero_pad</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The combination of start and duration will run off the end of the AudioSegment object.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">end_sample</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span> <span class="ow">and</span> <span class="n">zero_pad</span><span class="p">:</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span>
+            <span class="n">zeros</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">end_sample</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">zeros</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span>
+
+        <span class="n">audioslice</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">start_sample</span><span class="p">:</span><span class="n">end_sample</span><span class="p">])</span>
+        <span class="n">fft_result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">audioslice</span><span class="p">)[</span><span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">num_samples</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+        <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">num_samples</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">/</span> <span class="n">num_samples</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">bins</span><span class="p">,</span> <span class="n">fft_result</span></div>
+
+<div class="viewcode-block" id="AudioSegment.generate_frames"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.generate_frames">[docs]</a>    <span class="k">def</span> <span class="nf">generate_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_duration_ms</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Yields self&#39;s data in chunks of frame_duration_ms.</span>
+
+<span class="sd">        This function adapted from pywebrtc&#39;s example [https://github.com/wiseman/py-webrtcvad/blob/master/example.py].</span>
+
+<span class="sd">        :param frame_duration_ms: The length of each frame in ms.</span>
+<span class="sd">        :param zero_pad: Whether or not to zero pad the end of the AudioSegment object to get all</span>
+<span class="sd">                         the audio data out as frames. If not, there may be a part at the end</span>
+<span class="sd">                         of the Segment that is cut off (the part will be &lt;= `frame_duration_ms` in length).</span>
+<span class="sd">        :returns: A Frame object with properties &#39;bytes (the data)&#39;, &#39;timestamp (start time)&#39;, and &#39;duration&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Frame</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Frame&quot;</span><span class="p">,</span> <span class="s2">&quot;bytes timestamp duration&quot;</span><span class="p">)</span>
+
+        <span class="c1"># (samples/sec) * (seconds in a frame) * (bytes/sample)</span>
+        <span class="n">bytes_per_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">*</span> <span class="p">(</span><span class="n">frame_duration_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># where we are so far in self&#39;s data (in bytes)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># where we are so far in self (in seconds)</span>
+        <span class="c1"># (bytes/frame) * (sample/bytes) * (sec/samples)</span>
+        <span class="n">frame_duration_s</span> <span class="o">=</span> <span class="p">(</span><span class="n">bytes_per_frame</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span>
+        <span class="k">while</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">bytes_per_frame</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">Frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span> <span class="o">+</span> <span class="n">bytes_per_frame</span><span class="p">],</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">frame_duration_s</span><span class="p">)</span>
+            <span class="n">timestamp</span> <span class="o">+=</span> <span class="n">frame_duration_s</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">bytes_per_frame</span>
+
+        <span class="k">if</span> <span class="n">zero_pad</span><span class="p">:</span>
+            <span class="n">rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="n">offset</span><span class="p">:]</span>
+            <span class="n">zeros</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">bytes_per_frame</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">rest</span><span class="p">))</span>
+            <span class="k">yield</span> <span class="n">Frame</span><span class="p">(</span><span class="n">rest</span> <span class="o">+</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">frame_duration_s</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AudioSegment.generate_frames_as_segments"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.generate_frames_as_segments">[docs]</a>    <span class="k">def</span> <span class="nf">generate_frames_as_segments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_duration_ms</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Does the same thing as `generate_frames`, but yields tuples of (AudioSegment, timestamp) instead of Frames.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_frames</span><span class="p">(</span><span class="n">frame_duration_ms</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="n">zero_pad</span><span class="p">):</span>
+            <span class="n">seg</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">frame</span><span class="o">.</span><span class="n">bytes</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">,</span>
+                               <span class="n">frame_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">seg</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">timestamp</span></div>
+
+<div class="viewcode-block" id="AudioSegment.reduce"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">others</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reduces others into this one by concatenating all the others onto this one and</span>
+<span class="sd">        returning the result. Does not modify self, instead, makes a copy and returns that.</span>
+
+<span class="sd">        :param others: The other AudioSegment objects to append to this one.</span>
+<span class="sd">        :returns: The concatenated result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">selfdata</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span><span class="p">]</span>
+        <span class="n">otherdata</span> <span class="o">=</span> <span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">others</span><span class="p">]</span>
+        <span class="n">ret</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">selfdata</span> <span class="o">+</span> <span class="n">otherdata</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="AudioSegment.resample"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.resample">[docs]</a>    <span class="k">def</span> <span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_rate_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">console_output</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the</span>
+<span class="sd">        specified characteristics. Any parameter left None will be unchanged.</span>
+
+<span class="sd">        .. note:: This method requires that you have the program &#39;sox&#39; installed.</span>
+
+<span class="sd">        .. warning:: This method uses the program &#39;sox&#39; to perform the task. While this is very fast for a single</span>
+<span class="sd">                     function call, the IO may add up for a large numbers of AudioSegment objects.</span>
+
+<span class="sd">        :param sample_rate_Hz: The new sample rate in Hz.</span>
+<span class="sd">        :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.</span>
+<span class="sd">        :param channels: The new number of channels.</span>
+<span class="sd">        :param console_output: Will print the output of sox to the console if True.</span>
+<span class="sd">        :returns: The newly sampled AudioSegment.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sample_rate_Hz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sample_rate_Hz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span>
+        <span class="k">if</span> <span class="n">sample_width</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sample_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span>
+        <span class="k">if</span> <span class="n">channels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span>
+
+        <span class="n">infile</span><span class="p">,</span> <span class="n">outfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(),</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">infile</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;wav&quot;</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox &quot;</span> <span class="o">+</span> <span class="n">infile</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; -b&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_width</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; -r &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; -t wav &quot;</span> <span class="o">+</span> <span class="n">outfile</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; channels &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span>
+        <span class="n">stdout</span> <span class="o">=</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span> <span class="k">if</span> <span class="n">console_output</span> <span class="k">else</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">res</span><span class="o">.</span><span class="n">check_returncode</span><span class="p">()</span>
+        <span class="n">other</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_wav</span><span class="p">(</span><span class="n">outfile</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">infile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">outfile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">other</span></div>
+
+<div class="viewcode-block" id="AudioSegment.spectrogram"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.spectrogram">[docs]</a>    <span class="k">def</span> <span class="nf">spectrogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">window_length_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window_length_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Does a series of FFTs from `start_s` or `start_sample` for `duration_s` or `num_samples`.</span>
+<span class="sd">        Effectively, transforms a slice of the AudioSegment into the frequency domain across different</span>
+<span class="sd">        time bins.</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            # Example for plotting a spectrogram using this function</span>
+<span class="sd">            import audiosegment</span>
+<span class="sd">            import matplotlib.pyplot as plt</span>
+<span class="sd">            import numpy as np</span>
+
+<span class="sd">            seg = audiosegment.from_file(&quot;somebodytalking.wav&quot;)</span>
+<span class="sd">            hist_bins, times, amplitudes = seg.spectrogram(start_s=4.3, duration_s=1, window_length_s=0.03, overlap=0.5)</span>
+<span class="sd">            hist_bins_khz = hist_bins / 1000</span>
+<span class="sd">            amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)</span>
+<span class="sd">            amplitudes_logged = 10 * np.log10(amplitudes_real_normed + 1e-9)  # for numerical stability</span>
+<span class="sd">            x, y = np.mgrid[:len(times), :len(hist_bins_khz)]</span>
+<span class="sd">            fig, ax = plt.subplots()</span>
+<span class="sd">            ax.pcolormesh(x, y, amplitudes_logged)</span>
+<span class="sd">            plt.show()</span>
+
+<span class="sd">        :param start_s: The start time. Starts at the beginning if neither this nor `start_sample` is specified.</span>
+<span class="sd">        :param duration_s: The duration of the spectrogram in seconds. Goes to the end if neither this nor</span>
+<span class="sd">                           `num_samples` is specified.</span>
+<span class="sd">        :param start_sample: The index of the first sample to use. Starts at the beginning if neither this nor</span>
+<span class="sd">                             `start_s` is specified.</span>
+<span class="sd">        :param num_samples: The number of samples in the spectrogram. Goes to the end if neither this nor</span>
+<span class="sd">                            `duration_s` is specified.</span>
+<span class="sd">        :param window_length_s: The length of each FFT in seconds. If the total number of samples in the spectrogram</span>
+<span class="sd">                                is not a multiple of the window length in samples, the last window will be zero-padded.</span>
+<span class="sd">        :param window_length_samples: The length of each FFT in number of samples. If the total number of samples in the</span>
+<span class="sd">                                spectrogram is not a multiple of the window length in samples, the last window will</span>
+<span class="sd">                                be zero-padded.</span>
+<span class="sd">        :param overlap: The fraction of each window to overlap.</span>
+<span class="sd">        :returns: Three np.ndarrays: The frequency values in Hz (the y-axis in a spectrogram), the time values starting</span>
+<span class="sd">                  at start time and then increasing by `duration_s` each step (the x-axis in a spectrogram), and</span>
+<span class="sd">                  the dB of each time/frequency bin as a 2D array of shape [len(frequency values), len(duration)].</span>
+<span class="sd">        :raises ValueError: If `start_s` and `start_sample` are both specified, if `duration_s` and `num_samples` are both</span>
+<span class="sd">                            specified, if the first window&#39;s duration plus start time lead to running off the end</span>
+<span class="sd">                            of the AudioSegment, or if `window_length_s` and `window_length_samples` are either</span>
+<span class="sd">                            both specified or if they are both not specified.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only one of start_s and start_sample may be specified.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only one of duration_s and num_samples may be specified.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">window_length_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">window_length_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only one of window_length_s and window_length_samples may be specified.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">window_length_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">window_length_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;You must specify a window length, either in window_length_s or in window_length_samples.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start_sample</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start_sample</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">start_sample</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">duration_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start_sample</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">start_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">window_length_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">window_length_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">window_length_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">start_sample</span> <span class="o">+</span> <span class="n">num_samples</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The combination of start and duration will run off the end of the AudioSegment object.&quot;</span><span class="p">)</span>
+
+        <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">next_start</span> <span class="o">=</span> <span class="n">start_sample</span>
+        <span class="k">while</span> <span class="n">next_start</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">()):</span>
+            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">next_start</span><span class="p">)</span>
+            <span class="n">next_start</span> <span class="o">=</span> <span class="n">next_start</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="n">window_length_samples</span><span class="p">))</span>
+
+        <span class="n">rets</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">start_sample</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">window_length_samples</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
+        <span class="n">bins</span> <span class="o">=</span> <span class="n">rets</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">ret</span> <span class="ow">in</span> <span class="n">rets</span><span class="p">]</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">start_sample</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="k">for</span> <span class="n">start_sample</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bins</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AudioSegment.trim_to_minutes"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.trim_to_minutes">[docs]</a>    <span class="k">def</span> <span class="nf">trim_to_minutes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strip_last_seconds</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of minute-long (at most) Segment objects.</span>
+
+<span class="sd">        .. note:: I will likely depricate this method at some point. I have used it for a specific purpose, but</span>
+<span class="sd">                  now we can just use the dice function.</span>
+
+<span class="sd">        :param strip_last_seconds: If True, this method will return minute-long segments,</span>
+<span class="sd">                                   but the last three seconds of this AudioSegment won&#39;t be returned.</span>
+<span class="sd">                                   This is useful for removing the microphone artifact at the end of the recording.</span>
+<span class="sd">        :returns: A list of AudioSegment objects, each of which is one minute long at most</span>
+<span class="sd">                  (and only the last one - if any - will be less than one minute).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">outs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dice</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Now cut out the last three seconds of the last item in outs (it will just be microphone artifact)</span>
+        <span class="c1"># or, if the last item is less than three seconds, just get rid of it</span>
+        <span class="k">if</span> <span class="n">strip_last_seconds</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">outs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">outs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">outs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][:</span><span class="o">-</span><span class="n">MS_PER_S</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">outs</span> <span class="o">=</span> <span class="n">outs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">outs</span></div>
+
+<div class="viewcode-block" id="AudioSegment.zero_extend"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.zero_extend">[docs]</a>    <span class="k">def</span> <span class="nf">zero_extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Adds a number of zeros (digital silence) to the AudioSegment (returning a new one).</span>
+
+<span class="sd">        :param duration_s: The number of seconds of zeros to add. If this is specified, `num_samples` must be None.</span>
+<span class="sd">        :param num_samples: The number of zeros to add. If this is specified, `duration_s` must be None.</span>
+<span class="sd">        :returns: A new AudioSegment object that has been zero extended.</span>
+<span class="sd">        :raises: ValueError if duration_s and num_samples are both specified.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`duration_s` and `num_samples` cannot both be specified.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">*</span> <span class="n">duration_s</span>
+        <span class="n">seg</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">zeros</span> <span class="o">=</span> <span class="n">silent</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">num_samples</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">zeros</span><span class="o">.</span><span class="n">overlay</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="empty"><a class="viewcode-back" href="../audiosegment.html#audiosegment.empty">[docs]</a><span class="k">def</span> <span class="nf">empty</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a zero-duration AudioSegment object.</span>
+
+<span class="sd">    :returns: An empty AudioSegment object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dubseg</span> <span class="o">=</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">dubseg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="from_file"><a class="viewcode-back" href="../audiosegment.html#audiosegment.from_file">[docs]</a><span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns an AudioSegment object from the given file based on its file extension.</span>
+<span class="sd">    If the extension is wrong, this will throw some sort of error.</span>
+
+<span class="sd">    :param path: The path to the file, including the file extension.</span>
+<span class="sd">    :returns: An AudioSegment instance from the file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_name</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">ext</span> <span class="o">=</span> <span class="n">ext</span><span class="o">.</span><span class="n">lower</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">ext</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="from_mono_audiosegments"><a class="viewcode-back" href="../audiosegment.html#audiosegment.from_mono_audiosegments">[docs]</a><span class="k">def</span> <span class="nf">from_mono_audiosegments</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a multi-channel AudioSegment out of multiple mono AudioSegments (two or more). Each mono</span>
+<span class="sd">    AudioSegment passed in should be exactly the same number of samples.</span>
+
+<span class="sd">    :returns: An AudioSegment of multiple channels formed from the given mono AudioSegments.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_mono_audiosegments</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">),</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="silent"><a class="viewcode-back" href="../audiosegment.html#audiosegment.silent">[docs]</a><span class="k">def</span> <span class="nf">silent</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="mi">11025</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates an AudioSegment object of the specified duration/frame_rate filled with digital silence.</span>
+
+<span class="sd">    :param duration: The duration of the returned object in ms.</span>
+<span class="sd">    :param frame_rate: The samples per second of the returned object.</span>
+<span class="sd">    :returns: AudioSegment object filled with pure digital silence.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">silent</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">duration</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="n">frame_rate</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+<span class="c1"># Tests</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="c1">#Uncomment to test</span>
+    <span class="c1">#import matplotlib.pyplot as plt</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;For testing this module, USAGE:&quot;</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;path to wave file.wav&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)))</span>
+        <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reading in the wave file...&quot;</span><span class="p">)</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">from_file</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Information:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Channels:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">channels</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bits per sample:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">sample_width</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Sampling frequency:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Length:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">duration_seconds</span><span class="p">,</span> <span class="s2">&quot;seconds&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Resampling to 32kHz, mono, 16-bit...&quot;</span><span class="p">)</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="o">=</span><span class="mi">32000</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trimming to 30 ms slices...&quot;</span><span class="p">)</span>
+    <span class="n">slices</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">dice</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Got&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">slices</span><span class="p">),</span> <span class="s2">&quot;slices.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Durations in seconds of each slice:&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">sl</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Doing FFT and plotting the histogram...&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Computing the FFT...&quot;</span><span class="p">)</span>
+    <span class="n">hist_bins</span><span class="p">,</span> <span class="n">hist_vals</span> <span class="o">=</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3000</span><span class="p">]</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
+    <span class="n">hist_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Plotting...&quot;</span><span class="p">)</span>
+<span class="c1">#    hist_vals = 10 * np.log10(hist_vals + 1e-9)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">hist_vals</span><span class="p">)</span><span class="c1">#, linewidth=0.02)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;kHz&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;dB&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Doing a spectrogram...&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Computing overlapping FFTs...&quot;</span><span class="p">)</span>
+    <span class="n">hist_bins</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3000</span><span class="p">]</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">window_length_s</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">hist_bins</span> <span class="o">=</span> <span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span>
+    <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>
+    <span class="n">amplitudes</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">amplitudes</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Plotting...&quot;</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">hist_bins</span><span class="p">)]</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Detecting voice...&quot;</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">detect_voice</span><span class="p">(</span><span class="n">prob_detect_voice</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+    <span class="n">voiced</span> <span class="o">=</span> <span class="p">[</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;v&#39;</span><span class="p">]</span>
+    <span class="n">unvoiced</span> <span class="o">=</span> <span class="p">[</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;u&#39;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; reducing voiced segments to a single wav file &#39;voiced.wav&#39;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">voiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">voiced_segment</span> <span class="o">=</span> <span class="n">voiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">voiced</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">voiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">voiced_segment</span> <span class="o">=</span> <span class="n">voiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">voiced_segment</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">voiced_segment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">voiced_segment</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;voiced.wav&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; reducing unvoiced segments to a single wav file &#39;unvoiced.wav&#39;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unvoiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">unvoiced_segment</span> <span class="o">=</span> <span class="n">unvoiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">unvoiced</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">unvoiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">unvoiced_segment</span> <span class="o">=</span> <span class="n">unvoiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">unvoiced_segment</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">unvoiced_segment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">unvoiced_segment</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;unvoiced.wav&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Splitting into frames...&quot;</span><span class="p">)</span>
+    <span class="n">segments</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">seg</span><span class="o">.</span><span class="n">generate_frames_as_segments</span><span class="p">(</span><span class="n">frame_duration_ms</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Got this many segments after splitting them up into one second frames:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">segments</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">voiced_segment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Removing silence from voiced...&quot;</span><span class="p">)</span>
+        <span class="n">seg</span> <span class="o">=</span> <span class="n">voiced_segment</span><span class="o">.</span><span class="n">filter_silence</span><span class="p">()</span>
+        <span class="n">outname_silence</span> <span class="o">=</span> <span class="s2">&quot;nosilence.wav&quot;</span>
+        <span class="n">seg</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">outname_silence</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;wav&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After removal:&quot;</span><span class="p">,</span> <span class="n">outname_silence</span><span class="p">)</span>
+
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright Max Strange (MIT License).
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

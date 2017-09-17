@@ -29,12 +29,17 @@ project_setup_py_path = os.sep.join([home, "setup.py"])
 if __name__ == "__main__":
     # remove any old docs if there were any
     shutil.rmtree(apipath, ignore_errors=True)
+    shutil.rmtree(os.sep.join([home, "__pycache__"]), ignore_errors=True)
+    try:
+        os.remove(os.sep.join([home, "conf.py"]))
+    except FileNotFoundError:
+        pass
     # Remake the directory and execute sphinx-apidoc on it
     try:
         os.makedirs(apipath)
     except FileExistsError:
         print("Is the API directory open in another program? Couldn't remove it completely. May not matter.")
-    result = subprocess.run(["sphinx-apidoc", "-o", apipath, "--full", "-H", PROJECT, home, "exclude_pattern", "setup.py", "setup.cfg", "build_the_docs.py"])
+    result = subprocess.run(["sphinx-apidoc", "--force", "-o", apipath, "--full", "-H", PROJECT, home, "exclude_pattern", "setup.py", "setup.cfg", "build_the_docs.py", "conf.py"])
     result.check_returncode()
 
     # get the version from setup.py
@@ -97,9 +102,10 @@ if __name__ == "__main__":
     # cd into the Makefile's directory and execute make clean and make
     os.chdir(apipath)
     if "PYTHONPATH" in os.environ:
-        os.environ["PYTHONPATH"] += home
+        os.environ["PYTHONPATH"] += os.pathsep + home
     else:
         os.environ["PYTHONPATH"] = home
+    print(os.environ["PYTHONPATH"])
     if sys.platform == "win32":
         if not "SPHINXBUILD" in os.environ:
             os.environ["SPHINXBUILD"] = python_interp + " -m sphinx"
