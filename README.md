@@ -62,6 +62,7 @@ plt.tight_layout()
 plt.plot(seg.get_array_of_samples())
 plt.show()
 ```
+
 ![alt text](https://github.com/MaxStrange/AudioSegment/tree/master/docs/images/silencecompare.png "Silence Removal")
 
 ### FFT
@@ -78,6 +79,7 @@ plt.xlabel("kHz")
 plt.ylabel("dB")
 plt.show()
 ```
+
 ![alt text](https://github.com/MaxStrange/AudioSegment/tree/master/docs/images/fft.png "FFT of Fur Elise")
 
 ### Spectrogram
@@ -98,6 +100,7 @@ fig, ax = plt.subplots()
 ax.pcolormesh(x, y, amplitudes)
 plt.show()
 ```
+
 ![alt text](https://github.com/MaxStrange/AudioSegment/tree/master/docs/images/spectrogram.png "Spectrogram of voice")
 
 ## Notes
