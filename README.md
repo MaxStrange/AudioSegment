@@ -63,7 +63,7 @@ plt.plot(seg.get_array_of_samples())
 plt.show()
 ```
 
-![alt text](https://github.com/MaxStrange/AudioSegment/tree/master/docs/images/silencecompare.png "Silence Removal")
+![alt text](docs/images/silencecompare.png "Silence Removal")
 
 ### FFT
 ```python
@@ -80,7 +80,7 @@ plt.ylabel("dB")
 plt.show()
 ```
 
-![alt text](https://github.com/MaxStrange/AudioSegment/tree/master/docs/images/fft.png "FFT of Fur Elise")
+![alt text](docs/images/fft.png "FFT of Fur Elise")
 
 ### Spectrogram
 ```python
@@ -101,7 +101,7 @@ ax.pcolormesh(x, y, amplitudes)
 plt.show()
 ```
 
-![alt text](https://github.com/MaxStrange/AudioSegment/tree/master/docs/images/spectrogram.png "Spectrogram of voice")
+![alt text](docs/images/spectrogram.png "Spectrogram of voice")
 
 ## Notes
 There is a hidden dependency on the command line program 'sox'. Pip will not install it for you.
