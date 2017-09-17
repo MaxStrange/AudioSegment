@@ -1,0 +1,5 @@
+setuptools==36.2.7
+numpy==1.13.1
+pydub==0.20.0
+webrtcvad==2.0.10
+matplotlib==2.0.2
