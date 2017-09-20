@@ -3,6 +3,7 @@ This script builds the documentation for this project. Just call it with python3
 should just build the docs, regardless of your current platform. It will prompt you to
 install the necessary requirements.
 """
+import audiosegment
 import os
 import shutil
 import subprocess
@@ -99,6 +100,15 @@ if __name__ == "__main__":
     with open(os.sep.join([apipath, "make.bat"]), 'w') as f:
         for line in lines:
             f.write(line)
+
+    # Copy images into the right directory so they can show up in the docs
+    image_folder_path = os.sep.join([apipath, "..", "images"])
+    fft_path = os.sep.join([image_folder_path, "fft.png"])
+    spectrogram_path = os.sep.join([image_folder_path, "spectrogram.png"])
+    new_image_folder_path = os.sep.join([apipath, "images"])
+    os.makedirs(new_image_folder_path)
+    shutil.copyfile(fft_path, os.sep.join([new_image_folder_path, "fft.png"]))
+    shutil.copyfile(spectrogram_path, os.sep.join([new_image_folder_path, "spectrogram.png"]))
 
     # cd into the Makefile's directory and execute make clean and make
     os.chdir(apipath)

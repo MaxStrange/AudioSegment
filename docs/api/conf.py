@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # AudioSegment documentation build configuration file, created by
-# sphinx-quickstart on Sat Sep 16 18:17:35 2017.
+# sphinx-quickstart on Tue Sep 19 20:48:19 2017.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.

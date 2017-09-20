@@ -340,6 +340,48 @@
 <span class="sd">        of the form (&#39;n&#39;, AudioSegment) are the segments of sound where the event was not detected,</span>
 <span class="sd">        while (&#39;y&#39;, AudioSegment) tuples were the segments of sound where the event was detected.</span>
 
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            # Example usage</span>
+<span class="sd">            import audiosegment</span>
+<span class="sd">            import keras</span>
+<span class="sd">            import keras.models</span>
+<span class="sd">            import numpy as np</span>
+<span class="sd">            import sys</span>
+
+<span class="sd">            class Model:</span>
+<span class="sd">                def __init__(self, modelpath):</span>
+<span class="sd">                    self.model = keras.models.load_model(modelpath)</span>
+
+<span class="sd">                def predict(self, seg):</span>
+<span class="sd">                    _bins, fft_vals = seg.fft()</span>
+<span class="sd">                    fft_vals = np.abs(fft_vals) / len(fft_vals)</span>
+<span class="sd">                    predicted_np_form = self.model.predict(np.array([fft_vals]), batch_size=1)</span>
+<span class="sd">                    prediction_as_int = int(round(predicted_np_form[0][0]))</span>
+<span class="sd">                    return prediction_as_int</span>
+
+<span class="sd">            modelpath = sys.argv[1]</span>
+<span class="sd">            wavpath = sys.argv[2]</span>
+<span class="sd">            model = Model(modelpath)</span>
+<span class="sd">            seg = audiosegment.from_file(wavpath).resample(sample_rate_Hz=32000, sample_width=2, channels=1)</span>
+<span class="sd">            pyes_to_no = 0.3  # The probability of one 30 ms sample being an event, and the next one not</span>
+<span class="sd">            pno_to_yes = 0.2  # The probability of one 30 ms sample not being an event, and the next one yes</span>
+<span class="sd">            ptrue_pos_rate = 0.8  # The true positive rate (probability of a predicted yes being right)</span>
+<span class="sd">            pfalse_neg_rate = 0.3  # The false negative rate (probability of a predicted no being wrong)</span>
+<span class="sd">            raw_prob = 0.7  # The raw probability of seeing the event in any random 30 ms slice of this file</span>
+<span class="sd">            events = seg.detect_event(model, ms_per_input=30, transition_matrix=[pyes_to_no, pno_to_yes],</span>
+<span class="sd">                                      model_stats=[ptrue_pos_rate, pfalse_neg_rate], event_length_s=0.25,</span>
+<span class="sd">                                      prob_raw_yes=raw_prob)</span>
+<span class="sd">            nos = [event[1] for event in events if event[0] == &#39;n&#39;]</span>
+<span class="sd">            yeses = [event[1] for event in events if event[0] == &#39;y&#39;]</span>
+<span class="sd">            if len(nos) &gt; 1:</span>
+<span class="sd">                notdetected = nos[0].reduce(nos[1:])</span>
+<span class="sd">                notdetected.export(&quot;notdetected.wav&quot;, format=&quot;WAV&quot;)</span>
+<span class="sd">            if len(yeses) &gt; 1:</span>
+<span class="sd">                detected = yeses[0].reduce(yeses[1:])</span>
+<span class="sd">                detected.export(&quot;detected.wav&quot;, format=&quot;WAV&quot;)</span>
+
+
 <span class="sd">        :param model:               The model. The model must have a predict() function which takes an AudioSegment</span>
 <span class="sd">                                    of `ms_per_input` number of ms and which outputs 1 if the audio event is detected</span>
 <span class="sd">                                    in that input, and 0 if not. Make sure to resample the AudioSegment to the right</span>
@@ -523,6 +565,23 @@
 <span class="sd">        If neither `duration_s` or `num_samples` is specified, the slice will be from the specified start</span>
 <span class="sd">        to the end of the segment.</span>
 
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            # Example for plotting the FFT using this function</span>
+<span class="sd">            import matplotlib.pyplot as plt</span>
+<span class="sd">            import numpy as np</span>
+
+<span class="sd">            seg = audiosegment.from_file(&quot;furelise.wav&quot;)</span>
+<span class="sd">            # Just take the first 3 seconds</span>
+<span class="sd">            hist_bins, hist_vals = seg[1:3000].fft()</span>
+<span class="sd">            hist_vals_real_normed = np.abs(hist_vals) / len(hist_vals)</span>
+<span class="sd">            plt.plot(hist_bins / 1000, hist_vals_real_normed)</span>
+<span class="sd">            plt.xlabel(&quot;kHz&quot;)</span>
+<span class="sd">            plt.ylabel(&quot;dB&quot;)</span>
+<span class="sd">            plt.show()</span>
+
+<span class="sd">        .. image:: images/fft.png</span>
+
 <span class="sd">        :param start_s: The start time in seconds. If this is specified, you cannot specify `start_sample`.</span>
 <span class="sd">        :param duration_s: The duration of the slice in seconds. If this is specified, you cannot specify `num_samples`.</span>
 <span class="sd">        :param start_sample: The zero-based index of the first sample to include in the slice.</span>
@@ -675,6 +734,8 @@
 <span class="sd">            fig, ax = plt.subplots()</span>
 <span class="sd">            ax.pcolormesh(x, y, amplitudes_logged)</span>
 <span class="sd">            plt.show()</span>
+
+<span class="sd">        .. image:: images/spectrogram.png</span>
 
 <span class="sd">        :param start_s: The start time. Starts at the beginning if neither this nor `start_sample` is specified.</span>
 <span class="sd">        :param duration_s: The duration of the spectrogram in seconds. Goes to the end if neither this nor</span>

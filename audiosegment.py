@@ -182,6 +182,48 @@ class AudioSegment:
         of the form ('n', AudioSegment) are the segments of sound where the event was not detected,
         while ('y', AudioSegment) tuples were the segments of sound where the event was detected.
 
+        .. code-block:: python
+
+            # Example usage
+            import audiosegment
+            import keras
+            import keras.models
+            import numpy as np
+            import sys
+
+            class Model:
+                def __init__(self, modelpath):
+                    self.model = keras.models.load_model(modelpath)
+
+                def predict(self, seg):
+                    _bins, fft_vals = seg.fft()
+                    fft_vals = np.abs(fft_vals) / len(fft_vals)
+                    predicted_np_form = self.model.predict(np.array([fft_vals]), batch_size=1)
+                    prediction_as_int = int(round(predicted_np_form[0][0]))
+                    return prediction_as_int
+
+            modelpath = sys.argv[1]
+            wavpath = sys.argv[2]
+            model = Model(modelpath)
+            seg = audiosegment.from_file(wavpath).resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+            pyes_to_no = 0.3  # The probability of one 30 ms sample being an event, and the next one not
+            pno_to_yes = 0.2  # The probability of one 30 ms sample not being an event, and the next one yes
+            ptrue_pos_rate = 0.8  # The true positive rate (probability of a predicted yes being right)
+            pfalse_neg_rate = 0.3  # The false negative rate (probability of a predicted no being wrong)
+            raw_prob = 0.7  # The raw probability of seeing the event in any random 30 ms slice of this file
+            events = seg.detect_event(model, ms_per_input=30, transition_matrix=[pyes_to_no, pno_to_yes],
+                                      model_stats=[ptrue_pos_rate, pfalse_neg_rate], event_length_s=0.25,
+                                      prob_raw_yes=raw_prob)
+            nos = [event[1] for event in events if event[0] == 'n']
+            yeses = [event[1] for event in events if event[0] == 'y']
+            if len(nos) > 1:
+                notdetected = nos[0].reduce(nos[1:])
+                notdetected.export("notdetected.wav", format="WAV")
+            if len(yeses) > 1:
+                detected = yeses[0].reduce(yeses[1:])
+                detected.export("detected.wav", format="WAV")
+
+
         :param model:               The model. The model must have a predict() function which takes an AudioSegment
                                     of `ms_per_input` number of ms and which outputs 1 if the audio event is detected
                                     in that input, and 0 if not. Make sure to resample the AudioSegment to the right
@@ -365,6 +407,23 @@ class AudioSegment:
         If neither `duration_s` or `num_samples` is specified, the slice will be from the specified start
         to the end of the segment.
 
+        .. code-block:: python
+
+            # Example for plotting the FFT using this function
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            seg = audiosegment.from_file("furelise.wav")
+            # Just take the first 3 seconds
+            hist_bins, hist_vals = seg[1:3000].fft()
+            hist_vals_real_normed = np.abs(hist_vals) / len(hist_vals)
+            plt.plot(hist_bins / 1000, hist_vals_real_normed)
+            plt.xlabel("kHz")
+            plt.ylabel("dB")
+            plt.show()
+
+        .. image:: images/fft.png
+
         :param start_s: The start time in seconds. If this is specified, you cannot specify `start_sample`.
         :param duration_s: The duration of the slice in seconds. If this is specified, you cannot specify `num_samples`.
         :param start_sample: The zero-based index of the first sample to include in the slice.
@@ -517,6 +576,8 @@ class AudioSegment:
             fig, ax = plt.subplots()
             ax.pcolormesh(x, y, amplitudes_logged)
             plt.show()
+
+        .. image:: images/spectrogram.png
 
         :param start_s: The start time. Starts at the beginning if neither this nor `start_sample` is specified.
         :param duration_s: The duration of the spectrogram in seconds. Goes to the end if neither this nor

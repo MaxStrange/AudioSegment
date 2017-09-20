@@ -169,6 +169,46 @@
 <dd><p>A list of tuples of the form [(‘n’, AudioSegment), (‘y’, AudioSegment), etc.] is returned, where tuples
 of the form (‘n’, AudioSegment) are the segments of sound where the event was not detected,
 while (‘y’, AudioSegment) tuples were the segments of sound where the event was detected.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="c1"># Example usage</span>
+<span class="kn">import</span> <span class="nn">audiosegment</span>
+<span class="kn">import</span> <span class="nn">keras</span>
+<span class="kn">import</span> <span class="nn">keras.models</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="k">class</span> <span class="nc">Model</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">modelpath</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">modelpath</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seg</span><span class="p">):</span>
+        <span class="n">_bins</span><span class="p">,</span> <span class="n">fft_vals</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
+        <span class="n">fft_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">fft_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">fft_vals</span><span class="p">)</span>
+        <span class="n">predicted_np_form</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">fft_vals</span><span class="p">]),</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">prediction_as_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">predicted_np_form</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">prediction_as_int</span>
+
+<span class="n">modelpath</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">wavpath</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">modelpath</span><span class="p">)</span>
+<span class="n">seg</span> <span class="o">=</span> <span class="n">audiosegment</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">wavpath</span><span class="p">)</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="o">=</span><span class="mi">32000</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">pyes_to_no</span> <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># The probability of one 30 ms sample being an event, and the next one not</span>
+<span class="n">pno_to_yes</span> <span class="o">=</span> <span class="mf">0.2</span>  <span class="c1"># The probability of one 30 ms sample not being an event, and the next one yes</span>
+<span class="n">ptrue_pos_rate</span> <span class="o">=</span> <span class="mf">0.8</span>  <span class="c1"># The true positive rate (probability of a predicted yes being right)</span>
+<span class="n">pfalse_neg_rate</span> <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># The false negative rate (probability of a predicted no being wrong)</span>
+<span class="n">raw_prob</span> <span class="o">=</span> <span class="mf">0.7</span>  <span class="c1"># The raw probability of seeing the event in any random 30 ms slice of this file</span>
+<span class="n">events</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">detect_event</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">ms_per_input</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">transition_matrix</span><span class="o">=</span><span class="p">[</span><span class="n">pyes_to_no</span><span class="p">,</span> <span class="n">pno_to_yes</span><span class="p">],</span>
+                          <span class="n">model_stats</span><span class="o">=</span><span class="p">[</span><span class="n">ptrue_pos_rate</span><span class="p">,</span> <span class="n">pfalse_neg_rate</span><span class="p">],</span> <span class="n">event_length_s</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+                          <span class="n">prob_raw_yes</span><span class="o">=</span><span class="n">raw_prob</span><span class="p">)</span>
+<span class="n">nos</span> <span class="o">=</span> <span class="p">[</span><span class="n">event</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;n&#39;</span><span class="p">]</span>
+<span class="n">yeses</span> <span class="o">=</span> <span class="p">[</span><span class="n">event</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nos</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="n">notdetected</span> <span class="o">=</span> <span class="n">nos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">nos</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="n">notdetected</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;notdetected.wav&quot;</span><span class="p">,</span> <span class="n">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">yeses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="n">detected</span> <span class="o">=</span> <span class="n">yeses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">yeses</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="n">detected</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;detected.wav&quot;</span><span class="p">,</span> <span class="n">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -268,6 +308,21 @@ and the values.</p>
 of the AudioSegment.</p>
 <p>If neither <cite>duration_s</cite> or <cite>num_samples</cite> is specified, the slice will be from the specified start
 to the end of the segment.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="c1"># Example for plotting the FFT using this function</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="n">seg</span> <span class="o">=</span> <span class="n">audiosegment</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;furelise.wav&quot;</span><span class="p">)</span>
+<span class="c1"># Just take the first 3 seconds</span>
+<span class="n">hist_bins</span><span class="p">,</span> <span class="n">hist_vals</span> <span class="o">=</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3000</span><span class="p">]</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
+<span class="n">hist_vals_real_normed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">hist_vals_real_normed</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;kHz&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;dB&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<img alt="_images/fft.png" src="_images/fft.png" />
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -430,6 +485,7 @@ time bins.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
+<img alt="_images/spectrogram.png" src="_images/spectrogram.png" />
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
