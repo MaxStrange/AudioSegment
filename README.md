@@ -1,10 +1,10 @@
 # AudioSegment
 Wrapper for [pydub](https://github.com/jiaaro/pydub) AudioSegment objects. An audiosegment.AudioSegment object wraps
-a pydub.AudioSegment object. Any methods or properties it has, this also.
+a pydub.AudioSegment object. Any methods or properties it has, this also has.
 
 **This is in very active development**, and will likely change over the next few months.
 
-Docs are hosted by Read The Docs. [The docs](http://audiosegment.readthedocs.io/en/latest/audiosegment.html).
+[Docs](http://audiosegment.readthedocs.io/en/latest/audiosegment.html) are hosted by Read The Docs.
 
 ## Example Usage
 
