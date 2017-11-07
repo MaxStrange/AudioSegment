@@ -4,6 +4,7 @@ This module simply exposes a wrapper of a pydub.AudioSegment object.
 from __future__ import division
 from __future__ import print_function
 
+from scipy.signal import butter, lfilter
 import collections
 import functools
 import itertools
@@ -117,14 +118,67 @@ class AudioSegment:
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
         """
-        # Normalize self into 60dB average SPL
-        normalized = self.normalize_spl_by_average(db=60)
-        # Do a band-pass filter in each frequency, or just use the spectrogram
-        # Half-wave rectify each frequency channel
-        # Low-pass filter each frequency channel
-        # Downsample each frequency to 400 Hz
-        # Now you have the temporal envelope of each frequency channel
+        def bandpass_filter(data, low, high, fs, order=5):
+            """
+            :param data: The data (numpy array) to be filtered.
+            :param low: The low cutoff in Hz.
+            :param high: The high cutoff in Hz.
+            :param fs: The sample rate (in Hz) of the data.
+            :param order: The order of the filter. The higher the order, the tighter the roll-off.
+            :returns: Filtered data (numpy array).
+            """
+            nyq = 0.5 * fs
+            low = low / nyq
+            high = high / nyq
+            b, a = butter(order, [low, high], btype='band')
+            y = lfilter(b, a, data)
+            return y
 
+        def lowpass_filter(data, cutoff, fs, order=5):
+            """
+            """
+            nyq = 0.5 * fs
+            normal_cutoff = cutoff / nyq
+            b, a = butter(order, normal_cutoff, btype='low', analog=False)
+            y = lfilter(b, a, data)
+            return y
+
+        import matplotlib.pyplot as plt
+
+        # Normalize self into 40dB average SPL
+        normalized = self.normalize_spl_by_average(db=40)
+        # Do a band-pass filter in each frequency, or just use the spectrogram
+        data = normalized.to_numpy_array()
+        start_frequency = 50
+        stop_frequency = 8000
+        start = np.log10(start_frequency)
+        stop = np.log10(stop_frequency)
+        frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
+        rows = [bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = np.array(rows)
+        spect = np.vstack(rows)
+
+        # Half-wave rectify each frequency channel
+        spect[spect < 0] = 0
+
+        # Low-pass filter each frequency channel
+        spect = np.apply_along_axis(lowpass_filter, 1, spect, 45, self.frame_rate, 7)
+
+        # Downsample each frequency to 400 Hz
+        if self.frame_rate > 400:
+            step = int(round(self.frame_rate / 400))
+            spect = spect[:, ::step]
+
+        # Visualize
+        maximum = max([val for val in np.nanmax(spect, 1) if val < 10000])
+        for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+            plt.subplot(spect.shape[0], 1, index + 1)
+            plt.ylabel("{0:.0f}".format(freq))
+            #plt.axis([0, len(row) + 1, -10, maximum])
+            plt.plot(row)
+        plt.show()
+
+        # Now you have the temporal envelope of each frequency channel
         # Smoothing stuff # TODO
 
     def detect_voice(self, prob_detect_voice=0.5):
@@ -559,13 +613,10 @@ class AudioSegment:
 
         # Convert dB into 'PCM'
         db_pcm = inverse_spl(db)
-        print("dB in 'PCM':", db_pcm)
         # Calculate current 'PCM' average
         curavg = np.abs(np.mean(self.to_numpy_array()))
-        print("Current 'PCM' average:", curavg)
         # Calculate ratio of dB_pcm / curavg_pcm
         ratio = db_pcm / curavg
-        print("Ratio db/curavg:", ratio)
         # Multiply all values by ratio
         dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
         dtype = dtype_dict[self.sample_width]
@@ -850,6 +901,10 @@ if __name__ == "__main__":
 
     print("Resampling to 32kHz, mono, 16-bit...")
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+
+    print("Doing auditory scene analysis...")
+    seg.auditory_scene_analysis()
+    exit()
 
     print("Normalizing to 40dB SPL...")
     seg = seg.normalize_spl_by_average(db=40)
