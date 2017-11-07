@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import functools
 import itertools
 import math
 import numpy as np
@@ -14,11 +15,24 @@ import random
 import subprocess
 import sys
 import tempfile
+import warnings
 import webrtcvad
 
 MS_PER_S = 1000
 S_PER_MIN = 60
 MS_PER_MIN = MS_PER_S * S_PER_MIN
+
+def deprecated(func):
+    """
+    Deprecator decorator.
+    """
+
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        warnings.warn("Call to deprecated function {}.".format(func.__name__), category=DeprecationWarning, stacklevel=2)
+        return func(*args, **kwargs)
+
+    return new_func
 
 class AudioSegment:
     """
@@ -88,6 +102,30 @@ class AudioSegment:
         else:
             self.seg = self.seg * arg
         return self
+
+    @property
+    def spl(self):
+        """
+        Sound Pressure Level - defined as 20 * log10(abs(value)).
+
+        Returns a numpy array of SPL dB values.
+        """
+        return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
+
+    def auditory_scene_analysis(self):
+        """
+        Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
+        by Hu and Wang, 2007.
+        """
+        # Normalize self into 60dB average SPL
+        normalized = self.normalize_spl_by_average(db=60)
+        # Do a band-pass filter in each frequency, or just use the spectrogram
+        # Half-wave rectify each frequency channel
+        # Low-pass filter each frequency channel
+        # Downsample each frequency to 400 Hz
+        # Now you have the temporal envelope of each frequency channel
+
+        # Smoothing stuff # TODO
 
     def detect_voice(self, prob_detect_voice=0.5):
         """
@@ -504,6 +542,38 @@ class AudioSegment:
                                frame_rate=self.frame_rate, channels=self.channels), self.name)
             yield seg, frame.timestamp
 
+    def normalize_spl_by_average(self, db):
+        """
+        Normalize the values in the AudioSegment so that its average dB value
+        is `db`.
+
+        The dB of a value is calculated as 20 * log10(abs(value + 1E-9)).
+
+        :param db: The decibels to normalize average to.
+        :returns: A new AudioSegment object whose values are changed so that their
+                  average is `db`.
+        """
+        def inverse_spl(val):
+            """Calculates the (positive) 'PCM' value for the given SPl val"""
+            return 10 ** (val / 20.0)
+
+        # Convert dB into 'PCM'
+        db_pcm = inverse_spl(db)
+        print("dB in 'PCM':", db_pcm)
+        # Calculate current 'PCM' average
+        curavg = np.abs(np.mean(self.to_numpy_array()))
+        print("Current 'PCM' average:", curavg)
+        # Calculate ratio of dB_pcm / curavg_pcm
+        ratio = db_pcm / curavg
+        print("Ratio db/curavg:", ratio)
+        # Multiply all values by ratio
+        dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
+        dtype = dtype_dict[self.sample_width]
+        new_seg = from_numpy_array(np.array(self.to_numpy_array() * ratio, dtype=dtype), self.frame_rate)
+        # Check SPL average to see if we are right
+        #assert math.isclose(np.mean(new_seg.spl), db), "new = " + str(np.mean(new_seg.spl)) + " != " + str(db)
+        return new_seg
+
     def reduce(self, others):
         """
         Reduces others into this one by concatenating all the others onto this one and
@@ -512,7 +582,7 @@ class AudioSegment:
         :param others: The other AudioSegment objects to append to this one.
         :returns: The concatenated result.
         """
-        ret = AudioSegment(self.seg, "")
+        ret = AudioSegment(self.seg, self.name)
         selfdata = [self.seg._data]
         otherdata = [o.seg._data for o in others]
         ret.seg._data = b''.join(selfdata + otherdata)
@@ -637,12 +707,25 @@ class AudioSegment:
         times = [start_sample / self.frame_rate for start_sample in starts]
         return np.array(bins), np.array(times), np.array(values)
 
+    def to_numpy_array(self):
+        """
+        Convenience function for `np.array(self.get_array_of_samples())` while
+        keeping the appropriate dtype.
+        """
+        dtype_dict = {
+                        1: np.int8,
+                        2: np.int16,
+                        4: np.int32
+                     }
+        dtype = dtype_dict[self.sample_width]
+        return np.array(self.get_array_of_samples(), dtype=dtype)
+
+    @deprecated
     def trim_to_minutes(self, strip_last_seconds=False):
         """
         Returns a list of minute-long (at most) Segment objects.
 
-        .. note:: I will likely depricate this method at some point. I have used it for a specific purpose, but
-                  now we can just use the dice function.
+        .. note:: This function has been deprecated. Use the `dice` function instead.
 
         :param strip_last_seconds: If True, this method will return minute-long segments,
                                    but the last three seconds of this AudioSegment won't be returned.
@@ -710,6 +793,32 @@ def from_mono_audiosegments(*args):
     """
     return AudioSegment(pydub.AudioSegment.from_mono_audiosegments(*args), "")
 
+def from_numpy_array(nparr, framerate):
+    """
+    Returns an AudioSegment created from the given numpy array.
+
+    The numpy array must have shape = (num_samples, num_channels).
+
+    :param nparr: The numpy array to create an AudioSegment from.
+    :returns: An AudioSegment created from the given array.
+    """
+    # interleave the audio across all channels and collapse
+    if nparr.dtype.itemsize not in (1, 2, 4):
+        raise ValueError("Numpy Array must contain 8, 16, or 32 bit values.")
+    if len(nparr.shape) == 1:
+        arrays = [nparr]
+    elif len(nparr.shape) == 2:
+        arrays = [nparr[i,:] for i in range(nparr.shape[0])]
+    else:
+        raise ValueError("Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels).")
+    interleaved = np.vstack(arrays).reshape((-1,), order='F')
+    dubseg = pydub.AudioSegment(interleaved.tobytes(),
+                                frame_rate=framerate,
+                                sample_width=interleaved.dtype.itemsize,
+                                channels=len(interleaved.shape)
+                               )
+    return AudioSegment(dubseg, "")
+
 def silent(duration=1000, frame_rate=11025):
     """
     Creates an AudioSegment object of the specified duration/frame_rate filled with digital silence.
@@ -741,6 +850,9 @@ if __name__ == "__main__":
 
     print("Resampling to 32kHz, mono, 16-bit...")
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+
+    print("Normalizing to 40dB SPL...")
+    seg = seg.normalize_spl_by_average(db=40)
 
     print("Trimming to 30 ms slices...")
     slices = seg.dice(seconds=0.03, zero_pad=True)
