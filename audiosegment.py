@@ -162,24 +162,41 @@ class AudioSegment:
         spect[spect < 0] = 0
 
         # Low-pass filter each frequency channel
-        spect = np.apply_along_axis(lowpass_filter, 1, spect, 45, self.frame_rate, 7)
+        spect = np.apply_along_axis(lowpass_filter, 1, spect, 30, self.frame_rate, 6)
 
         # Downsample each frequency to 400 Hz
-        if self.frame_rate > 400:
-            step = int(round(self.frame_rate / 400))
+        downsample_freq_hz = 400
+        if self.frame_rate > downsample_freq_hz:
+            step = int(round(self.frame_rate / downsample_freq_hz))
             spect = spect[:, ::step]
 
         # Visualize
-        maximum = max([val for val in np.nanmax(spect, 1) if val < 10000])
-        for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-            plt.subplot(spect.shape[0], 1, index + 1)
-            plt.ylabel("{0:.0f}".format(freq))
-            #plt.axis([0, len(row) + 1, -10, maximum])
-            plt.plot(row)
-        plt.show()
+        def visualize(spect, frequencies):
+            #maximum = max([val for val in np.nanmax(spect, 1) if val < 10000])
+            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+                plt.subplot(spect.shape[0], 1, index + 1)
+                plt.ylabel("{0:.0f}".format(freq))
+                #plt.axis([0, len(row) + 1, -10, maximum])
+                plt.plot(row)
+            plt.show()
 
         # Now you have the temporal envelope of each frequency channel
-        # Smoothing stuff # TODO
+
+        # Smoothing
+        scales = [(6, 1/4), (6, 1/14), (1/2, 1/14)]
+        thetas = [0.95,     0.95,      0.85]
+        ## For each (sc, st) scale, smooth across time using st, then across frequency using sc
+        gaussian = lambda x, mu, sig: np.exp(-np.power(x - mu, 2.0) / (2 * np.power(sig, 2.0)))
+        gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
+        spectrograms = []
+        for sc, st in scales:
+            time_smoothed = np.apply_along_axis(lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
+            freq_smoothed = np.apply_along_axis(np.convolve, 0, spect, gaussian_kernel(sc))
+            spectrograms.append(freq_smoothed)
+        ## Now we have a set of scale-space spectrograms of different scales (sc, st)
+
+        # Onset/Offset Detection and Matching
+        ## TODO
 
     def detect_voice(self, prob_detect_voice=0.5):
         """
