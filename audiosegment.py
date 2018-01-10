@@ -901,12 +901,19 @@ def silent(duration=1000, frame_rate=11025):
 # Tests
 if __name__ == "__main__":
     #Uncomment to test
-    #import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
+
+    def visualize(seg, title=""):
+        plt.plot(seg.to_numpy_array())
+        plt.title(title)
+        plt.show()
+        plt.clf()
 
     if len(sys.argv) != 2:
         print("For testing this module, USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
         exit(1)
 
+    VISUALIZE_LENGTH = 10000
     print("Reading in the wave file...")
     seg = from_file(sys.argv[1])
 
@@ -915,16 +922,17 @@ if __name__ == "__main__":
     print("Bits per sample:", seg.sample_width * 8)
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
+    visualize(seg[:VISUALIZE_LENGTH], title="Raw from WAV file")
 
     print("Resampling to 32kHz, mono, 16-bit...")
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+    visualize(seg[:VISUALIZE_LENGTH], title="Resampled to 32kHz")
 
-    print("Doing auditory scene analysis...")
-    seg.auditory_scene_analysis()
-    exit()
+    #print("Doing auditory scene analysis...")
+    #seg.auditory_scene_analysis()
 
-    print("Normalizing to 40dB SPL...")
-    seg = seg.normalize_spl_by_average(db=40)
+    #print("Normalizing to 40dB SPL...")
+    #seg = seg.normalize_spl_by_average(db=40)
 
     print("Trimming to 30 ms slices...")
     slices = seg.dice(seconds=0.03, zero_pad=True)
@@ -944,7 +952,7 @@ if __name__ == "__main__":
 
     print("Doing a spectrogram...")
     print("  |-> Computing overlapping FFTs...")
-    hist_bins, times, amplitudes = seg[1:3000].spectrogram(window_length_s=0.03, overlap=0.5)
+    hist_bins, times, amplitudes = seg[1:VISUALIZE_LENGTH].spectrogram(window_length_s=0.03, overlap=0.5)
     hist_bins = hist_bins / 1000
     amplitudes = np.abs(amplitudes) / len(amplitudes)
     amplitudes = 10 * np.log10(amplitudes + 1e-9)
@@ -953,6 +961,13 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     ax.pcolormesh(x, y, amplitudes)
     plt.show()
+
+    print("Removing silence...")
+    seg = seg.filter_silence()
+    outname_silence = "nosilence.wav"
+    seg.export(outname_silence, format="wav")
+    visualize(seg[:min(VISUALIZE_LENGTH, len(seg))], title="After Silence Removal")
+    print("After removal:", outname_silence)
 
     print("Detecting voice...")
     results = seg.detect_voice(prob_detect_voice=0.7)
@@ -967,6 +982,7 @@ if __name__ == "__main__":
         voiced_segment = None
     if voiced_segment is not None:
         voiced_segment.export("voiced.wav", format="WAV")
+        visualize(voiced_segment[:min(VISUALIZE_LENGTH, len(voiced_segment))], title="Voiced Segment")
     print("  |-> reducing unvoiced segments to a single wav file 'unvoiced.wav'")
     if len(unvoiced) > 1:
         unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
@@ -976,15 +992,9 @@ if __name__ == "__main__":
         unvoiced_segment = None
     if unvoiced_segment is not None:
         unvoiced_segment.export("unvoiced.wav", format="WAV")
+        visualize(unvoiced_segment[:min(VISUALIZE_LENGTH, len(unvoiced_segment))], title="Unvoiced Segment")
 
     print("Splitting into frames...")
     segments = [s for s in seg.generate_frames_as_segments(frame_duration_ms=1000, zero_pad=True)]
     print("Got this many segments after splitting them up into one second frames:", len(segments))
-
-    if voiced_segment is not None:
-        print("Removing silence from voiced...")
-        seg = voiced_segment.filter_silence()
-        outname_silence = "nosilence.wav"
-        seg.export(outname_silence, format="wav")
-        print("After removal:", outname_silence)
 
