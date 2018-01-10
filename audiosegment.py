@@ -145,9 +145,9 @@ class AudioSegment:
 
         import matplotlib.pyplot as plt
 
-        # Normalize self into 40dB average SPL
-        normalized = self.normalize_spl_by_average(db=40)
-        # Do a band-pass filter in each frequency, or just use the spectrogram
+        # Normalize self into 25dB average SPL
+        normalized = self.normalize_spl_by_average(db=25)
+        # Do a band-pass filter in each frequency
         data = normalized.to_numpy_array()
         start_frequency = 50
         stop_frequency = 8000
@@ -196,6 +196,40 @@ class AudioSegment:
         ## Now we have a set of scale-space spectrograms of different scales (sc, st)
 
         # Onset/Offset Detection and Matching
+        def theta_on(spect):
+            return np.nanmean(spect) + np.nanstd(spect)
+
+        for spect, (sc, st) in zip(spectrograms, scales):
+            # Compute sudden upward changes in spect, these are onsets of events
+            onsets = compute_peaks_of_first_derivitive(spect)
+            # Compute sudden downward changes in spect, these are offsets of events
+            offsets = compute_valleys_of_first_derivitive(spect)
+
+            # onsets and offsets are 2D arrays
+
+            ## Determine the offset time for each onset:
+            ### If t_on[c, i] represents the time of the ith onset in frequency channel c, the corresponding offset
+            ###     must occur between t_on[c, i] and t_on[c, i+1]
+            ### If there are more than one offsets candidates in this range, choose the one with largest intensity decrease.
+            ## Create onset/offset fronts by connecting onsets across frequency channels (connect two onsets
+            ##      if they occur within 20ms of each other). Start over whenever a frequency band does not contain an offset
+            ##      in this range. Do the same procedure for offsets. Now you have onset and offset fronts.
+            ## Now hook up the onsets with the offsets to form segments:
+            ##      For each onset front, (t_on[c, i1, t_on[c + 1, i2], ..., t_on[c + m - 1, im]):
+            ##          matching_offsets = (t_off[c, i1], t_off[c + 1, i2], ..., t_off[c + m - 1, im])
+            ##          Get all offset fronts which contain at least one of offset time found in matching_offsets
+            ##          Among these offset fronts, the one that crosses the most of matching_offsets is chosen,
+            ##          - call this offset front: matching_offset_front
+            ##          Update all t_offs in matching_offsets whose 'c's are in matching_offset_front to be 'matched', and
+            ##          - update their times to the corresponding channel offset in matching_offset_front.
+            ##          If all t_offs in matching_offsets are 'matched', continue to next onset front
+            ## Now go through all the segments you have created and break them up along frequencies if the temporal
+            ##      envelopes don't match well enough. That is, if we have two adjacent channels c and c+1, and they
+            ##      are part of the same segment as determined above, break this segment into two along these lines
+            ##      if the correlation between them is below theta_c. Theta_c is thetas[i] where i depends on the scale.
+
+        # Multiscale Integration
+        ## 
         ## TODO
 
     def detect_voice(self, prob_detect_voice=0.5):
