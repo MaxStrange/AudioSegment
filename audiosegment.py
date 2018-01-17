@@ -4,7 +4,9 @@ This module simply exposes a wrapper of a pydub.AudioSegment object.
 from __future__ import division
 from __future__ import print_function
 
-from scipy.signal import butter, lfilter
+from scipy.signal import butter
+from scipy.signal import lfilter
+from scipy.signal import argrelextrema
 import collections
 import functools
 import itertools
@@ -145,8 +147,27 @@ class AudioSegment:
 
         import matplotlib.pyplot as plt
 
+        def visualize_time_domain(seg, title=""):
+            plt.plot(seg)
+            plt.title(title)
+            plt.show()
+            plt.clf()
+
+        def visualize(spect, frequencies, title=""):
+            i = 0
+            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+                plt.subplot(spect.shape[0], 1, index + 1)
+                if i == 0:
+                    plt.title(title)
+                    i += 1
+                plt.ylabel("{0:.0f}".format(freq))
+                plt.plot(row)
+            plt.show()
+            plt.clf()
+
         # Normalize self into 25dB average SPL
         normalized = self.normalize_spl_by_average(db=25)
+        visualize_time_domain(normalized.to_numpy_array(), "Normalized")
         # Do a band-pass filter in each frequency
         data = normalized.to_numpy_array()
         start_frequency = 50
@@ -154,31 +175,26 @@ class AudioSegment:
         start = np.log10(start_frequency)
         stop = np.log10(stop_frequency)
         frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
+        print("Dealing with the following frequencies:", frequencies)
         rows = [bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
         rows = np.array(rows)
         spect = np.vstack(rows)
+        visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
 
         # Half-wave rectify each frequency channel
         spect[spect < 0] = 0
+        visualize(spect, frequencies, "After half-wave rectification in each frequency")
 
         # Low-pass filter each frequency channel
         spect = np.apply_along_axis(lowpass_filter, 1, spect, 30, self.frame_rate, 6)
+        visualize(spect, frequencies, "After low-pass filtering in each frequency")
 
         # Downsample each frequency to 400 Hz
         downsample_freq_hz = 400
         if self.frame_rate > downsample_freq_hz:
             step = int(round(self.frame_rate / downsample_freq_hz))
             spect = spect[:, ::step]
-
-        # Visualize
-        def visualize(spect, frequencies):
-            #maximum = max([val for val in np.nanmax(spect, 1) if val < 10000])
-            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-                plt.subplot(spect.shape[0], 1, index + 1)
-                plt.ylabel("{0:.0f}".format(freq))
-                #plt.axis([0, len(row) + 1, -10, maximum])
-                plt.plot(row)
-            plt.show()
+        visualize(spect, frequencies, "After downsampling in each frequency")
 
         # Now you have the temporal envelope of each frequency channel
 
@@ -191,19 +207,49 @@ class AudioSegment:
         spectrograms = []
         for sc, st in scales:
             time_smoothed = np.apply_along_axis(lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
+            visualize(time_smoothed, frequencies, "After time smoothing with scale: " + str(st))
             freq_smoothed = np.apply_along_axis(np.convolve, 0, spect, gaussian_kernel(sc))
             spectrograms.append(freq_smoothed)
+            visualize(freq_smoothed, frequencies, "After time and frequency smoothing with scales (freq) " + str(sc) + " and (time) " + str(st))
         ## Now we have a set of scale-space spectrograms of different scales (sc, st)
 
         # Onset/Offset Detection and Matching
         def theta_on(spect):
             return np.nanmean(spect) + np.nanstd(spect)
 
+        def compute_peaks_or_valleys_of_first_derivative(s, do_peaks=True):
+            """
+            Takes a spectrogram and returns a 2D array of the form:
+
+            0 0 0 1 0 0 1 0 0 0 1   <-- Frequency 0
+            0 0 1 0 0 0 0 0 0 1 0   <-- Frequency 1
+            0 0 0 0 0 0 1 0 1 0 0   <-- Frequency 2
+            *** Time axis *******
+
+            Where a 1 means that the value in that time bin in the spectrogram corresponds to
+            a peak/valley in the first derivative.
+            """
+            gradient = np.nan_to_num(np.apply_along_axis(np.gradient, 1, s), copy=False)
+            half_window = 4
+            if do_peaks:
+                indexes = [argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
+            else:
+                indexes = [argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
+            extrema = np.zeros(s.shape)
+            for row_index, index_array in enumerate(indexes):
+                # Each index_array is a list of indexes corresponding to all the extrema in a given row
+                for col_index in index_array:
+                    extrema[row_index, col_index] = 1
+            return extrema
+
         for spect, (sc, st) in zip(spectrograms, scales):
             # Compute sudden upward changes in spect, these are onsets of events
-            onsets = compute_peaks_of_first_derivitive(spect)
+            onsets = compute_peaks_or_valleys_of_first_derivative(spect)
             # Compute sudden downward changes in spect, these are offsets of events
-            offsets = compute_valleys_of_first_derivitive(spect)
+            offsets = compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
+            print("TOTAL ONSETS:", np.sum(onsets, axis=1))
+            print("TOTAL OFFSETS:", np.sum(offsets, axis=1))
+            exit()
 
             # onsets and offsets are 2D arrays
 
@@ -229,7 +275,7 @@ class AudioSegment:
             ##      if the correlation between them is below theta_c. Theta_c is thetas[i] where i depends on the scale.
 
         # Multiscale Integration
-        ## 
+        ##
         ## TODO
 
     def detect_voice(self, prob_detect_voice=0.5):
@@ -962,8 +1008,8 @@ if __name__ == "__main__":
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
     visualize(seg[:VISUALIZE_LENGTH], title="Resampled to 32kHz")
 
-    #print("Doing auditory scene analysis...")
-    #seg.auditory_scene_analysis()
+    print("Doing auditory scene analysis...")
+    seg.auditory_scene_analysis()
 
     #print("Normalizing to 40dB SPL...")
     #seg = seg.normalize_spl_by_average(db=40)
