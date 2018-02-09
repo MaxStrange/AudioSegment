@@ -1,6 +1,7 @@
 """
 Tests the normalization algorithm.
 """
+import read_from_file
 import sys
 import visualize
 

@@ -1,6 +1,7 @@
 """
 Tests the ability to trim the audiosegment into slices.
 """
+import read_from_file
 import sys
 
 def test(seg):

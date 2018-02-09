@@ -1,6 +1,7 @@
 """
 Tests the voice activity detection.
 """
+import read_from_file
 import sys
 import visualize
 

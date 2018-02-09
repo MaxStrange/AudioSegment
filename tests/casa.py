@@ -1,6 +1,7 @@
 """
 Tests Computer-aided Auditory Scene Analysis algorithm
 """
+import read_from_file
 import sys
 
 def test(seg):

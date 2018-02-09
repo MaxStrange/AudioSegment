@@ -10,8 +10,10 @@ from scipy.signal import argrelextrema
 import collections
 import functools
 import itertools
+import json
 import math
 import numpy as np
+import pickle
 import pydub
 import os
 import random
@@ -771,6 +773,15 @@ class AudioSegment:
         outfile.close()
         return other
 
+    def serialize(self):
+        """
+        Serializes into a bytestring.
+
+        :returns: An object of type Bytes.
+        """
+        d = {'name': self.name, 'seg': pickle.dumps(self.seg, protocol=-1)}
+        return pickle.dumps(d, protocol=-1)
+
     def spectrogram(self, start_s=None, duration_s=None, start_sample=None, num_samples=None,
                     window_length_s=None, window_length_samples=None, overlap=0.5):
         """
@@ -909,6 +920,17 @@ class AudioSegment:
         seg = AudioSegment(self.seg, self.name)
         zeros = silent(duration=num_samples / self.frame_rate, frame_rate=self.frame_rate)
         return zeros.overlay(seg)
+
+def deserialize(bstr):
+    """
+    Attempts to deserialize a bytestring into an audiosegment.
+
+    :param bstr: The bytestring serialized via an audiosegment's serialize() method.
+    :returns: An AudioSegment object deserialized from `bstr`.
+    """
+    d = pickle.loads(bstr)
+    seg = pickle.loads(d['seg'])
+    return AudioSegment(seg, d['name'])
 
 def empty():
     """

@@ -2,6 +2,7 @@
 Tests doing a spectrogram using an AudioSegment.
 """
 import numpy as np
+import read_from_file
 import sys
 import visualize
 

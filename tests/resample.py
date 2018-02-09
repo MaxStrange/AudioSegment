@@ -2,6 +2,7 @@
 Tests the resampling of audiosegment objects by resampling and visualizing
 them in several different ways.
 """
+import read_from_file
 import sys
 import visualize
 

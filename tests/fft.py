@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use('qt5agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import read_from_file
 import sys
 import visualize
 

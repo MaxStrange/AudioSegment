@@ -8,6 +8,7 @@ import fft
 import normalize
 import read_from_file
 import resample
+import serde
 import silence
 import spectrogram
 import trim
@@ -31,7 +32,8 @@ if __name__ == "__main__":
     resampled = resample.test(seg)
     #casa.test()
     normalized = normalize.test(resampled)
-    slices = trim.test(resampled)
+    serde.test(normalized)
+    slices = trim.test(normalized)
     fft.test(normalized)
     spectrogram.test(normalized)
     silence.test(normalized)
