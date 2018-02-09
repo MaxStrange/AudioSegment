@@ -1004,12 +1004,33 @@ if __name__ == "__main__":
     print("Length:", seg.duration_seconds, "seconds")
     visualize(seg[:VISUALIZE_LENGTH], title="Raw from WAV file")
 
+    original = from_file(sys.argv[1])
+
     print("Resampling to 32kHz, mono, 16-bit...")
     seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
     visualize(seg[:VISUALIZE_LENGTH], title="Resampled to 32kHz")
+    seg.export("32khz_mono_16bit.wav", format="wav")
+
+    print("Resampling to 5.5kHz, mono, 16-bit...")
+    five_point_five = original.resample(sample_rate_Hz=5500, sample_width=2, channels=1)
+    visualize(five_point_five[:VISUALIZE_LENGTH], title="Resampled to 5.5kHz")
+    five_point_five.export("5.5khz_mono_16bit.wav", format="wav")
+
+    print("Resampling to 11kHz, mono, 16-bit...")
+    eleven = original.resample(sample_rate_Hz=11000, sample_width=2, channels=1)
+    visualize(eleven[:VISUALIZE_LENGTH], title="Resampled to 11kHz")
+    eleven.export("11khz_mono_16bit.wav", format="wav")
+
+    print("Resampling to 16kHz, mono, 16-bit...")
+    sixteen = original.resample(sample_rate_Hz=16000, sample_width=2, channels=1)
+    visualize(sixteen[:VISUALIZE_LENGTH], title="Resampled to 16kHz")
+    sixteen.export("16khz_mono_16bit.wav", format="wav")
+
+    exit(0)
+
 
     print("Doing auditory scene analysis...")
-    seg.auditory_scene_analysis()
+    #seg.auditory_scene_analysis()
 
     #print("Normalizing to 40dB SPL...")
     #seg = seg.normalize_spl_by_average(db=40)
