@@ -10,7 +10,6 @@ from scipy.signal import argrelextrema
 import collections
 import functools
 import itertools
-import json
 import math
 import numpy as np
 import pickle
