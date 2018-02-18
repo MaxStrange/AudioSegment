@@ -117,27 +117,27 @@ class AudioSegment:
         """
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
+    def _bandpass_filter(self, data, low, high, fs, order=5):
+        """
+        :param data: The data (numpy array) to be filtered.
+        :param low: The low cutoff in Hz.
+        :param high: The high cutoff in Hz.
+        :param fs: The sample rate (in Hz) of the data.
+        :param order: The order of the filter. The higher the order, the tighter the roll-off.
+        :returns: Filtered data (numpy array).
+        """
+        nyq = 0.5 * fs
+        low = low / nyq
+        high = high / nyq
+        b, a = butter(order, [low, high], btype='band')
+        y = lfilter(b, a, data)
+        return y
+
     def auditory_scene_analysis(self):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
         """
-        def bandpass_filter(data, low, high, fs, order=5):
-            """
-            :param data: The data (numpy array) to be filtered.
-            :param low: The low cutoff in Hz.
-            :param high: The high cutoff in Hz.
-            :param fs: The sample rate (in Hz) of the data.
-            :param order: The order of the filter. The higher the order, the tighter the roll-off.
-            :returns: Filtered data (numpy array).
-            """
-            nyq = 0.5 * fs
-            low = low / nyq
-            high = high / nyq
-            b, a = butter(order, [low, high], btype='band')
-            y = lfilter(b, a, data)
-            return y
-
         def lowpass_filter(data, cutoff, fs, order=5):
             """
             """
@@ -178,7 +178,7 @@ class AudioSegment:
         stop = np.log10(stop_frequency)
         frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
         print("Dealing with the following frequencies:", frequencies)
-        rows = [bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = [_bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
         rows = np.array(rows)
         spect = np.vstack(rows)
         visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
