@@ -4,9 +4,6 @@ This module simply exposes a wrapper of a pydub.AudioSegment object.
 from __future__ import division
 from __future__ import print_function
 
-from scipy.signal import butter
-from scipy.signal import lfilter
-from scipy.signal import argrelextrema
 import collections
 import functools
 import itertools
@@ -16,6 +13,7 @@ import pickle
 import pydub
 import os
 import random
+import scipy.signal as signal
 import subprocess
 import sys
 import tempfile
@@ -128,8 +126,8 @@ class AudioSegment:
         nyq = 0.5 * fs
         low = low / nyq
         high = high / nyq
-        b, a = butter(order, [low, high], btype='band')
-        y = lfilter(b, a, data)
+        b, a = signal.butter(order, [low, high], btype='band')
+        y = signal.lfilter(b, a, data)
         return y
 
     def auditory_scene_analysis(self):
@@ -142,8 +140,8 @@ class AudioSegment:
             """
             nyq = 0.5 * fs
             normal_cutoff = cutoff / nyq
-            b, a = butter(order, normal_cutoff, btype='low', analog=False)
-            y = lfilter(b, a, data)
+            b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
+            y = signal.lfilter(b, a, data)
             return y
 
         import matplotlib.pyplot as plt
@@ -233,9 +231,9 @@ class AudioSegment:
             gradient = np.nan_to_num(np.apply_along_axis(np.gradient, 1, s), copy=False)
             half_window = 4
             if do_peaks:
-                indexes = [argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
+                indexes = [signal.argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
             else:
-                indexes = [argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
+                indexes = [signal.argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
             extrema = np.zeros(s.shape)
             for row_index, index_array in enumerate(indexes):
                 # Each index_array is a list of indexes corresponding to all the extrema in a given row
@@ -853,17 +851,10 @@ class AudioSegment:
         if start_sample + num_samples > len(self.get_array_of_samples()):
             raise ValueError("The combination of start and duration will run off the end of the AudioSegment object.")
 
-        starts = []
-        next_start = start_sample
-        while next_start < len(self.get_array_of_samples()):
-            starts.append(next_start)
-            next_start = next_start + int(round(overlap * window_length_samples))
-
-        rets = [self.fft(start_sample=start, num_samples=window_length_samples, zero_pad=True) for start in starts]
-        bins = rets[0][0]
-        values = [ret[1] for ret in rets]
-        times = [start_sample / self.frame_rate for start_sample in starts]
-        return np.array(bins), np.array(times), np.array(values)
+        f, t, sxx = signal.spectrogram(self.to_numpy_array(), self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
+                                             noverlap=int(round(overlap * window_length_samples)),
+                                             mode='magnitude')
+        return f, t, sxx
 
     def to_numpy_array(self):
         """

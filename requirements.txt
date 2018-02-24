@@ -1,7 +1,7 @@
 scipy==1.0.0
+setuptools==38.4.1
+numpy==1.14.0
 matplotlib==2.1.2
 webrtcvad==2.0.10
-numpy==1.14.0
-setuptools==38.4.1
 pydub==0.20.0
 sphinx_rtd_theme==0.2.5b2
