@@ -791,16 +791,16 @@ class AudioSegment:
             # Example for plotting a spectrogram using this function
             import audiosegment
             import matplotlib.pyplot as plt
-            import numpy as np
 
+            #...
             seg = audiosegment.from_file("somebodytalking.wav")
-            hist_bins, times, amplitudes = seg.spectrogram(start_s=4.3, duration_s=1, window_length_s=0.03, overlap=0.5)
-            hist_bins_khz = hist_bins / 1000
-            amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)
-            amplitudes_logged = 10 * np.log10(amplitudes_real_normed + 1e-9)  # for numerical stability
-            x, y = np.mgrid[:len(times), :len(hist_bins_khz)]
-            fig, ax = plt.subplots()
-            ax.pcolormesh(x, y, amplitudes_logged)
+            freqs, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)
+            amplitudes = 10 * np.log10(amplitudes + 1e-9)
+
+            # Plot
+            plt.pcolormesh(times, freqs, amplitudes)
+            plt.xlabel("Time in Seconds")
+            plt.ylabel("Frequency in Hz")
             plt.show()
 
         .. image:: images/spectrogram.png
