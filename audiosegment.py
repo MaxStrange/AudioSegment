@@ -89,7 +89,10 @@ class AudioSegment:
         return str(self)
 
     def __str__(self):
-        return str(self.get_array_of_samples())
+        s = "%s: %s channels, %s bit, sampled @ %s kHz, %s seconds long" %\
+            (self.name, str(self.channels), str(self.sample_width * 8),\
+             str(self.frame_rate / 1000.0), str(self.duration_seconds))
+        return s
 
     def __sub__(self, arg):
         if type(arg) == AudioSegment:
