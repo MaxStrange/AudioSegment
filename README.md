@@ -85,19 +85,15 @@ plt.show()
 ### Spectrogram
 ```python
 import matplotlib.pyplot as plt
-import numpy as np
 
 #...
-# Do it just for the first 3 seconds of audio
-hist_bins, times, amplitudes = seg[1:3000].spectrogram(window_length_s=0.03, overlap=0.5)
-hist_bins = hist_bins / 1000
-amplitudes = np.abs(amplitudes) / len(amplitudes)
+freqs, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)
 amplitudes = 10 * np.log10(amplitudes + 1e-9)
 
 # Plot
-x, y = np.mgrid[:len(times), :len(hist_bins)]
-fig, ax = plt.subplots()
-ax.pcolormesh(x, y, amplitudes)
+plt.pcolormesh(times, freqs, amplitudes)
+plt.xlabel("Time in Seconds")
+plt.ylabel("Frequency in Hz")
 plt.show()
 ```
 

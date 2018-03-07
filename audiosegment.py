@@ -4,19 +4,16 @@ This module simply exposes a wrapper of a pydub.AudioSegment object.
 from __future__ import division
 from __future__ import print_function
 
-from scipy.signal import butter
-from scipy.signal import lfilter
-from scipy.signal import argrelextrema
 import collections
 import functools
 import itertools
-import json
 import math
 import numpy as np
 import pickle
 import pydub
 import os
 import random
+import scipy.signal as signal
 import subprocess
 import sys
 import tempfile
@@ -92,7 +89,10 @@ class AudioSegment:
         return str(self)
 
     def __str__(self):
-        return str(self.get_array_of_samples())
+        s = "%s: %s channels, %s bit, sampled @ %s kHz, %s seconds long" %\
+            (self.name, str(self.channels), str(self.sample_width * 8),\
+             str(self.frame_rate / 1000.0), str(self.duration_seconds))
+        return s
 
     def __sub__(self, arg):
         if type(arg) == AudioSegment:
@@ -117,34 +117,34 @@ class AudioSegment:
         """
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
+    def _bandpass_filter(self, data, low, high, fs, order=5):
+        """
+        :param data: The data (numpy array) to be filtered.
+        :param low: The low cutoff in Hz.
+        :param high: The high cutoff in Hz.
+        :param fs: The sample rate (in Hz) of the data.
+        :param order: The order of the filter. The higher the order, the tighter the roll-off.
+        :returns: Filtered data (numpy array).
+        """
+        nyq = 0.5 * fs
+        low = low / nyq
+        high = high / nyq
+        b, a = signal.butter(order, [low, high], btype='band')
+        y = signal.lfilter(b, a, data)
+        return y
+
     def auditory_scene_analysis(self):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
         """
-        def bandpass_filter(data, low, high, fs, order=5):
-            """
-            :param data: The data (numpy array) to be filtered.
-            :param low: The low cutoff in Hz.
-            :param high: The high cutoff in Hz.
-            :param fs: The sample rate (in Hz) of the data.
-            :param order: The order of the filter. The higher the order, the tighter the roll-off.
-            :returns: Filtered data (numpy array).
-            """
-            nyq = 0.5 * fs
-            low = low / nyq
-            high = high / nyq
-            b, a = butter(order, [low, high], btype='band')
-            y = lfilter(b, a, data)
-            return y
-
         def lowpass_filter(data, cutoff, fs, order=5):
             """
             """
             nyq = 0.5 * fs
             normal_cutoff = cutoff / nyq
-            b, a = butter(order, normal_cutoff, btype='low', analog=False)
-            y = lfilter(b, a, data)
+            b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
+            y = signal.lfilter(b, a, data)
             return y
 
         import matplotlib.pyplot as plt
@@ -178,7 +178,7 @@ class AudioSegment:
         stop = np.log10(stop_frequency)
         frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
         print("Dealing with the following frequencies:", frequencies)
-        rows = [bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = [_bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
         rows = np.array(rows)
         spect = np.vstack(rows)
         visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
@@ -234,9 +234,9 @@ class AudioSegment:
             gradient = np.nan_to_num(np.apply_along_axis(np.gradient, 1, s), copy=False)
             half_window = 4
             if do_peaks:
-                indexes = [argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
+                indexes = [signal.argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
             else:
-                indexes = [argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
+                indexes = [signal.argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
             extrema = np.zeros(s.shape)
             for row_index, index_array in enumerate(indexes):
                 # Each index_array is a list of indexes corresponding to all the extrema in a given row
@@ -794,16 +794,16 @@ class AudioSegment:
             # Example for plotting a spectrogram using this function
             import audiosegment
             import matplotlib.pyplot as plt
-            import numpy as np
 
+            #...
             seg = audiosegment.from_file("somebodytalking.wav")
-            hist_bins, times, amplitudes = seg.spectrogram(start_s=4.3, duration_s=1, window_length_s=0.03, overlap=0.5)
-            hist_bins_khz = hist_bins / 1000
-            amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)
-            amplitudes_logged = 10 * np.log10(amplitudes_real_normed + 1e-9)  # for numerical stability
-            x, y = np.mgrid[:len(times), :len(hist_bins_khz)]
-            fig, ax = plt.subplots()
-            ax.pcolormesh(x, y, amplitudes_logged)
+            freqs, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)
+            amplitudes = 10 * np.log10(amplitudes + 1e-9)
+
+            # Plot
+            plt.pcolormesh(times, freqs, amplitudes)
+            plt.xlabel("Time in Seconds")
+            plt.ylabel("Frequency in Hz")
             plt.show()
 
         .. image:: images/spectrogram.png
@@ -854,17 +854,10 @@ class AudioSegment:
         if start_sample + num_samples > len(self.get_array_of_samples()):
             raise ValueError("The combination of start and duration will run off the end of the AudioSegment object.")
 
-        starts = []
-        next_start = start_sample
-        while next_start < len(self.get_array_of_samples()):
-            starts.append(next_start)
-            next_start = next_start + int(round(overlap * window_length_samples))
-
-        rets = [self.fft(start_sample=start, num_samples=window_length_samples, zero_pad=True) for start in starts]
-        bins = rets[0][0]
-        values = [ret[1] for ret in rets]
-        times = [start_sample / self.frame_rate for start_sample in starts]
-        return np.array(bins), np.array(times), np.array(values)
+        f, t, sxx = signal.spectrogram(self.to_numpy_array(), self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
+                                             noverlap=int(round(overlap * window_length_samples)),
+                                             mode='magnitude')
+        return f, t, sxx
 
     def to_numpy_array(self):
         """

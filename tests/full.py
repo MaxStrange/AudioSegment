@@ -1,4 +1,7 @@
-import audiosegment as asg
+import importlib.util
+__spec = importlib.util.spec_from_file_location("audiosegment", "../audiosegment.py")
+asg = importlib.util.module_from_spec(__spec)
+__spec.loader.exec_module(asg)
 import os
 import sys
 
@@ -24,10 +27,11 @@ if __name__ == "__main__":
 
     # Print some information about the AudioSegment
     print("Information:")
-    print("Channels:", seg.channels)
-    print("Bits per sample:", seg.sample_width * 8)
-    print("Sampling frequency:", seg.frame_rate)
-    print("Length:", seg.duration_seconds, "seconds")
+    print(seg)
+    #print("Channels:", seg.channels)
+    #print("Bits per sample:", seg.sample_width * 8)
+    #print("Sampling frequency:", seg.frame_rate)
+    #print("Length:", seg.duration_seconds, "seconds")
 
     resampled = resample.test(seg)
     #casa.test()
