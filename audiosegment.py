@@ -89,9 +89,9 @@ class AudioSegment:
         return str(self)
 
     def __str__(self):
-        s = "%s: %s channels, %s bit, sampled @ %s kHz, %s seconds long" %\
+        s = "%s: %s channels, %s bit, sampled @ %s kHz, %.3fs long" %\
             (self.name, str(self.channels), str(self.sample_width * 8),\
-             str(self.frame_rate / 1000.0), str(self.duration_seconds))
+             str(self.frame_rate / 1000.0), self.duration_seconds)
         return s
 
     def __sub__(self, arg):
