@@ -69,7 +69,7 @@ class AudioSegment:
     def __ne__(self, other):
         return self.seg != other
 
-    def __iter__(self, other):
+    def __iter__(self):
         return (x for x in self.seg)
 
     def __getitem__(self, millisecond):
@@ -117,7 +117,8 @@ class AudioSegment:
         """
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
-    def _bandpass_filter(self, data, low, high, fs, order=5):
+    @staticmethod
+    def _bandpass_filter(data, low, high, fs, order=5):
         """
         :param data: The data (numpy array) to be filtered.
         :param low: The low cutoff in Hz.
@@ -133,19 +134,26 @@ class AudioSegment:
         y = signal.lfilter(b, a, data)
         return y
 
+    @staticmethod
+    def lowpass_filter(data, cutoff, fs, order=5):
+        """
+        :param data: The data (numpy array) to be filtered.
+        :param cutoff: The high cutoff in Hz.
+        :param fs: The sample rate in Hz of the data.
+        :param order: The order of the filter. The higher the order, the tighter the roll-off.
+        :returns: Filtered data (numpy array).
+        """
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
+        y = signal.lfilter(b, a, data)
+        return y
+
     def auditory_scene_analysis(self):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
         """
-        def lowpass_filter(data, cutoff, fs, order=5):
-            """
-            """
-            nyq = 0.5 * fs
-            normal_cutoff = cutoff / nyq
-            b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
-            y = signal.lfilter(b, a, data)
-            return y
 
         import matplotlib.pyplot as plt
 
@@ -178,7 +186,7 @@ class AudioSegment:
         stop = np.log10(stop_frequency)
         frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
         print("Dealing with the following frequencies:", frequencies)
-        rows = [_bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = [AudioSegment._bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
         rows = np.array(rows)
         spect = np.vstack(rows)
         visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
@@ -188,7 +196,7 @@ class AudioSegment:
         visualize(spect, frequencies, "After half-wave rectification in each frequency")
 
         # Low-pass filter each frequency channel
-        spect = np.apply_along_axis(lowpass_filter, 1, spect, 30, self.frame_rate, 6)
+        spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 30, self.frame_rate, 6)
         visualize(spect, frequencies, "After low-pass filtering in each frequency")
 
         # Downsample each frequency to 400 Hz
@@ -208,7 +216,7 @@ class AudioSegment:
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
         for sc, st in scales:
-            time_smoothed = np.apply_along_axis(lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
+            time_smoothed = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
             visualize(time_smoothed, frequencies, "After time smoothing with scale: " + str(st))
             freq_smoothed = np.apply_along_axis(np.convolve, 0, spect, gaussian_kernel(sc))
             spectrograms.append(freq_smoothed)
