@@ -7,14 +7,18 @@ __spec = importlib.util.spec_from_file_location("audiosegment", "../audiosegment
 asg = importlib.util.module_from_spec(__spec)
 __spec.loader.exec_module(asg)
 import matplotlib
-matplotlib.use('QT5Agg')
+import os
+import platform
+if platform.system() != "Windows":
+    matplotlib.use('QT5Agg')
 import matplotlib.pyplot as plt
 
 VIS_MS = 30000 # The number of ms to use in visualizing stuff
 
 def visualize(seg, title=""):
-    plt.plot(seg.to_numpy_array())
-    plt.title(title)
-    plt.show()
-    plt.clf()
+    if os.environ.get('DISPLAY', False):
+        plt.plot(seg.to_numpy_array())
+        plt.title(title)
+        plt.show()
+        plt.clf()
 

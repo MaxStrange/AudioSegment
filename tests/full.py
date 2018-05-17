@@ -28,10 +28,10 @@ if __name__ == "__main__":
     # Print some information about the AudioSegment
     print("Information:")
     print(seg)
-    #print("Channels:", seg.channels)
-    #print("Bits per sample:", seg.sample_width * 8)
-    #print("Sampling frequency:", seg.frame_rate)
-    #print("Length:", seg.duration_seconds, "seconds")
+    print("Channels:", seg.channels)
+    print("Bits per sample:", seg.sample_width * 8)
+    print("Sampling frequency:", seg.frame_rate)
+    print("Length:", seg.duration_seconds, "seconds")
 
     resampled = resample.test(seg)
     #casa.test()
