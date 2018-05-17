@@ -5,7 +5,7 @@ import read_from_file
 import sys
 
 def test(seg):
-    seg.auditory_scene_analysis()
+    seg[:20000].auditory_scene_analysis()
 
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])
