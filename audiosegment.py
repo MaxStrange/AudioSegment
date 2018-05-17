@@ -781,14 +781,33 @@ class AudioSegment:
         outfile.close()
         return other
 
+    def __getstate__(self):
+        """
+        Serializes into a dict for the pickle protocol.
+
+        :returns: The dict to pickle.
+        """
+        return {'name': self.name, 'seg': self.seg}
+
+    def __setstate__(self, d):
+        """
+        Deserializes from a dict for the pickle protocol.
+
+        :param d: The dict to unpickle from.
+        """
+        self.__dict__.update(d)
+
     def serialize(self):
         """
         Serializes into a bytestring.
 
         :returns: An object of type Bytes.
         """
-        d = {'name': self.name, 'seg': pickle.dumps(self.seg, protocol=-1)}
-        return pickle.dumps(d, protocol=-1)
+        d = self.__getstate__()
+        return pickle.dumps({
+            'name': d['name'],
+            'seg': pickle.dumps(d['seg'], protocol=-1),
+        }, protocol=-1)
 
     def spectrogram(self, start_s=None, duration_s=None, start_sample=None, num_samples=None,
                     window_length_s=None, window_length_samples=None, overlap=0.5):
