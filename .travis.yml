@@ -1,0 +1,15 @@
+language: python
+python:
+  - "3.5"
+  - "3.6"
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y libav-tools
+  - sudo apt-get install -y sox
+install:
+  - pip install -r requirements.txt
+  - pip install pyqt5
+script:
+  - cd ./tests
+  - ls
+  - python full.py furelise.wav

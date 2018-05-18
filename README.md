@@ -1,10 +1,33 @@
 # AudioSegment
+[![Build Status](https://travis-ci.org/MaxStrange/AudioSegment.svg?branch=master)](https://travis-ci.org/MaxStrange/AudioSegment)
+
 Wrapper for [pydub](https://github.com/jiaaro/pydub) AudioSegment objects. An audiosegment.AudioSegment object wraps
 a pydub.AudioSegment object. Any methods or properties it has, this also has.
 
 **This is in very active development**, and will likely change over the next few months.
 
 [Docs](http://audiosegment.readthedocs.io/en/latest/audiosegment.html) are hosted by Read The Docs.
+
+## Notes
+There is a hidden dependency on the command line program 'sox'. Pip will not install it for you.
+You will have to install sox by:
+- Debian/Ubuntu: `sudo apt-get install sox`
+- Mac OS X: `brew install sox`
+- Windows: `choco install sox`
+
+## TODO
+I am writing this library as part of my Master's thesis, and I have a few things I need to get working
+before I am happy. These are the features that you can expect in the next several months (assuming I can
+manage to get them working):
+
+- Fully working on Windows (right now it doesn't, due to temporary file usage)
+- Computer-Aided Auditory Scene Analysis - I want to be able to segment an audio stream into different sound sources
+- Better tests and CI integration
+- Remove the SOX dependency (not likely to happen soon, but would be really nice)
+
+I am open to other suggestions. Open an issue if you have requests, or better yet, if you can do it yourself and open
+a pull request, I'll take a look and merge in if I think it makes sense.
+
 
 ## Example Usage
 
@@ -99,9 +122,3 @@ plt.show()
 
 ![alt text](docs/images/spectrogram.png "Spectrogram of voice")
 
-## Notes
-There is a hidden dependency on the command line program 'sox'. Pip will not install it for you.
-You will have to install sox by:
-- Debian/Ubuntu: `sudo apt-get install sox`
-- Mac OS X: `brew install sox`
-- Windows: `choco install sox`
