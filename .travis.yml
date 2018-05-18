@@ -1,0 +1,13 @@
+language: python
+python:
+  - "3.4"
+  - "3.5"
+  - "3.6"
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y sox
+install:
+  - pip install --user -r requirements.txt
+script:
+  - cd ./tests
+  - python full.py fur_elise.wav
