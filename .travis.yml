@@ -8,7 +8,7 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y sox
 install:
-  - sudo -H pip install -r requirements.txt
+  - sudo -H pip3 install -r requirements.txt
 script:
   - cd ./tests
   - python full.py fur_elise.wav
