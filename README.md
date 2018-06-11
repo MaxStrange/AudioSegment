@@ -20,7 +20,6 @@ I am writing this library as part of my Master's thesis, and I have a few things
 before I am happy. These are the features that you can expect in the next several months (assuming I can
 manage to get them working):
 
-- Fully working on Windows (right now it doesn't, due to temporary file usage)
 - Computer-Aided Auditory Scene Analysis - I want to be able to segment an audio stream into different sound sources
 - Better tests and CI integration
 - Remove the SOX dependency (not likely to happen soon, but would be really nice)
