@@ -700,7 +700,8 @@ class AudioSegment:
 
         audioslice = np.array(arr[start_sample:end_sample])
         fft_result = np.fft.fft(audioslice)[range(int(round(num_samples/2)) + 1)]
-        bins = np.arange(0, int(round(num_samples/2)) + 1, 1.0) * (self.frame_rate / num_samples)
+        step_size = self.frame_rate / num_samples
+        bins = np.arange(0, int(round(num_samples/2)) + 1, 1.0) * step_size
         return bins, fft_result
 
     def generate_frames(self, frame_duration_ms, zero_pad=True):
