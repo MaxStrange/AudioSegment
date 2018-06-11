@@ -10,10 +10,12 @@ import itertools
 import math
 import numpy as np
 import pickle
+import platform
 import pydub
 import os
 import random
 import scipy.signal as signal
+import string
 import subprocess
 import sys
 import tempfile
@@ -566,6 +568,52 @@ class AudioSegment:
             real_ret.append((this_yesno, seg))
         return real_ret
 
+    def _execute_sox_cmd(self, cmd, console_output=False):
+        """
+        Executes a Sox command in a platform-independent manner.
+
+        `cmd` must be a format string that includes {inputfile} and {outputfile}.
+        """
+        on_windows = platform.system().lower() == "windows"
+
+        # On Windows, a temporary file cannot be shared outside the process that creates it
+        # so we need to create a "permanent" file that we will use and delete afterwards
+        def _get_random_tmp_file():
+            if on_windows:
+                rand_string = "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+                tmp = self.name + "_" + rand_string
+                WinTempFile = collections.namedtuple("WinTempFile", "name")
+                tmp = WinTempFile(tmp)
+            else:
+                tmp = tempfile.NamedTemporaryFile()
+            return tmp
+
+        # Get a temp file to put our data and a temp file to store the result
+        tmp = _get_random_tmp_file()
+        othertmp = _get_random_tmp_file()
+
+        # Store our data in the temp file
+        self.export(tmp.name, format="WAV")
+
+        # Write the command to sox
+        stdout = stderr = subprocess.PIPE if console_output else subprocess.DEVNULL
+        command = cmd.format(inputfile=tmp.name, outputfile=othertmp.name)
+        res = subprocess.run(command.split(' '), stdout=stdout, stderr=stderr)
+        assert res.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
+
+        # Create a new AudioSegment from the other temp file (where Sox put the result)
+        other = AudioSegment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
+
+        # Clean up the temp files
+        if on_windows:
+            os.remove(tmp.name)
+            os.remove(othertmp.name)
+        else:
+            tmp.close()
+            othertmp.close()
+
+        return other
+
     def filter_silence(self, duration_s=1, threshold_percentage=1, console_output=False):
         """
         Returns a copy of this AudioSegment, but whose silence has been removed.
@@ -573,7 +621,7 @@ class AudioSegment:
         .. note:: This method requires that you have the program 'sox' installed.
 
         .. warning:: This method uses the program 'sox' to perform the task. While this is very fast for a single
-                     function call, the IO may add up for a large numbers of AudioSegment objects.
+                     function call, the IO may add up for large numbers of AudioSegment objects.
 
         :param duration_s: The number of seconds of "silence" that must be present in a row to
                            be stripped.
@@ -582,19 +630,10 @@ class AudioSegment:
         :param console_output: If True, will pipe all sox output to the console.
         :returns: A copy of this AudioSegment, but whose silence has been removed.
         """
-        tmp = tempfile.NamedTemporaryFile()
-        othertmp = tempfile.NamedTemporaryFile()
-        self.export(tmp.name, format="WAV")
-        command = "sox " + tmp.name + " -t wav " + othertmp.name + " silence -l 1 0.1 "\
-                   + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
-        stdout = stderr = subprocess.PIPE if console_output else subprocess.DEVNULL
-        res = subprocess.run(command.split(' '), stdout=stdout, stderr=stderr)
-        assert res.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
-        other = AudioSegment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
-        tmp.close()
-        othertmp.close()
-        return other
-
+        command = "sox {inputfile} -t wav {outputfile} silence -l 1 0.1 "\
+            + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
+        return self._execute_sox_cmd(command)
+ 
     def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):
         """
         Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins
@@ -755,7 +794,7 @@ class AudioSegment:
         .. note:: This method requires that you have the program 'sox' installed.
 
         .. warning:: This method uses the program 'sox' to perform the task. While this is very fast for a single
-                     function call, the IO may add up for a large numbers of AudioSegment objects.
+                     function call, the IO may add up for large numbers of AudioSegment objects.
 
         :param sample_rate_Hz: The new sample rate in Hz.
         :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
@@ -770,16 +809,10 @@ class AudioSegment:
         if channels is None:
             channels = self.channels
 
-        infile, outfile = tempfile.NamedTemporaryFile(), tempfile.NamedTemporaryFile()
-        self.export(infile.name, format="wav")
-        command = "sox " + infile.name + " -b" + str(sample_width * 8) + " -r " + str(sample_rate_Hz) + " -t wav " + outfile.name + " channels " + str(channels)
-        stdout = stderr = subprocess.PIPE if console_output else subprocess.DEVNULL
-        res = subprocess.run(command.split(' '), stdout=stdout, stderr=stderr)
-        res.check_returncode()
-        other = AudioSegment(pydub.AudioSegment.from_wav(outfile.name), self.name)
-        infile.close()
-        outfile.close()
-        return other
+        command = "sox {inputfile} -b " + str(sample_width * 8) + " -r " + str(sample_rate_Hz) \
+            + " -t wav {outputfile} channels " + str(channels)
+
+        return self._execute_sox_cmd(command, console_output=console_output)
 
     def __getstate__(self):
         """
