@@ -24,26 +24,18 @@
 
   
 
-  
-  
-    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  
-
-  
-
-  
-        <link rel="index" title="Index"
-              href="genindex.html"/>
-        <link rel="search" title="Search" href="search.html"/>
-    <link rel="top" title="AudioSegment  documentation" href="index.html"/>
-        <link rel="prev" title="Welcome to AudioSegment’s documentation!" href="index.html"/> 
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to AudioSegment’s documentation!" href="index.html" /> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
 
 </head>
 
-<body class="wy-body-for-nav" role="document">
+<body class="wy-body-for-nav">
 
    
   <div class="wy-grid-for-nav">
@@ -65,7 +57,7 @@
             
             
               <div class="version">
-                0.8.0
+                0.12.0
               </div>
             
           
@@ -103,7 +95,7 @@
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
 
       
-      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+      <nav class="wy-nav-top" aria-label="top navigation">
         
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">AudioSegment</a>
@@ -111,9 +103,10 @@
       </nav>
 
 
-      
       <div class="wy-nav-content">
+        
         <div class="rst-content">
+        
           
 
 
@@ -161,15 +154,22 @@
 <dl class="class">
 <dt id="audiosegment.AudioSegment">
 <em class="property">class </em><code class="descclassname">audiosegment.</code><code class="descname">AudioSegment</code><span class="sig-paren">(</span><em>pydubseg</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>This class is a wrapper for a pydub.AudioSegment that provides additional methods.</p>
+<dl class="method">
+<dt id="audiosegment.AudioSegment.auditory_scene_analysis">
+<code class="descname">auditory_scene_analysis</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.auditory_scene_analysis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.auditory_scene_analysis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
+by Hu and Wang, 2007.</p>
+</dd></dl>
+
 <dl class="method">
 <dt id="audiosegment.AudioSegment.detect_event">
 <code class="descname">detect_event</code><span class="sig-paren">(</span><em>model</em>, <em>ms_per_input</em>, <em>transition_matrix</em>, <em>model_stats</em>, <em>event_length_s</em>, <em>start_as_yes=False</em>, <em>prob_raw_yes=0.5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.detect_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.detect_event" title="Permalink to this definition">¶</a></dt>
 <dd><p>A list of tuples of the form [(‘n’, AudioSegment), (‘y’, AudioSegment), etc.] is returned, where tuples
 of the form (‘n’, AudioSegment) are the segments of sound where the event was not detected,
 while (‘y’, AudioSegment) tuples were the segments of sound where the event was detected.</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="c1"># Example usage</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example usage</span>
 <span class="kn">import</span> <span class="nn">audiosegment</span>
 <span class="kn">import</span> <span class="nn">keras</span>
 <span class="kn">import</span> <span class="nn">keras.models</span>
@@ -308,7 +308,7 @@ and the values.</p>
 of the AudioSegment.</p>
 <p>If neither <cite>duration_s</cite> or <cite>num_samples</cite> is specified, the slice will be from the specified start
 to the end of the segment.</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="c1"># Example for plotting the FFT using this function</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example for plotting the FFT using this function</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 
@@ -361,7 +361,7 @@ the AudioSegment, the end is zero padded to prevent this.</li>
 <div class="admonition warning">
 <p class="first admonition-title">Warning</p>
 <p class="last">This method uses the program ‘sox’ to perform the task. While this is very fast for a single
-function call, the IO may add up for a large numbers of AudioSegment objects.</p>
+function call, the IO may add up for large numbers of AudioSegment objects.</p>
 </div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -413,6 +413,47 @@ of the Segment that is cut off (the part will be &lt;= <cite>frame_duration_ms</
 <dd><p>Does the same thing as <cite>generate_frames</cite>, but yields tuples of (AudioSegment, timestamp) instead of Frames.</p>
 </dd></dl>
 
+<dl class="staticmethod">
+<dt id="audiosegment.AudioSegment.lowpass_filter">
+<em class="property">static </em><code class="descname">lowpass_filter</code><span class="sig-paren">(</span><em>data</em>, <em>cutoff</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.lowpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.lowpass_filter" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>data</strong> – The data (numpy array) to be filtered.</li>
+<li><strong>cutoff</strong> – The high cutoff in Hz.</li>
+<li><strong>fs</strong> – The sample rate in Hz of the data.</li>
+<li><strong>order</strong> – The order of the filter. The higher the order, the tighter the roll-off.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Filtered data (numpy array).</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.normalize_spl_by_average">
+<code class="descname">normalize_spl_by_average</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.normalize_spl_by_average"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.normalize_spl_by_average" title="Permalink to this definition">¶</a></dt>
+<dd><p>Normalize the values in the AudioSegment so that its average dB value
+is <cite>db</cite>.</p>
+<p>The dB of a value is calculated as 20 * log10(abs(value + 1E-9)).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> – The decibels to normalize average to.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A new AudioSegment object whose values are changed so that their
+average is <cite>db</cite>.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="audiosegment.AudioSegment.reduce">
 <code class="descname">reduce</code><span class="sig-paren">(</span><em>others</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.reduce"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.reduce" title="Permalink to this definition">¶</a></dt>
@@ -442,7 +483,7 @@ specified characteristics. Any parameter left None will be unchanged.</p>
 <div class="admonition warning">
 <p class="first admonition-title">Warning</p>
 <p class="last">This method uses the program ‘sox’ to perform the task. While this is very fast for a single
-function call, the IO may add up for a large numbers of AudioSegment objects.</p>
+function call, the IO may add up for large numbers of AudioSegment objects.</p>
 </div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -464,24 +505,38 @@ function call, the IO may add up for a large numbers of AudioSegment objects.</p
 </dd></dl>
 
 <dl class="method">
+<dt id="audiosegment.AudioSegment.serialize">
+<code class="descname">serialize</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.serialize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.serialize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes into a bytestring.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An object of type Bytes.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="audiosegment.AudioSegment.spectrogram">
 <code class="descname">spectrogram</code><span class="sig-paren">(</span><em>start_s=None</em>, <em>duration_s=None</em>, <em>start_sample=None</em>, <em>num_samples=None</em>, <em>window_length_s=None</em>, <em>window_length_samples=None</em>, <em>overlap=0.5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.spectrogram"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.spectrogram" title="Permalink to this definition">¶</a></dt>
 <dd><p>Does a series of FFTs from <cite>start_s</cite> or <cite>start_sample</cite> for <cite>duration_s</cite> or <cite>num_samples</cite>.
 Effectively, transforms a slice of the AudioSegment into the frequency domain across different
 time bins.</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="c1"># Example for plotting a spectrogram using this function</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example for plotting a spectrogram using this function</span>
 <span class="kn">import</span> <span class="nn">audiosegment</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 
+<span class="c1">#...</span>
 <span class="n">seg</span> <span class="o">=</span> <span class="n">audiosegment</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;somebodytalking.wav&quot;</span><span class="p">)</span>
-<span class="n">hist_bins</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">start_s</span><span class="o">=</span><span class="mf">4.3</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">window_length_s</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-<span class="n">hist_bins_khz</span> <span class="o">=</span> <span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span>
-<span class="n">amplitudes_real_normed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>
-<span class="n">amplitudes_logged</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">amplitudes_real_normed</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">)</span>  <span class="c1"># for numerical stability</span>
-<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">hist_bins_khz</span><span class="p">)]</span>
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">amplitudes_logged</span><span class="p">)</span>
+<span class="n">freqs</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">window_length_s</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">amplitudes</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">amplitudes</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">)</span>
+
+<span class="c1"># Plot</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Time in Seconds&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Frequency in Hz&quot;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -522,14 +577,27 @@ both specified or if they are both not specified.</p>
 </table>
 </dd></dl>
 
+<dl class="attribute">
+<dt id="audiosegment.AudioSegment.spl">
+<code class="descname">spl</code><a class="headerlink" href="#audiosegment.AudioSegment.spl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sound Pressure Level - defined as 20 * log10(abs(value)).</p>
+<p>Returns a numpy array of SPL dB values.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.to_numpy_array">
+<code class="descname">to_numpy_array</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.to_numpy_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.to_numpy_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convenience function for <cite>np.array(self.get_array_of_samples())</cite> while
+keeping the appropriate dtype.</p>
+</dd></dl>
+
 <dl class="method">
 <dt id="audiosegment.AudioSegment.trim_to_minutes">
 <code class="descname">trim_to_minutes</code><span class="sig-paren">(</span><em>strip_last_seconds=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.trim_to_minutes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.trim_to_minutes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of minute-long (at most) Segment objects.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
-<p class="last">I will likely depricate this method at some point. I have used it for a specific purpose, but
-now we can just use the dice function.</p>
+<p class="last">This function has been deprecated. Use the <cite>dice</cite> function instead.</p>
 </div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -570,6 +638,28 @@ This is useful for removing the microphone artifact at the end of the recording.
 </table>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="function">
+<dt id="audiosegment.deprecated">
+<code class="descclassname">audiosegment.</code><code class="descname">deprecated</code><span class="sig-paren">(</span><em>func</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#deprecated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.deprecated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deprecator decorator.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="audiosegment.deserialize">
+<code class="descclassname">audiosegment.</code><code class="descname">deserialize</code><span class="sig-paren">(</span><em>bstr</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#deserialize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.deserialize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attempts to deserialize a bytestring into an audiosegment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>bstr</strong> – The bytestring serialized via an audiosegment’s serialize() method.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">An AudioSegment object deserialized from <cite>bstr</cite>.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="function">
@@ -619,6 +709,23 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="audiosegment.from_numpy_array">
+<code class="descclassname">audiosegment.</code><code class="descname">from_numpy_array</code><span class="sig-paren">(</span><em>nparr</em>, <em>framerate</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#from_numpy_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.from_numpy_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns an AudioSegment created from the given numpy array.</p>
+<p>The numpy array must have shape = (num_samples, num_channels).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>nparr</strong> – The numpy array to create an AudioSegment from.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">An AudioSegment created from the given array.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
 <dt id="audiosegment.silent">
 <code class="descclassname">audiosegment.</code><code class="descname">silent</code><span class="sig-paren">(</span><em>duration=1000</em>, <em>frame_rate=11025</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#silent"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.silent" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates an AudioSegment object of the specified duration/frame_rate filled with digital silence.</p>
@@ -643,9 +750,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 
 
            </div>
-           <div class="articleComments">
-            
-           </div>
+           
           </div>
           <footer>
   
@@ -665,7 +770,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -684,6 +789,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
             VERSION:'',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -696,19 +802,13 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 
   
 
-  
-  
-    <script type="text/javascript" src="_static/js/theme.js"></script>
-  
+  <script type="text/javascript" src="_static/js/theme.js"></script>
 
-  
-  
   <script type="text/javascript">
       jQuery(function () {
-          SphinxRtdTheme.StickyNav.enable();
+          SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-   
+  </script> 
 
 </body>
 </html>

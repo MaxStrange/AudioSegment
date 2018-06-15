@@ -25,25 +25,17 @@
 
   
 
-  
-  
-    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  
-
-  
-
-  
-        <link rel="index" title="Index"
-              href="#"/>
-        <link rel="search" title="Search" href="search.html"/>
-    <link rel="top" title="AudioSegment  documentation" href="index.html"/> 
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" /> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
 
 </head>
 
-<body class="wy-body-for-nav" role="document">
+<body class="wy-body-for-nav">
 
    
   <div class="wy-grid-for-nav">
@@ -65,7 +57,7 @@
             
             
               <div class="version">
-                0.8.0
+                0.12.0
               </div>
             
           
@@ -103,7 +95,7 @@
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
 
       
-      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+      <nav class="wy-nav-top" aria-label="top navigation">
         
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">AudioSegment</a>
@@ -111,9 +103,10 @@
       </nav>
 
 
-      
       <div class="wy-nav-content">
+        
         <div class="rst-content">
+        
           
 
 
@@ -162,6 +155,8 @@
  | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#N"><strong>N</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
@@ -177,16 +172,22 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="audiosegment.html#module-audiosegment">audiosegment (module)</a>
 </li>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.auditory_scene_analysis">auditory_scene_analysis() (audiosegment.AudioSegment method)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="audiosegment.html#audiosegment.AudioSegment.detect_event">detect_event() (audiosegment.AudioSegment method)</a>
+      <li><a href="audiosegment.html#audiosegment.deprecated">deprecated() (in module audiosegment)</a>
+</li>
+      <li><a href="audiosegment.html#audiosegment.deserialize">deserialize() (in module audiosegment)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.detect_event">detect_event() (audiosegment.AudioSegment method)</a>
+</li>
       <li><a href="audiosegment.html#audiosegment.AudioSegment.detect_voice">detect_voice() (audiosegment.AudioSegment method)</a>
 </li>
       <li><a href="audiosegment.html#audiosegment.AudioSegment.dice">dice() (audiosegment.AudioSegment method)</a>
@@ -215,6 +216,8 @@
 </li>
       <li><a href="audiosegment.html#audiosegment.from_mono_audiosegments">from_mono_audiosegments() (in module audiosegment)</a>
 </li>
+      <li><a href="audiosegment.html#audiosegment.from_numpy_array">from_numpy_array() (in module audiosegment)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -226,6 +229,22 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="audiosegment.html#audiosegment.AudioSegment.generate_frames_as_segments">generate_frames_as_segments() (audiosegment.AudioSegment method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.lowpass_filter">lowpass_filter() (audiosegment.AudioSegment static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.normalize_spl_by_average">normalize_spl_by_average() (audiosegment.AudioSegment method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -245,17 +264,25 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.serialize">serialize() (audiosegment.AudioSegment method)</a>
+</li>
       <li><a href="audiosegment.html#audiosegment.silent">silent() (in module audiosegment)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="audiosegment.html#audiosegment.AudioSegment.spectrogram">spectrogram() (audiosegment.AudioSegment method)</a>
 </li>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.spl">spl (audiosegment.AudioSegment attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="audiosegment.html#audiosegment.AudioSegment.to_numpy_array">to_numpy_array() (audiosegment.AudioSegment method)</a>
+</li>
+  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="audiosegment.html#audiosegment.AudioSegment.trim_to_minutes">trim_to_minutes() (audiosegment.AudioSegment method)</a>
 </li>
@@ -273,9 +300,7 @@
 
 
            </div>
-           <div class="articleComments">
-            
-           </div>
+           
           </div>
           <footer>
   
@@ -288,7 +313,7 @@
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -307,6 +332,7 @@
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
             VERSION:'',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -319,19 +345,13 @@
 
   
 
-  
-  
-    <script type="text/javascript" src="_static/js/theme.js"></script>
-  
+  <script type="text/javascript" src="_static/js/theme.js"></script>
 
-  
-  
   <script type="text/javascript">
       jQuery(function () {
-          SphinxRtdTheme.StickyNav.enable();
+          SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-   
+  </script> 
 
 </body>
 </html>

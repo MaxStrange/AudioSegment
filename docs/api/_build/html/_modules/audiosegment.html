@@ -24,26 +24,17 @@
 
   
 
-  
-  
-    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  
-
-  
-
-  
-        <link rel="index" title="Index"
-              href="../genindex.html"/>
-        <link rel="search" title="Search" href="../search.html"/>
-    <link rel="top" title="AudioSegment  documentation" href="../index.html"/>
-        <link rel="up" title="Module code" href="index.html"/> 
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
 
 </head>
 
-<body class="wy-body-for-nav" role="document">
+<body class="wy-body-for-nav">
 
    
   <div class="wy-grid-for-nav">
@@ -65,7 +56,7 @@
             
             
               <div class="version">
-                0.8.0
+                0.12.0
               </div>
             
           
@@ -103,7 +94,7 @@
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
 
       
-      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+      <nav class="wy-nav-top" aria-label="top navigation">
         
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">AudioSegment</a>
@@ -111,9 +102,10 @@
       </nav>
 
 
-      
       <div class="wy-nav-content">
+        
         <div class="rst-content">
+        
           
 
 
@@ -143,8 +135,6 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
-        
       </li>
     
   </ul>
@@ -163,20 +153,38 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">print_function</span>
 
 <span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">platform</span>
 <span class="kn">import</span> <span class="nn">pydub</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">signal</span>
+<span class="kn">import</span> <span class="nn">string</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">import</span> <span class="nn">webrtcvad</span>
 
 <span class="n">MS_PER_S</span> <span class="o">=</span> <span class="mi">1000</span>
 <span class="n">S_PER_MIN</span> <span class="o">=</span> <span class="mi">60</span>
 <span class="n">MS_PER_MIN</span> <span class="o">=</span> <span class="n">MS_PER_S</span> <span class="o">*</span> <span class="n">S_PER_MIN</span>
+
+<div class="viewcode-block" id="deprecated"><a class="viewcode-back" href="../audiosegment.html#audiosegment.deprecated">[docs]</a><span class="k">def</span> <span class="nf">deprecated</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deprecator decorator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">new_func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Call to deprecated function </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">),</span> <span class="n">category</span><span class="o">=</span><span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">new_func</span></div>
 
 <div class="viewcode-block" id="AudioSegment"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment">[docs]</a><span class="k">class</span> <span class="nc">AudioSegment</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -211,7 +219,7 @@
     <span class="k">def</span> <span class="nf">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">!=</span> <span class="n">other</span>
 
-    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">millisecond</span><span class="p">):</span>
@@ -231,7 +239,10 @@
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2"> channels, </span><span class="si">%s</span><span class="s2"> bit, sampled @ </span><span class="si">%s</span><span class="s2"> kHz, </span><span class="si">%.3f</span><span class="s2">s long&quot;</span> <span class="o">%</span>\
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span> <span class="o">*</span> <span class="mi">8</span><span class="p">),</span>\
+             <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration_seconds</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
 
     <span class="k">def</span> <span class="nf">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="o">==</span> <span class="n">AudioSegment</span><span class="p">:</span>
@@ -246,6 +257,186 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span> <span class="o">*</span> <span class="n">arg</span>
         <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">spl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sound Pressure Level - defined as 20 * log10(abs(value)).</span>
+
+<span class="sd">        Returns a numpy array of SPL dB values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mf">20.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1E-9</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param data: The data (numpy array) to be filtered.</span>
+<span class="sd">        :param low: The low cutoff in Hz.</span>
+<span class="sd">        :param high: The high cutoff in Hz.</span>
+<span class="sd">        :param fs: The sample rate (in Hz) of the data.</span>
+<span class="sd">        :param order: The order of the filter. The higher the order, the tighter the roll-off.</span>
+<span class="sd">        :returns: Filtered data (numpy array).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nyq</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">fs</span>
+        <span class="n">low</span> <span class="o">=</span> <span class="n">low</span> <span class="o">/</span> <span class="n">nyq</span>
+        <span class="n">high</span> <span class="o">=</span> <span class="n">high</span> <span class="o">/</span> <span class="n">nyq</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="p">[</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">],</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;band&#39;</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">lfilter</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+<div class="viewcode-block" id="AudioSegment.lowpass_filter"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.lowpass_filter">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">lowpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param data: The data (numpy array) to be filtered.</span>
+<span class="sd">        :param cutoff: The high cutoff in Hz.</span>
+<span class="sd">        :param fs: The sample rate in Hz of the data.</span>
+<span class="sd">        :param order: The order of the filter. The higher the order, the tighter the roll-off.</span>
+<span class="sd">        :returns: Filtered data (numpy array).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nyq</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">fs</span>
+        <span class="n">normal_cutoff</span> <span class="o">=</span> <span class="n">cutoff</span> <span class="o">/</span> <span class="n">nyq</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">normal_cutoff</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">,</span> <span class="n">analog</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">lfilter</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+<div class="viewcode-block" id="AudioSegment.auditory_scene_analysis"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.auditory_scene_analysis">[docs]</a>    <span class="k">def</span> <span class="nf">auditory_scene_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,</span>
+<span class="sd">        by Hu and Wang, 2007.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+        <span class="k">def</span> <span class="nf">visualize_time_domain</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
+
+        <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">freq</span><span class="p">,</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">frequencies</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">spect</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])):</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">spect</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0:.0f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">freq</span><span class="p">))</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
+
+        <span class="c1"># Normalize self into 25dB average SPL</span>
+        <span class="n">normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_spl_by_average</span><span class="p">(</span><span class="n">db</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+        <span class="n">visualize_time_domain</span><span class="p">(</span><span class="n">normalized</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">(),</span> <span class="s2">&quot;Normalized&quot;</span><span class="p">)</span>
+        <span class="c1"># Do a band-pass filter in each frequency</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">normalized</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span>
+        <span class="n">start_frequency</span> <span class="o">=</span> <span class="mi">50</span>
+        <span class="n">stop_frequency</span> <span class="o">=</span> <span class="mi">8000</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">start_frequency</span><span class="p">)</span>
+        <span class="n">stop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">stop_frequency</span><span class="p">)</span>
+        <span class="n">frequencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Dealing with the following frequencies:&quot;</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">)</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">_bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">freq</span><span class="o">*</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">freq</span><span class="o">*</span><span class="mf">1.2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span> <span class="k">for</span> <span class="n">freq</span> <span class="ow">in</span> <span class="n">frequencies</span><span class="p">]</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">spect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After bandpass filtering (cochlear model)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Half-wave rectify each frequency channel</span>
+        <span class="n">spect</span><span class="p">[</span><span class="n">spect</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After half-wave rectification in each frequency&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Low-pass filter each frequency channel</span>
+        <span class="n">spect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">lowpass_filter</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+        <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After low-pass filtering in each frequency&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Downsample each frequency to 400 Hz</span>
+        <span class="n">downsample_freq_hz</span> <span class="o">=</span> <span class="mi">400</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">&gt;</span> <span class="n">downsample_freq_hz</span><span class="p">:</span>
+            <span class="n">step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">/</span> <span class="n">downsample_freq_hz</span><span class="p">))</span>
+            <span class="n">spect</span> <span class="o">=</span> <span class="n">spect</span><span class="p">[:,</span> <span class="p">::</span><span class="n">step</span><span class="p">]</span>
+        <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After downsampling in each frequency&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Now you have the temporal envelope of each frequency channel</span>
+
+        <span class="c1"># Smoothing</span>
+        <span class="n">scales</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="mi">14</span><span class="p">)]</span>
+        <span class="n">thetas</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.95</span><span class="p">,</span>     <span class="mf">0.95</span><span class="p">,</span>      <span class="mf">0.85</span><span class="p">]</span>
+        <span class="c1">## For each (sc, st) scale, smooth across time using st, then across frequency using sc</span>
+        <span class="n">gaussian</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sig</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)))</span>
+        <span class="n">gaussian_kernel</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">sig</span><span class="p">:</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
+        <span class="n">spectrograms</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sc</span><span class="p">,</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">scales</span><span class="p">:</span>
+            <span class="n">time_smoothed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">lowpass_filter</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">st</span><span class="p">,</span> <span class="n">downsample_freq_hz</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+            <span class="n">visualize</span><span class="p">(</span><span class="n">time_smoothed</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After time smoothing with scale: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">))</span>
+            <span class="n">freq_smoothed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">gaussian_kernel</span><span class="p">(</span><span class="n">sc</span><span class="p">))</span>
+            <span class="n">spectrograms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">freq_smoothed</span><span class="p">)</span>
+            <span class="n">visualize</span><span class="p">(</span><span class="n">freq_smoothed</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After time and frequency smoothing with scales (freq) &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; and (time) &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">))</span>
+        <span class="c1">## Now we have a set of scale-space spectrograms of different scales (sc, st)</span>
+
+        <span class="c1"># Onset/Offset Detection and Matching</span>
+        <span class="k">def</span> <span class="nf">theta_on</span><span class="p">(</span><span class="n">spect</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">spect</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">spect</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">compute_peaks_or_valleys_of_first_derivative</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">do_peaks</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Takes a spectrogram and returns a 2D array of the form:</span>
+
+<span class="sd">            0 0 0 1 0 0 1 0 0 0 1   &lt;-- Frequency 0</span>
+<span class="sd">            0 0 1 0 0 0 0 0 0 1 0   &lt;-- Frequency 1</span>
+<span class="sd">            0 0 0 0 0 0 1 0 1 0 0   &lt;-- Frequency 2</span>
+<span class="sd">            *** Time axis *******</span>
+
+<span class="sd">            Where a 1 means that the value in that time bin in the spectrogram corresponds to</span>
+<span class="sd">            a peak/valley in the first derivative.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">s</span><span class="p">),</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">half_window</span> <span class="o">=</span> <span class="mi">4</span>
+            <span class="k">if</span> <span class="n">do_peaks</span><span class="p">:</span>
+                <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">signal</span><span class="o">.</span><span class="n">argrelextrema</span><span class="p">(</span><span class="n">gradient</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">greater</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">half_window</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gradient</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">signal</span><span class="o">.</span><span class="n">argrelextrema</span><span class="p">(</span><span class="n">gradient</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">less</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">half_window</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gradient</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+            <span class="n">extrema</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">row_index</span><span class="p">,</span> <span class="n">index_array</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indexes</span><span class="p">):</span>
+                <span class="c1"># Each index_array is a list of indexes corresponding to all the extrema in a given row</span>
+                <span class="k">for</span> <span class="n">col_index</span> <span class="ow">in</span> <span class="n">index_array</span><span class="p">:</span>
+                    <span class="n">extrema</span><span class="p">[</span><span class="n">row_index</span><span class="p">,</span> <span class="n">col_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">extrema</span>
+
+        <span class="k">for</span> <span class="n">spect</span><span class="p">,</span> <span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">spectrograms</span><span class="p">,</span> <span class="n">scales</span><span class="p">):</span>
+            <span class="c1"># Compute sudden upward changes in spect, these are onsets of events</span>
+            <span class="n">onsets</span> <span class="o">=</span> <span class="n">compute_peaks_or_valleys_of_first_derivative</span><span class="p">(</span><span class="n">spect</span><span class="p">)</span>
+            <span class="c1"># Compute sudden downward changes in spect, these are offsets of events</span>
+            <span class="n">offsets</span> <span class="o">=</span> <span class="n">compute_peaks_or_valleys_of_first_derivative</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">do_peaks</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TOTAL ONSETS:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">onsets</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TOTAL OFFSETS:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">offsets</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">exit</span><span class="p">()</span></div>
+
+            <span class="c1"># onsets and offsets are 2D arrays</span>
+
+            <span class="c1">## Determine the offset time for each onset:</span>
+            <span class="c1">### If t_on[c, i] represents the time of the ith onset in frequency channel c, the corresponding offset</span>
+            <span class="c1">###     must occur between t_on[c, i] and t_on[c, i+1]</span>
+            <span class="c1">### If there are more than one offsets candidates in this range, choose the one with largest intensity decrease.</span>
+            <span class="c1">## Create onset/offset fronts by connecting onsets across frequency channels (connect two onsets</span>
+            <span class="c1">##      if they occur within 20ms of each other). Start over whenever a frequency band does not contain an offset</span>
+            <span class="c1">##      in this range. Do the same procedure for offsets. Now you have onset and offset fronts.</span>
+            <span class="c1">## Now hook up the onsets with the offsets to form segments:</span>
+            <span class="c1">##      For each onset front, (t_on[c, i1, t_on[c + 1, i2], ..., t_on[c + m - 1, im]):</span>
+            <span class="c1">##          matching_offsets = (t_off[c, i1], t_off[c + 1, i2], ..., t_off[c + m - 1, im])</span>
+            <span class="c1">##          Get all offset fronts which contain at least one of offset time found in matching_offsets</span>
+            <span class="c1">##          Among these offset fronts, the one that crosses the most of matching_offsets is chosen,</span>
+            <span class="c1">##          - call this offset front: matching_offset_front</span>
+            <span class="c1">##          Update all t_offs in matching_offsets whose &#39;c&#39;s are in matching_offset_front to be &#39;matched&#39;, and</span>
+            <span class="c1">##          - update their times to the corresponding channel offset in matching_offset_front.</span>
+            <span class="c1">##          If all t_offs in matching_offsets are &#39;matched&#39;, continue to next onset front</span>
+            <span class="c1">## Now go through all the segments you have created and break them up along frequencies if the temporal</span>
+            <span class="c1">##      envelopes don&#39;t match well enough. That is, if we have two adjacent channels c and c+1, and they</span>
+            <span class="c1">##      are part of the same segment as determined above, break this segment into two along these lines</span>
+            <span class="c1">##      if the correlation between them is below theta_c. Theta_c is thetas[i] where i depends on the scale.</span>
+
+        <span class="c1"># Multiscale Integration</span>
+        <span class="c1">##</span>
+        <span class="c1">## TODO</span>
 
 <div class="viewcode-block" id="AudioSegment.detect_voice"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.detect_voice">[docs]</a>    <span class="k">def</span> <span class="nf">detect_voice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prob_detect_voice</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -525,6 +716,52 @@
             <span class="n">real_ret</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">this_yesno</span><span class="p">,</span> <span class="n">seg</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">real_ret</span>
 
+    <span class="k">def</span> <span class="nf">_execute_sox_cmd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">console_output</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Executes a Sox command in a platform-independent manner.</span>
+
+<span class="sd">        `cmd` must be a format string that includes {inputfile} and {outputfile}.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">on_windows</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;windows&quot;</span>
+
+        <span class="c1"># On Windows, a temporary file cannot be shared outside the process that creates it</span>
+        <span class="c1"># so we need to create a &quot;permanent&quot; file that we will use and delete afterwards</span>
+        <span class="k">def</span> <span class="nf">_get_random_tmp_file</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">on_windows</span><span class="p">:</span>
+                <span class="n">rand_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">ascii_uppercase</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
+                <span class="n">tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">rand_string</span>
+                <span class="n">WinTempFile</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;WinTempFile&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">)</span>
+                <span class="n">tmp</span> <span class="o">=</span> <span class="n">WinTempFile</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">tmp</span>
+
+        <span class="c1"># Get a temp file to put our data and a temp file to store the result</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">_get_random_tmp_file</span><span class="p">()</span>
+        <span class="n">othertmp</span> <span class="o">=</span> <span class="n">_get_random_tmp_file</span><span class="p">()</span>
+
+        <span class="c1"># Store our data in the temp file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Write the command to sox</span>
+        <span class="n">stdout</span> <span class="o">=</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span> <span class="k">if</span> <span class="n">console_output</span> <span class="k">else</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="n">cmd</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">inputfile</span><span class="o">=</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">outputfile</span><span class="o">=</span><span class="n">othertmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">res</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Sox did not work as intended, or perhaps you don&#39;t have Sox installed?&quot;</span>
+
+        <span class="c1"># Create a new AudioSegment from the other temp file (where Sox put the result)</span>
+        <span class="n">other</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_wav</span><span class="p">(</span><span class="n">othertmp</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Clean up the temp files</span>
+        <span class="k">if</span> <span class="n">on_windows</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">othertmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">othertmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">other</span>
+
 <div class="viewcode-block" id="AudioSegment.filter_silence"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.filter_silence">[docs]</a>    <span class="k">def</span> <span class="nf">filter_silence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">threshold_percentage</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">console_output</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a copy of this AudioSegment, but whose silence has been removed.</span>
@@ -532,7 +769,7 @@
 <span class="sd">        .. note:: This method requires that you have the program &#39;sox&#39; installed.</span>
 
 <span class="sd">        .. warning:: This method uses the program &#39;sox&#39; to perform the task. While this is very fast for a single</span>
-<span class="sd">                     function call, the IO may add up for a large numbers of AudioSegment objects.</span>
+<span class="sd">                     function call, the IO may add up for large numbers of AudioSegment objects.</span>
 
 <span class="sd">        :param duration_s: The number of seconds of &quot;silence&quot; that must be present in a row to</span>
 <span class="sd">                           be stripped.</span>
@@ -541,19 +778,10 @@
 <span class="sd">        :param console_output: If True, will pipe all sox output to the console.</span>
 <span class="sd">        :returns: A copy of this AudioSegment, but whose silence has been removed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
-        <span class="n">othertmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
-        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox &quot;</span> <span class="o">+</span> <span class="n">tmp</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; -t wav &quot;</span> <span class="o">+</span> <span class="n">othertmp</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; silence -l 1 0.1 &quot;</span>\
-                   <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;% -1 &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">duration_s</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;%&quot;</span>
-        <span class="n">stdout</span> <span class="o">=</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span> <span class="k">if</span> <span class="n">console_output</span> <span class="k">else</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">res</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Sox did not work as intended, or perhaps you don&#39;t have Sox installed?&quot;</span>
-        <span class="n">other</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_wav</span><span class="p">(</span><span class="n">othertmp</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="n">tmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="n">othertmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">other</span></div>
-
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox </span><span class="si">{inputfile}</span><span class="s2"> -t wav </span><span class="si">{outputfile}</span><span class="s2"> silence -l 1 0.1 &quot;</span>\
+            <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;% -1 &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">duration_s</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;%&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_sox_cmd</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+ 
 <div class="viewcode-block" id="AudioSegment.fft"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins</span>
@@ -620,7 +848,8 @@
 
         <span class="n">audioslice</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">start_sample</span><span class="p">:</span><span class="n">end_sample</span><span class="p">])</span>
         <span class="n">fft_result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">audioslice</span><span class="p">)[</span><span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">num_samples</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
-        <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">num_samples</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">/</span> <span class="n">num_samples</span><span class="p">)</span>
+        <span class="n">step_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">/</span> <span class="n">num_samples</span>
+        <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">num_samples</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">step_size</span>
         <span class="k">return</span> <span class="n">bins</span><span class="p">,</span> <span class="n">fft_result</span></div>
 
 <div class="viewcode-block" id="AudioSegment.generate_frames"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.generate_frames">[docs]</a>    <span class="k">def</span> <span class="nf">generate_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_duration_ms</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -662,6 +891,35 @@
                                <span class="n">frame_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">yield</span> <span class="n">seg</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">timestamp</span></div>
 
+<div class="viewcode-block" id="AudioSegment.normalize_spl_by_average"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.normalize_spl_by_average">[docs]</a>    <span class="k">def</span> <span class="nf">normalize_spl_by_average</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Normalize the values in the AudioSegment so that its average dB value</span>
+<span class="sd">        is `db`.</span>
+
+<span class="sd">        The dB of a value is calculated as 20 * log10(abs(value + 1E-9)).</span>
+
+<span class="sd">        :param db: The decibels to normalize average to.</span>
+<span class="sd">        :returns: A new AudioSegment object whose values are changed so that their</span>
+<span class="sd">                  average is `db`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">inverse_spl</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Calculates the (positive) &#39;PCM&#39; value for the given SPl val&quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">val</span> <span class="o">/</span> <span class="mf">20.0</span><span class="p">)</span>
+
+        <span class="c1"># Convert dB into &#39;PCM&#39;</span>
+        <span class="n">db_pcm</span> <span class="o">=</span> <span class="n">inverse_spl</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="c1"># Calculate current &#39;PCM&#39; average</span>
+        <span class="n">curavg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()))</span>
+        <span class="c1"># Calculate ratio of dB_pcm / curavg_pcm</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">db_pcm</span> <span class="o">/</span> <span class="n">curavg</span>
+        <span class="c1"># Multiply all values by ratio</span>
+        <span class="n">dtype_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">}</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype_dict</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">]</span>
+        <span class="n">new_seg</span> <span class="o">=</span> <span class="n">from_numpy_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
+        <span class="c1"># Check SPL average to see if we are right</span>
+        <span class="c1">#assert math.isclose(np.mean(new_seg.spl), db), &quot;new = &quot; + str(np.mean(new_seg.spl)) + &quot; != &quot; + str(db)</span>
+        <span class="k">return</span> <span class="n">new_seg</span></div>
+
 <div class="viewcode-block" id="AudioSegment.reduce"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">others</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Reduces others into this one by concatenating all the others onto this one and</span>
@@ -670,7 +928,7 @@
 <span class="sd">        :param others: The other AudioSegment objects to append to this one.</span>
 <span class="sd">        :returns: The concatenated result.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ret</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
         <span class="n">selfdata</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span><span class="p">]</span>
         <span class="n">otherdata</span> <span class="o">=</span> <span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">others</span><span class="p">]</span>
         <span class="n">ret</span><span class="o">.</span><span class="n">seg</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">selfdata</span> <span class="o">+</span> <span class="n">otherdata</span><span class="p">)</span>
@@ -685,7 +943,7 @@
 <span class="sd">        .. note:: This method requires that you have the program &#39;sox&#39; installed.</span>
 
 <span class="sd">        .. warning:: This method uses the program &#39;sox&#39; to perform the task. While this is very fast for a single</span>
-<span class="sd">                     function call, the IO may add up for a large numbers of AudioSegment objects.</span>
+<span class="sd">                     function call, the IO may add up for large numbers of AudioSegment objects.</span>
 
 <span class="sd">        :param sample_rate_Hz: The new sample rate in Hz.</span>
 <span class="sd">        :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.</span>
@@ -700,16 +958,38 @@
         <span class="k">if</span> <span class="n">channels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span>
 
-        <span class="n">infile</span><span class="p">,</span> <span class="n">outfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(),</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">infile</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;wav&quot;</span><span class="p">)</span>
-        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox &quot;</span> <span class="o">+</span> <span class="n">infile</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; -b&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_width</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; -r &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; -t wav &quot;</span> <span class="o">+</span> <span class="n">outfile</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; channels &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span>
-        <span class="n">stdout</span> <span class="o">=</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span> <span class="k">if</span> <span class="n">console_output</span> <span class="k">else</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">),</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-        <span class="n">res</span><span class="o">.</span><span class="n">check_returncode</span><span class="p">()</span>
-        <span class="n">other</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_wav</span><span class="p">(</span><span class="n">outfile</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="n">infile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="n">outfile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">other</span></div>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox </span><span class="si">{inputfile}</span><span class="s2"> -b &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_width</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; -r &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">)</span> \
+            <span class="o">+</span> <span class="s2">&quot; -t wav </span><span class="si">{outputfile}</span><span class="s2"> channels &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_sox_cmd</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">console_output</span><span class="o">=</span><span class="n">console_output</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Serializes into a dict for the pickle protocol.</span>
+
+<span class="sd">        :returns: The dict to pickle.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s1">&#39;seg&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Deserializes from a dict for the pickle protocol.</span>
+
+<span class="sd">        :param d: The dict to unpickle from.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AudioSegment.serialize"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.serialize">[docs]</a>    <span class="k">def</span> <span class="nf">serialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Serializes into a bytestring.</span>
+
+<span class="sd">        :returns: An object of type Bytes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__getstate__</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;seg&#39;</span><span class="p">:</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;seg&#39;</span><span class="p">],</span> <span class="n">protocol</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
+        <span class="p">},</span> <span class="n">protocol</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AudioSegment.spectrogram"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.spectrogram">[docs]</a>    <span class="k">def</span> <span class="nf">spectrogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                     <span class="n">window_length_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window_length_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
@@ -723,16 +1003,16 @@
 <span class="sd">            # Example for plotting a spectrogram using this function</span>
 <span class="sd">            import audiosegment</span>
 <span class="sd">            import matplotlib.pyplot as plt</span>
-<span class="sd">            import numpy as np</span>
 
+<span class="sd">            #...</span>
 <span class="sd">            seg = audiosegment.from_file(&quot;somebodytalking.wav&quot;)</span>
-<span class="sd">            hist_bins, times, amplitudes = seg.spectrogram(start_s=4.3, duration_s=1, window_length_s=0.03, overlap=0.5)</span>
-<span class="sd">            hist_bins_khz = hist_bins / 1000</span>
-<span class="sd">            amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)</span>
-<span class="sd">            amplitudes_logged = 10 * np.log10(amplitudes_real_normed + 1e-9)  # for numerical stability</span>
-<span class="sd">            x, y = np.mgrid[:len(times), :len(hist_bins_khz)]</span>
-<span class="sd">            fig, ax = plt.subplots()</span>
-<span class="sd">            ax.pcolormesh(x, y, amplitudes_logged)</span>
+<span class="sd">            freqs, times, amplitudes = seg.spectrogram(window_length_s=0.03, overlap=0.5)</span>
+<span class="sd">            amplitudes = 10 * np.log10(amplitudes + 1e-9)</span>
+
+<span class="sd">            # Plot</span>
+<span class="sd">            plt.pcolormesh(times, freqs, amplitudes)</span>
+<span class="sd">            plt.xlabel(&quot;Time in Seconds&quot;)</span>
+<span class="sd">            plt.ylabel(&quot;Frequency in Hz&quot;)</span>
 <span class="sd">            plt.show()</span>
 
 <span class="sd">        .. image:: images/spectrogram.png</span>
@@ -783,24 +1063,30 @@
         <span class="k">if</span> <span class="n">start_sample</span> <span class="o">+</span> <span class="n">num_samples</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">()):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The combination of start and duration will run off the end of the AudioSegment object.&quot;</span><span class="p">)</span>
 
-        <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">next_start</span> <span class="o">=</span> <span class="n">start_sample</span>
-        <span class="k">while</span> <span class="n">next_start</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">()):</span>
-            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">next_start</span><span class="p">)</span>
-            <span class="n">next_start</span> <span class="o">=</span> <span class="n">next_start</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="n">window_length_samples</span><span class="p">))</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">sxx</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="n">window_length_samples</span><span class="p">,</span>
+                                             <span class="n">noverlap</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="n">window_length_samples</span><span class="p">)),</span>
+                                             <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;magnitude&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">sxx</span></div>
 
-        <span class="n">rets</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">start_sample</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">window_length_samples</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
-        <span class="n">bins</span> <span class="o">=</span> <span class="n">rets</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">ret</span> <span class="ow">in</span> <span class="n">rets</span><span class="p">]</span>
-        <span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">start_sample</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="k">for</span> <span class="n">start_sample</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bins</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">)</span></div>
+<div class="viewcode-block" id="AudioSegment.to_numpy_array"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.to_numpy_array">[docs]</a>    <span class="k">def</span> <span class="nf">to_numpy_array</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convenience function for `np.array(self.get_array_of_samples())` while</span>
+<span class="sd">        keeping the appropriate dtype.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dtype_dict</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="mi">1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+                        <span class="mi">2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span>
+                        <span class="mi">4</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span>
+                     <span class="p">}</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype_dict</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="AudioSegment.trim_to_minutes"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.trim_to_minutes">[docs]</a>    <span class="k">def</span> <span class="nf">trim_to_minutes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strip_last_seconds</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="AudioSegment.trim_to_minutes"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.trim_to_minutes">[docs]</a>    <span class="nd">@deprecated</span>
+    <span class="k">def</span> <span class="nf">trim_to_minutes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strip_last_seconds</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a list of minute-long (at most) Segment objects.</span>
 
-<span class="sd">        .. note:: I will likely depricate this method at some point. I have used it for a specific purpose, but</span>
-<span class="sd">                  now we can just use the dice function.</span>
+<span class="sd">        .. note:: This function has been deprecated. Use the `dice` function instead.</span>
 
 <span class="sd">        :param strip_last_seconds: If True, this method will return minute-long segments,</span>
 <span class="sd">                                   but the last three seconds of this AudioSegment won&#39;t be returned.</span>
@@ -837,6 +1123,17 @@
         <span class="n">zeros</span> <span class="o">=</span> <span class="n">silent</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">num_samples</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">zeros</span><span class="o">.</span><span class="n">overlay</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span></div></div>
 
+<div class="viewcode-block" id="deserialize"><a class="viewcode-back" href="../audiosegment.html#audiosegment.deserialize">[docs]</a><span class="k">def</span> <span class="nf">deserialize</span><span class="p">(</span><span class="n">bstr</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Attempts to deserialize a bytestring into an audiosegment.</span>
+
+<span class="sd">    :param bstr: The bytestring serialized via an audiosegment&#39;s serialize() method.</span>
+<span class="sd">    :returns: An AudioSegment object deserialized from `bstr`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">bstr</span><span class="p">)</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;seg&#39;</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">])</span></div>
+
 <div class="viewcode-block" id="empty"><a class="viewcode-back" href="../audiosegment.html#audiosegment.empty">[docs]</a><span class="k">def</span> <span class="nf">empty</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Creates a zero-duration AudioSegment object.</span>
@@ -868,6 +1165,32 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">from_mono_audiosegments</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">),</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="from_numpy_array"><a class="viewcode-back" href="../audiosegment.html#audiosegment.from_numpy_array">[docs]</a><span class="k">def</span> <span class="nf">from_numpy_array</span><span class="p">(</span><span class="n">nparr</span><span class="p">,</span> <span class="n">framerate</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns an AudioSegment created from the given numpy array.</span>
+
+<span class="sd">    The numpy array must have shape = (num_samples, num_channels).</span>
+
+<span class="sd">    :param nparr: The numpy array to create an AudioSegment from.</span>
+<span class="sd">    :returns: An AudioSegment created from the given array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># interleave the audio across all channels and collapse</span>
+    <span class="k">if</span> <span class="n">nparr</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Numpy Array must contain 8, 16, or 32 bit values.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">nparr</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">nparr</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels).&quot;</span><span class="p">)</span>
+    <span class="n">interleaved</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">arrays</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,),</span> <span class="n">order</span><span class="o">=</span><span class="s1">&#39;F&#39;</span><span class="p">)</span>
+    <span class="n">dubseg</span> <span class="o">=</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="p">(</span><span class="n">interleaved</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>
+                                <span class="n">frame_rate</span><span class="o">=</span><span class="n">framerate</span><span class="p">,</span>
+                                <span class="n">sample_width</span><span class="o">=</span><span class="n">interleaved</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span><span class="p">,</span>
+                                <span class="n">channels</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">interleaved</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                               <span class="p">)</span>
+    <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">dubseg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="silent"><a class="viewcode-back" href="../audiosegment.html#audiosegment.silent">[docs]</a><span class="k">def</span> <span class="nf">silent</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="mi">11025</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Creates an AudioSegment object of the specified duration/frame_rate filled with digital silence.</span>
@@ -879,95 +1202,10 @@
     <span class="n">seg</span> <span class="o">=</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">silent</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">duration</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="n">frame_rate</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
 
-<span class="c1"># Tests</span>
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="c1">#Uncomment to test</span>
-    <span class="c1">#import matplotlib.pyplot as plt</span>
-
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;For testing this module, USAGE:&quot;</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;path to wave file.wav&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)))</span>
-        <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reading in the wave file...&quot;</span><span class="p">)</span>
-    <span class="n">seg</span> <span class="o">=</span> <span class="n">from_file</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Information:&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Channels:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">channels</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bits per sample:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">sample_width</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Sampling frequency:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Length:&quot;</span><span class="p">,</span> <span class="n">seg</span><span class="o">.</span><span class="n">duration_seconds</span><span class="p">,</span> <span class="s2">&quot;seconds&quot;</span><span class="p">)</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Resampling to 32kHz, mono, 16-bit...&quot;</span><span class="p">)</span>
-    <span class="n">seg</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="o">=</span><span class="mi">32000</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trimming to 30 ms slices...&quot;</span><span class="p">)</span>
-    <span class="n">slices</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">dice</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Got&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">slices</span><span class="p">),</span> <span class="s2">&quot;slices.&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Durations in seconds of each slice:&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">sl</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">])</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Doing FFT and plotting the histogram...&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Computing the FFT...&quot;</span><span class="p">)</span>
-    <span class="n">hist_bins</span><span class="p">,</span> <span class="n">hist_vals</span> <span class="o">=</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3000</span><span class="p">]</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
-    <span class="n">hist_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Plotting...&quot;</span><span class="p">)</span>
-<span class="c1">#    hist_vals = 10 * np.log10(hist_vals + 1e-9)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">hist_vals</span><span class="p">)</span><span class="c1">#, linewidth=0.02)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;kHz&quot;</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;dB&quot;</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Doing a spectrogram...&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Computing overlapping FFTs...&quot;</span><span class="p">)</span>
-    <span class="n">hist_bins</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3000</span><span class="p">]</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">window_length_s</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-    <span class="n">hist_bins</span> <span class="o">=</span> <span class="n">hist_bins</span> <span class="o">/</span> <span class="mi">1000</span>
-    <span class="n">amplitudes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>
-    <span class="n">amplitudes</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">amplitudes</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; Plotting...&quot;</span><span class="p">)</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">hist_bins</span><span class="p">)]</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Detecting voice...&quot;</span><span class="p">)</span>
-    <span class="n">results</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">detect_voice</span><span class="p">(</span><span class="n">prob_detect_voice</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
-    <span class="n">voiced</span> <span class="o">=</span> <span class="p">[</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;v&#39;</span><span class="p">]</span>
-    <span class="n">unvoiced</span> <span class="o">=</span> <span class="p">[</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;u&#39;</span><span class="p">]</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; reducing voiced segments to a single wav file &#39;voiced.wav&#39;&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">voiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">voiced_segment</span> <span class="o">=</span> <span class="n">voiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">voiced</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">voiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">voiced_segment</span> <span class="o">=</span> <span class="n">voiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">voiced_segment</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">voiced_segment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">voiced_segment</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;voiced.wav&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |-&gt; reducing unvoiced segments to a single wav file &#39;unvoiced.wav&#39;&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unvoiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">unvoiced_segment</span> <span class="o">=</span> <span class="n">unvoiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">unvoiced</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">unvoiced</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">unvoiced_segment</span> <span class="o">=</span> <span class="n">unvoiced</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">unvoiced_segment</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">unvoiced_segment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">unvoiced_segment</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;unvoiced.wav&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;WAV&quot;</span><span class="p">)</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Splitting into frames...&quot;</span><span class="p">)</span>
-    <span class="n">segments</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">seg</span><span class="o">.</span><span class="n">generate_frames_as_segments</span><span class="p">(</span><span class="n">frame_duration_ms</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Got this many segments after splitting them up into one second frames:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">segments</span><span class="p">))</span>
-
-    <span class="k">if</span> <span class="n">voiced_segment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Removing silence from voiced...&quot;</span><span class="p">)</span>
-        <span class="n">seg</span> <span class="o">=</span> <span class="n">voiced_segment</span><span class="o">.</span><span class="n">filter_silence</span><span class="p">()</span>
-        <span class="n">outname_silence</span> <span class="o">=</span> <span class="s2">&quot;nosilence.wav&quot;</span>
-        <span class="n">seg</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">outname_silence</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;wav&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After removal:&quot;</span><span class="p">,</span> <span class="n">outname_silence</span><span class="p">)</span>
-
 </pre></div>
 
            </div>
-           <div class="articleComments">
-            
-           </div>
+           
           </div>
           <footer>
   
@@ -980,7 +1218,7 @@
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -999,6 +1237,7 @@
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
             VERSION:'',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -1011,19 +1250,13 @@
 
   
 
-  
-  
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
-  
+  <script type="text/javascript" src="../_static/js/theme.js"></script>
 
-  
-  
   <script type="text/javascript">
       jQuery(function () {
-          SphinxRtdTheme.StickyNav.enable();
+          SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-   
+  </script> 
 
 </body>
 </html>
