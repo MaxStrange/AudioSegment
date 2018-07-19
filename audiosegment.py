@@ -120,7 +120,7 @@ class AudioSegment:
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
     @staticmethod
-    def _bandpass_filter(data, low, high, fs, order=5):
+    def bandpass_filter(data, low, high, fs, order=5):
         """
         :param data: The data (numpy array) to be filtered.
         :param low: The low cutoff in Hz.
@@ -178,27 +178,36 @@ class AudioSegment:
             plt.clf()
 
         # Normalize self into 25dB average SPL
+        # TODO: Normalization algorithm doesn't currently work
         normalized = self.normalize_spl_by_average(db=25)
-        visualize_time_domain(normalized.to_numpy_array(), "Normalized")
-        # Do a band-pass filter in each frequency
+        #visualize_time_domain(normalized.to_numpy_array(), "Normalized")
+
+        # Logspace to get all the frequency channels we are after
         data = normalized.to_numpy_array()
         start_frequency = 50
         stop_frequency = 8000
         start = np.log10(start_frequency)
         stop = np.log10(stop_frequency)
+        # TODO: Increase `num` to the real value at some point
+        # TODO: Think about whether `base` should be 10 or not
         frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
-        print("Dealing with the following frequencies:", frequencies)
-        rows = [AudioSegment._bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+
+        # Do a band-pass filter in each frequency
+        # TODO: Check the boundaries on this filter from the paper to see if these are right
+        rows = [AudioSegment.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
         rows = np.array(rows)
         spect = np.vstack(rows)
         visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
 
         # Half-wave rectify each frequency channel
+        # TODO: Make this not output annoying warnings
         spect[spect < 0] = 0
         visualize(spect, frequencies, "After half-wave rectification in each frequency")
 
         # Low-pass filter each frequency channel
-        spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 30, self.frame_rate, 6)
+        low_boundary = 30
+        order = 6
+        spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
         visualize(spect, frequencies, "After low-pass filtering in each frequency")
 
         # Downsample each frequency to 400 Hz
@@ -212,14 +221,15 @@ class AudioSegment:
 
         # Smoothing
         scales = [(6, 1/4), (6, 1/14), (1/2, 1/14)]
+        # TODO: What do we do with thetas?
         thetas = [0.95,     0.95,      0.85]
         ## For each (sc, st) scale, smooth across time using st, then across frequency using sc
         gaussian = lambda x, mu, sig: np.exp(-np.power(x - mu, 2.0) / (2 * np.power(sig, 2.0)))
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
         for sc, st in scales:
+            # TODO: What am I supposed to do with time_smoothed and freq_smoothed? I don't do anything with them yet
             time_smoothed = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
-            visualize(time_smoothed, frequencies, "After time smoothing with scale: " + str(st))
             freq_smoothed = np.apply_along_axis(np.convolve, 0, spect, gaussian_kernel(sc))
             spectrograms.append(freq_smoothed)
             visualize(freq_smoothed, frequencies, "After time and frequency smoothing with scales (freq) " + str(sc) + " and (time) " + str(st))
@@ -758,10 +768,12 @@ class AudioSegment:
             """Calculates the (positive) 'PCM' value for the given SPl val"""
             return 10 ** (val / 20.0)
 
+        # TODO: This doesn't seem to work - the math is right, but the resultant SPL way overshoots the mark
+        #       I must be misunderstanding something... too tired to think about it right now...
         # Convert dB into 'PCM'
         db_pcm = inverse_spl(db)
         # Calculate current 'PCM' average
-        curavg = np.abs(np.mean(self.to_numpy_array()))
+        curavg = np.mean(np.abs(self.to_numpy_array()))
         # Calculate ratio of dB_pcm / curavg_pcm
         ratio = db_pcm / curavg
         # Multiply all values by ratio
