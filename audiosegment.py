@@ -235,47 +235,63 @@ class AudioSegment:
             plt.show()
             plt.clf()
 
+        def visualize_peaks_and_valleys(peaks, valleys, spect):
+            i = 0
+            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+                plt.subplot(spect.shape[0], 1, index + 1)
+                if i == 0:
+                    plt.title("Peaks (red) and Valleys (blue)")
+                    i +=1
+                plt.ylabel("{0:.0f}".format(freq))
+                plt.plot(row)
+                plt.plot(peaks, 'ro')
+                plt.plot(valleys, 'bo')
+            plt.show()
+            plt.clf()
+
         # Normalize self into 25dB average SPL
         # TODO: Normalization algorithm doesn't currently work
-        normalized = self.normalize_spl_by_average(db=25)
+        normalized = self.normalize_spl_by_average(db=60)
         #visualize_time_domain(normalized.to_numpy_array(), "Normalized")
 
-        visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
+        spect, frequencies = normalized.filter_bank(nfilters=10)  # TODO: replace with correct number from paper
+        #visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
 
         # Half-wave rectify each frequency channel
         # TODO: Make this not output annoying warnings
         spect[spect < 0] = 0
-        visualize(spect, frequencies, "After half-wave rectification in each frequency")
+        #visualize(spect, frequencies, "After half-wave rectification in each frequency")
 
         # Low-pass filter each frequency channel
         low_boundary = 30
         order = 6
         spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
-        visualize(spect, frequencies, "After low-pass filtering in each frequency")
+        #visualize(spect, frequencies, "After low-pass filtering in each frequency")
 
         # Downsample each frequency to 400 Hz
         downsample_freq_hz = 400
         if self.frame_rate > downsample_freq_hz:
             step = int(round(self.frame_rate / downsample_freq_hz))
             spect = spect[:, ::step]
-        visualize(spect, frequencies, "After downsampling in each frequency")
+        #visualize(spect, frequencies, "After downsampling in each frequency")
 
         # Now you have the temporal envelope of each frequency channel
 
         # Smoothing
         scales = [(6, 1/4), (6, 1/14), (1/2, 1/14)]
-        # TODO: What do we do with thetas?
         thetas = [0.95,     0.95,      0.85]
         ## For each (sc, st) scale, smooth across time using st, then across frequency using sc
         gaussian = lambda x, mu, sig: np.exp(-np.power(x - mu, 2.0) / (2 * np.power(sig, 2.0)))
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
         for sc, st in scales:
-            # TODO: What am I supposed to do with time_smoothed and freq_smoothed? I don't do anything with them yet
             time_smoothed = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
-            freq_smoothed = np.apply_along_axis(np.convolve, 0, spect, gaussian_kernel(sc))
+            freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
             spectrograms.append(freq_smoothed)
-            visualize(freq_smoothed, frequencies, "After time and frequency smoothing with scales (freq) " + str(sc) + " and (time) " + str(st))
+            #visualize(freq_smoothed, frequencies, "After time and frequency smoothing with scales (freq) " + str(sc) + " and (time) " + str(st))
+        print("NUMBER OF SPECTROGRAMS:", len(spectrograms))
+        print("SHAPE OF EACH:", [s.shape for s in spectrograms])
+        exit()
         ## Now we have a set of scale-space spectrograms of different scales (sc, st)
 
         # Onset/Offset Detection and Matching
@@ -294,12 +310,15 @@ class AudioSegment:
             Where a 1 means that the value in that time bin in the spectrogram corresponds to
             a peak/valley in the first derivative.
             """
+            print("Input array shape:", s.shape)
             gradient = np.nan_to_num(np.apply_along_axis(np.gradient, 1, s), copy=False)
+            print("Gradient array shape:", gradient.shape)
             half_window = 4
             if do_peaks:
                 indexes = [signal.argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
             else:
                 indexes = [signal.argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
+            print("Indexes:", len(indexes))
             extrema = np.zeros(s.shape)
             for row_index, index_array in enumerate(indexes):
                 # Each index_array is a list of indexes corresponding to all the extrema in a given row
@@ -312,8 +331,13 @@ class AudioSegment:
             onsets = compute_peaks_or_valleys_of_first_derivative(spect)
             # Compute sudden downward changes in spect, these are offsets of events
             offsets = compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
+            print("ONSETS AND OFFSETS:")
+            print(onsets.shape)
+            print(offsets.shape)
+            print("Frequencies:", frequencies)
             print("TOTAL ONSETS:", np.sum(onsets, axis=1))
             print("TOTAL OFFSETS:", np.sum(offsets, axis=1))
+            #visualize_peaks_and_valleys(onsets, offsets, spect)
             exit()
 
             # onsets and offsets are 2D arrays
