@@ -6,6 +6,7 @@ import os
 #testsuites
 import casa
 import fft
+import filterbank
 import normalize
 import read_from_file
 import resample
@@ -37,6 +38,7 @@ if __name__ == "__main__":
     serde.test(normalized)
     slices = trim.test(normalized)
     fft.test(normalized)
+    filterbank.test(normalized)
     spectrogram.test(normalized)
     silence.test(normalized)
     vad.test(normalized)

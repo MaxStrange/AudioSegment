@@ -151,6 +151,64 @@ class AudioSegment:
         y = signal.lfilter(b, a, data)
         return y
 
+    def filter_bank(self, lower_bound_hz=50, upper_bound_hz=8E3, nfilters=128):
+        """
+        Returns a numpy array of shape (nfilters, nsamples), where each
+        row of data is the result of bandpass filtering the audiosegment
+        round a particular frequency. The frequencies are logrithmically
+        spaced from `lower_bound_hz` to `upper_bound_hz` and are returned with
+        the np array.
+
+        .. note:: This method is an approximation of a gammatone filterbank
+                  until I get around to writing an actual gammatone filterbank
+                  function.
+
+        .. code-block:: python
+
+            # Example usage
+            import audiosegment
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            def visualize(spect, frequencies, title=""):
+                # Visualize the result of calling seg.filter_bank() for any number of filters
+                i = 0
+                for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+                    plt.subplot(spect.shape[0], 1, index + 1)
+                    if i == 0:
+                        plt.title(title)
+                        i += 1
+                    plt.ylabel("{0:.0f}".format(freq))
+                    plt.plot(row)
+                plt.show()
+    
+            seg = audiosegment.from_file("some_audio.wav").resample(sample_rate_Hz=24000, sample_width=2, channels=1)
+            spec, frequencies = seg.filter_bank(nfilters=5)
+            visualize(spec, frequencies)
+
+        .. image:: images/filter_bank.png
+
+        :param lower_bound_hz:  The lower bound of the frequencies to use in the bandpass filters.
+        :param upper_bound_hz:  The upper bound of the frequencies to use in the bandpass filters.
+        :param nfilters:        The number of filters to apply. This will determine which frequencies
+                                are used as well, as they are log-space interpolated between
+                                `lower_bound_hz` and `upper_bound_hz`.
+        :returns:               A numpy array of the form (nfilters, nsamples), where each row is the
+                                audiosegment, bandpass-filtered around a particular frequency,
+                                and the list of frequencies. I.e., returns (spec, freqs).
+        """
+        # Logspace to get all the frequency channels we are after
+        data = self.to_numpy_array()
+        start = np.log10(lower_bound_hz)
+        stop = np.log10(upper_bound_hz)
+        frequencies = np.logspace(start, stop, num=nfilters, endpoint=True, base=10.0)
+
+        # Do a band-pass filter in each frequency
+        rows = [AudioSegment.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = np.array(rows)
+        spect = np.vstack(rows)
+        return spect, frequencies
+
     def auditory_scene_analysis(self):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
@@ -182,21 +240,6 @@ class AudioSegment:
         normalized = self.normalize_spl_by_average(db=25)
         #visualize_time_domain(normalized.to_numpy_array(), "Normalized")
 
-        # Logspace to get all the frequency channels we are after
-        data = normalized.to_numpy_array()
-        start_frequency = 50
-        stop_frequency = 8000
-        start = np.log10(start_frequency)
-        stop = np.log10(stop_frequency)
-        # TODO: Increase `num` to the real value at some point
-        # TODO: Think about whether `base` should be 10 or not
-        frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
-
-        # Do a band-pass filter in each frequency
-        # TODO: Check the boundaries on this filter from the paper to see if these are right
-        rows = [AudioSegment.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
-        rows = np.array(rows)
-        spect = np.vstack(rows)
         visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
 
         # Half-wave rectify each frequency channel
@@ -944,31 +987,6 @@ class AudioSegment:
                      }
         dtype = dtype_dict[self.sample_width]
         return np.array(self.get_array_of_samples(), dtype=dtype)
-
-    @deprecated
-    def trim_to_minutes(self, strip_last_seconds=False):
-        """
-        Returns a list of minute-long (at most) Segment objects.
-
-        .. note:: This function has been deprecated. Use the `dice` function instead.
-
-        :param strip_last_seconds: If True, this method will return minute-long segments,
-                                   but the last three seconds of this AudioSegment won't be returned.
-                                   This is useful for removing the microphone artifact at the end of the recording.
-        :returns: A list of AudioSegment objects, each of which is one minute long at most
-                  (and only the last one - if any - will be less than one minute).
-        """
-        outs = self.dice(seconds=60, zero_pad=False)
-
-        # Now cut out the last three seconds of the last item in outs (it will just be microphone artifact)
-        # or, if the last item is less than three seconds, just get rid of it
-        if strip_last_seconds:
-            if outs[-1].duration_seconds > 3:
-                outs[-1] = outs[-1][:-MS_PER_S * 3]
-            else:
-                outs = outs[:-1]
-
-        return outs
 
     def zero_extend(self, duration_s=None, num_samples=None):
         """

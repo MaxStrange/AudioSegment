@@ -4,6 +4,7 @@ Remove-Item audiosegment.egg-info -Recurse -Force
 
 pipreqs --force .
 
+python .\build_the_docs.py
 python setup.py bdist_wheel
 
 twine upload dist/*
