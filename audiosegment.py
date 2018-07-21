@@ -249,7 +249,58 @@ class AudioSegment:
                 elif not do_peaks:
                     # Note that we do not remove under-threshold values from the offsets - these will be taken care of later in the algo
                     extrema[row_index, col_index] = 1
-        return extrema
+        return extrema, gradient
+
+    @staticmethod
+    def _correlate_onsets_and_offsets(onsets, offsets, gradients):
+        """
+        Takes an array of onsets and an array of offsets, of the shape [nfrequencies, nsamples], where
+        each item in these arrays is either a 0 (not an on/offset) or a 1 (a possible on/offset).
+
+        This function returns a new offsets array, where there is a one-to-one correlation between
+        onsets and offsets, such that each onset has exactly one offset that occurs after it in
+        the time domain (the second dimension of the array).
+
+        The gradients array is used to decide which offset to use in the case of multiple possibilities.
+        """
+        # For each freq channel:
+        for freq_index, (ons, offs) in enumerate(zip(onsets[:, :], offsets[:, :])):
+            # Scan along onsets[f, :] until we find the first 1
+            indexes_of_all_ones = np.reshape(np.where(ons == 1), (-1,))
+
+            # Zero out anything in the offsets up to (and including) this point
+            # since we can't have an offset before the first onset
+            last_idx = indexes_of_all_ones[0]
+            offs[0:last_idx + 1] = 0
+
+            if len(indexes_of_all_ones > 1):
+                # Do the rest of this only if we have more than one onset in this frequency band
+                for next_idx in indexes_of_all_ones[1:]:
+                    # Get all the indexes of possible offsets from onset index to next onset index
+                    offset_choices = offs[last_idx:next_idx]
+                    offset_choice_indexes = np.where(offset_choices == 1)
+
+                    # Assert that there is at least one offset choice
+                    assert np.any(offset_choices), "Offsets from {} to {} only include zeros".format(last_idx, next_idx)
+
+                    # If we have more than one choice, the offset index is the one that corresponds to the most negative gradient value
+                    # Convert the offset_choice_indexes to indexes in the whole offset array, rather than just the offset_choices array
+                    offset_choice_indexes = np.reshape(last_idx + offset_choice_indexes, (-1,))
+                    assert np.all(offsets[freq_index, offset_choice_indexes])
+                    gradient_values = gradients[freq_index, offset_choice_indexes]
+                    index_of_largest_from_gradient_values = np.where(gradient_values == np.min(gradient_values))[0]
+                    index_of_largest_offset_choice = offset_choice_indexes[index_of_largest_from_gradient_values]
+                    assert offsets[freq_index, index_of_largest_offset_choice] == 1
+
+                    # Zero the others
+                    offsets[freq_index, offset_choice_indexes] = 0
+                    offsets[freq_index, index_of_largest_offset_choice] = 1
+                    last_idx = next_idx
+            else:
+                # We only have one onset in this frequency band, so the offset will be the very last sample
+                offsets[freq_index, :] = 0
+                offsets[freq_index, -1] = 1
+        return offsets
 
     def auditory_scene_analysis(self):
         """
@@ -346,13 +397,13 @@ class AudioSegment:
         # Onset/Offset Detection and Matching
         for spect, (sc, st) in zip(spectrograms, scales):
             # Compute sudden upward changes in spect, these are onsets of events
-            onsets = AudioSegment._compute_peaks_or_valleys_of_first_derivative(spect)
+            onsets, gradients = AudioSegment._compute_peaks_or_valleys_of_first_derivative(spect)
 
             # Compute sudden downward changes in spect, these are offsets of events
-            offsets = AudioSegment._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
+            offsets, _ = AudioSegment._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
 
             # Correlate offsets with onsets so that we have a 1:1 relationship
-            # TODO
+            offsets = AudioSegment._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
             visualize_peaks_and_valleys(onsets, offsets, spect)
             exit()
