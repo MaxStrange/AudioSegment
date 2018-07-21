@@ -302,6 +302,17 @@ class AudioSegment:
                 offsets[freq_index, -1] = 1
         return offsets
 
+    @staticmethod
+    def _form_onset_offset_fronts(ons_or_offs, sample_rate_hz, threshold_ms=20):
+        """
+        Takes an array of onsets or offsets (shape = [nfrequencies, nsamples], where a 1 corresponds to an on/offset,
+        and samples are 0 otherwise), and returns a new array of the same shape, where each 1 has been replaced by
+        either a 0, if the on/offset has been absorbed into a front, or a non-zero positive integer, such that
+        each front within the array has a unique ID - for example, all 1s in the array will be the front for on/offset
+        front 1, and all the 15s will be the front for on/offset front 15, etc.
+        """
+        pass
+
     def auditory_scene_analysis(self):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
@@ -349,6 +360,30 @@ class AudioSegment:
             plt.show()
             plt.clf()
 
+        def visualize_fronts(onsets, offsets, spect):
+            i = 0
+            # Reverse everything to make it have the low fs at the bottom of the figure
+            onsets = onsets[::-1, :]
+            offsets = offsets[::-1, :]
+            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+                plt.subplot(spect.shape[0], 1, index + 1)
+                if i == 0:
+                    plt.title("Onsets and Offsets")
+                    i +=1
+                plt.ylabel("{0:.0f}".format(freq))
+                plt.plot(row)
+                # Take all non-zero items from onsets/offsets and plot x=index
+                nonzero_indexes_onsets = np.reshape(np.where(onsets[index, :] != 0), (-1,))
+                for x in nonzero_indexes_onsets:
+                    plt.axvline(x=x, color='r', linestyle='--')
+                nonzero_indexes_offsets = np.reshape(np.where(offsets[index, :] != 0), (-1,))
+                for x in nonzero_indexes_offsets:
+                    plt.axvline(x=x, color='g', linestyle='--')
+            plt.show()
+            plt.clf()
+
+        # TODO: Add actual spectrogram visualization
+
         ########### ALGORITHM ITSELF #############
 
         # Normalize self into 25dB average SPL
@@ -368,7 +403,7 @@ class AudioSegment:
         order = 6
         spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
 
-        # Downsample each frequency to 400 Hz
+        # Downsample each frequency
         downsample_freq_hz = 400
         if self.frame_rate > downsample_freq_hz:
             step = int(round(self.frame_rate / downsample_freq_hz))
@@ -406,17 +441,14 @@ class AudioSegment:
             offsets = AudioSegment._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
             visualize_peaks_and_valleys(onsets, offsets, spect)
+
+            # Create onset/offset fronts
+            # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
+            visualize_fronts(onsets, offsets, spect)
+            onsets = AudioSegment._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
+            offsets = AudioSegment._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
             exit()
 
-            # onsets and offsets are 2D arrays
-
-            ## Determine the offset time for each onset:
-            ### If t_on[c, i] represents the time of the ith onset in frequency channel c, the corresponding offset
-            ###     must occur between t_on[c, i] and t_on[c, i+1]
-            ### If there are more than one offsets candidates in this range, choose the one with largest intensity decrease.
-            ## Create onset/offset fronts by connecting onsets across frequency channels (connect two onsets
-            ##      if they occur within 20ms of each other). Start over whenever a frequency band does not contain an offset
-            ##      in this range. Do the same procedure for offsets. Now you have onset and offset fronts.
             ## Now hook up the onsets with the offsets to form segments:
             ##      For each onset front, (t_on[c, i1, t_on[c + 1, i2], ..., t_on[c + m - 1, im]):
             ##          matching_offsets = (t_off[c, i1], t_off[c + 1, i2], ..., t_off[c + m - 1, im])

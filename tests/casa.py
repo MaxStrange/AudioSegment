@@ -5,6 +5,7 @@ import read_from_file
 import sys
 
 def test(seg):
+    # 20s of audio
     seg[:20000].auditory_scene_analysis()
 
 if __name__ == "__main__":
