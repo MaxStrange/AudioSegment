@@ -307,11 +307,91 @@ class AudioSegment:
         """
         Takes an array of onsets or offsets (shape = [nfrequencies, nsamples], where a 1 corresponds to an on/offset,
         and samples are 0 otherwise), and returns a new array of the same shape, where each 1 has been replaced by
-        either a 0, if the on/offset has been absorbed into a front, or a non-zero positive integer, such that
-        each front within the array has a unique ID - for example, all 1s in the array will be the front for on/offset
-        front 1, and all the 15s will be the front for on/offset front 15, etc.
+        either a 0, if the on/offset has been discarded, or a non-zero positive integer, such that
+        each front within the array has a unique ID - for example, all 2s in the array will be the front for on/offset
+        front 2, and all the 15s will be the front for on/offset front 15, etc.
+
+        Due to implementation details, there will be no 1 IDs.
         """
-        pass
+        threshold_s = threshold_ms / 1000
+        threshold_samples = sample_rate_hz * threshold_s
+
+        ons_or_offs = np.copy(ons_or_offs)
+
+        claimed = []
+        this_id = 2
+        # For each frequency,
+        for frequency_index, row in enumerate(ons_or_offs[:, :]):
+            ones = np.reshape(np.where(row == 1), (-1,))
+            print("FREQUENCY:", frequency_index, "ROW:", row, "Ones in this row:", ones)
+
+            # for each 1 in that frequency,
+            for top_level_frequency_one_index in ones:
+                claimed.append((frequency_index, top_level_frequency_one_index))
+                print("  Claiming", top_level_frequency_one_index, "in row", frequency_index)
+
+                found_a_front = False
+                # for each frequencies[i:],
+                for other_frequency_index, other_row in enumerate(ons_or_offs[frequency_index + 1:, :], start=frequency_index + 1):
+                    print("    Checking row", other_frequency_index, "for ones within", threshold_samples, "samples")
+
+                    # for each non-claimed 1 which is less than theshold_ms away in time,
+                    upper_limit_index = top_level_frequency_one_index + threshold_samples
+                    lower_limit_index = top_level_frequency_one_index - threshold_samples
+                    print("      UPPER LIMIT:", upper_limit_index)
+                    print("      LOWER LIMIT:", lower_limit_index)
+                    other_ones = np.reshape(np.where(other_row == 1), (-1,))  # Get the indexes of all the 1s in row
+                    tmp = np.reshape(np.where((other_ones >= lower_limit_index)  # Get the indexes in the other_ones array of all items in bounds
+                                            & (other_ones <= upper_limit_index)), (-1,))
+                    other_ones = other_ones[tmp]  # Get the indexes of all the 1s in the row that are in bounds
+                    print("      !! OTHER ONES:", other_ones)
+                    print("      Ones in row", other_frequency_index)
+                    print("      Row", other_frequency_index, "Looks like:", other_row)
+                    print("      Ones in row", other_frequency_index, "that are within bounds", other_ones)
+                    if len(other_ones) > 0:
+                        unclaimed_idx = other_ones[0]  # Take the first one
+                        print("        Claiming", unclaimed_idx, "from row", other_frequency_index)
+                        claimed.append((other_frequency_index, unclaimed_idx))
+                    elif len(claimed) < 3:
+                        # revert the top-most 1 to 0
+                        print("      Failed to find any ones in this row that are within bounds")
+                        print("      Reverting top-level one")
+                        ons_or_offs[frequency_index, top_level_frequency_one_index] = 0
+                        claimed = []
+                        break  # Break from the for-each-frequencies[i:] loop so we can move on to the next item in the top-most freq
+                    elif len(claimed) >= 3:
+                        print("      Found enough ones to form a front, though did not find one in this frequency.")
+                        found_a_front = True
+                        # this group of so-far-claimed forms a front
+                        claimed_as_indexes = tuple(np.array(claimed).T)
+                        print("MASK:", claimed_as_indexes)
+                        print("      ons_or_offs before applying mask:\n", ons_or_offs)
+                        ons_or_offs[claimed_as_indexes] = this_id
+                        print("      ons_or_offs after applying mask:\n", ons_or_offs)
+                        this_id += 1
+                        print("      New ID:", this_id)
+                        claimed = []
+                        break  # Move on to the next item in the top-most array
+                # If we never found a frequency that did not have a matching offset, handle that case here
+                if len(claimed) >= 3:
+                    print("    Done looking through the frequencies for others. Found enough, so forming a front.")
+                    claimed_as_indexes = tuple(np.array(claimed).T)
+                    print("MASK:", claimed_as_indexes)
+                    print("    ons_or_offs before applying mask:\n", ons_or_offs)
+                    ons_or_offs[claimed_as_indexes] = this_id
+                    print("    ons_or_offs after applying mask:\n", ons_or_offs)
+                    this_id += 1
+                    print("    New ID:", this_id)
+                    claimed = []
+                elif found_a_front:
+                    print("    Done looking through the frequencies for others, found enough and already formed a front.")
+                    this_id += 1
+                else:
+                    print("    Done looking through the frequencies for others, but could not find enough for a front.")
+                    ons_or_offs[frequency_index, top_level_frequency_one_index] = 0
+                    claimed = []
+
+        return ons_or_offs
 
     def auditory_scene_analysis(self):
         """
@@ -360,7 +440,7 @@ class AudioSegment:
             plt.show()
             plt.clf()
 
-        def visualize_fronts(onsets, offsets, spect):
+        def visualize_fronts(onsets, offsets, spect, visualize_onsets=True):
             i = 0
             # Reverse everything to make it have the low fs at the bottom of the figure
             onsets = onsets[::-1, :]
@@ -372,13 +452,18 @@ class AudioSegment:
                     i +=1
                 plt.ylabel("{0:.0f}".format(freq))
                 plt.plot(row)
-                # Take all non-zero items from onsets/offsets and plot x=index
-                nonzero_indexes_onsets = np.reshape(np.where(onsets[index, :] != 0), (-1,))
-                for x in nonzero_indexes_onsets:
-                    plt.axvline(x=x, color='r', linestyle='--')
-                nonzero_indexes_offsets = np.reshape(np.where(offsets[index, :] != 0), (-1,))
-                for x in nonzero_indexes_offsets:
-                    plt.axvline(x=x, color='g', linestyle='--')
+                # Cycle through all the different onsets and offsets and plot them each
+                colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
+                if visualize_onsets:
+                    nonzero_indexes_onsets = np.reshape(np.where(onsets[index, :] != 0), (-1,))
+                    for x in nonzero_indexes_onsets:
+                        id = int(onsets[index][x])
+                        plt.axvline(x=x, color=colors[id % len(colors)], linestyle='--')
+                else:
+                    nonzero_indexes_offsets = np.reshape(np.where(offsets[index, :] != 0), (-1,))
+                    for x in nonzero_indexes_offsets:
+                        id = int(offsets[index][x])
+                        plt.axvline(x=x, color=colors[id % len(colors)], linestyle='--')
             plt.show()
             plt.clf()
 
@@ -386,7 +471,6 @@ class AudioSegment:
 
         ########### ALGORITHM ITSELF #############
 
-        # Normalize self into 25dB average SPL
         # TODO: Normalization algorithm doesn't currently work
         normalized = self.normalize_spl_by_average(db=60)
 
@@ -444,9 +528,9 @@ class AudioSegment:
 
             # Create onset/offset fronts
             # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
-            visualize_fronts(onsets, offsets, spect)
             onsets = AudioSegment._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
             offsets = AudioSegment._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
+            visualize_fronts(onsets, offsets, spect)
             exit()
 
             ## Now hook up the onsets with the offsets to form segments:
