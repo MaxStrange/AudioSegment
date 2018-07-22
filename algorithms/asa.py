@@ -4,6 +4,7 @@ logic, which has grown to be a little unwieldy in the AudioSegment class.
 """
 import numpy as np
 import scipy.signal as signal
+import sys
 
 def visualize_time_domain(seg, title=""):
     import matplotlib.pyplot as plt
@@ -259,7 +260,6 @@ def _get_front_idxs_from_id(fronts, id):
     """
     freq_idxs, sample_idxs = np.where(fronts == id)
     return [(f, i) for f, i in zip(freq_idxs, sample_idxs)]
-            # get the offset_front which contains the most of these offsets
 
 def _choose_front_id_from_candidates(candidate_offset_front_ids, offset_fronts, offsets_corresponding_to_onsets):
     """
@@ -273,13 +273,85 @@ def _choose_front_id_from_candidates(candidate_offset_front_ids, offset_fronts, 
         noverlap_this_id = len(set(offset_front_idxs).symmetric_difference(set(offsets_corresponding_to_onsets)))
         noverlaps.append((noverlap_this_id, offset_front_id))
     _overlapped, chosen_offset_front_id = max(noverlaps, key=lambda t: t[0])
-    return chosen_offset_front_id
+    return int(chosen_offset_front_id)
 
-            candidate_offset_front_ids = _get_offset_front_ids_after_onset_front(front_id, offset_fronts)
-            # get the latest onset in this onset front
-            # get all offsets which occur after this onset
-            # get all offset fronts which are composed of at least one of these offsets
- 
+def _get_offset_front_id_after_onset_sample_idx(onset_sample_idx, offset_fronts):
+    """
+    Returns the offset_front_id which corresponds to the offset front which occurs
+    first entirely after the given onset sample_idx.
+    """
+    # get all the offset_front_ids
+    offset_front_ids = [i for i in np.unique(offset_fronts) if i != 0]
+
+    best_id_so_far = -1
+    closest_offset_sample_idx = sys.maxsize
+    for offset_front_id in offset_front_ids:
+        # get all that offset front's indexes
+        offset_front_idxs = _get_front_idxs_from_id(offset_fronts, offset_front_id)
+
+        # get the sample indexes
+        offset_front_sample_idxs = [s for _f, s in offset_front_idxs]
+
+        # if each sample index is greater than onset_sample_idx, keep this offset front if it is the best one so far
+        min_sample_idx = min(offset_front_sample_idxs)
+        if min_sample_idx > onset_sample_idx and min_sample_idx < closest_offset_sample_idx:
+            closest_offset_sample_idx = min_sample_idx
+            best_id_so_far = offset_front_id
+
+    assert best_id_so_far > 1 or best_id_so_far == -1
+    return best_id_so_far
+
+def _get_offset_front_id_after_onset_front(onset_front_id, onset_fronts, offset_fronts):
+    """
+    Get the ID corresponding to the offset which occurs first after the given onset_front_id.
+    By `first` I mean the front which contains the offset which is closest to the latest point
+    in the onset front. By `after`, I mean that the offset must contain only offsets which
+    occur after the latest onset in the onset front.
+
+    If there is no appropriate offset front, the id returned is -1.
+    """
+    # get the onset idxs for this front
+    onset_idxs = _get_front_idxs_from_id(onset_fronts, onset_front_id)
+
+    # get the sample idxs for this front
+    onset_sample_idxs = [s for _f, s in onset_idxs]
+
+    # get the latest onset in this onset front
+    latest_onset_in_front = max(onset_sample_idxs)
+
+    offset_front_id_after_this_onset_front = _get_offset_front_id_after_onset_sample_idx(latest_onset_in_front, offset_fronts)
+
+    return int(offset_front_id_after_this_onset_front)
+
+def _match_offset_front_id_to_onset_front_id(onset_front_id, onset_fronts, offset_fronts, onsets, offsets):
+    """
+    Find all offset fronts which are composed of at least one offset which corresponds to one of the onsets in the
+    given onset front.
+    The offset front which contains the most of such offsets is the match.
+    If there are no such offset fronts, return -1.
+    """
+    # find all offset fronts which are composed of at least one offset which corresponds to one of the onsets in the onset front
+    # the offset front which contains the most of such offsets is the match
+
+    # get the onsets that make up front_id
+    onset_idxs = _get_front_idxs_from_id(onset_fronts, onset_front_id)
+
+    # get the offsets that match the onsets in front_id
+    offset_idxs = [_lookup_offset_by_onset_idx(i, onsets, offsets) for i in onset_idxs]
+
+    # get all offset_fronts which contain at least one of these offsets
+    candidate_offset_front_ids = set([int(offset_fronts[f, i]) for f, i in offset_idxs])
+
+    # It is possible that offset_idxs contains offset indexes that correspond to offsets that did not
+    # get formed into a front - those will have a front ID of 0. Remove them.
+    candidate_offset_front_ids = [id for id in candidate_offset_front_ids if id != 0]
+
+    if candidate_offset_front_ids:
+        chosen_offset_front_id = _choose_front_id_from_candidates(candidate_offset_front_ids, offset_fronts, offset_idxs)
+    else:
+        chosen_offset_front_id = _get_offset_front_id_after_onset_front(onset_front_id, onset_fronts, offset_fronts)
+
+    return chosen_offset_front_id
 
 def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     """
@@ -293,39 +365,6 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     """
     onset_front_ids = [int(i) for i in np.unique(onset_fronts) if i != 0]  # 0 means a non-front sample
     for front_id in onset_front_ids:
-        # find all offset fronts which are composed of at least one offset which corresponds to one of the onsets in the onset front
-        # the offset front which contains the most of such offsets is the match
-
-        # get the onsets that make up front_id
-        onset_idxs = _get_front_idxs_from_id(onset_fronts, front_id)
-
-        # get the offsets that match the onsets in front_id
-        offset_idxs = [_lookup_offset_by_onset_idx(i, onsets, offsets) for i in onset_idxs]
-
-        # get all offset_fronts which contain at least one of these offsets
-        candidate_offset_front_ids = set([int(offset_fronts[f, i]) for f, i in offset_idxs])
-
-        # It is possible that offset_idxs contains offset indexes that correspond to offsets that did not
-        # get formed into a front - those will have a front ID of 0. Remove them.
-        candidate_offset_front_ids = [id for id in candidate_offset_front_ids if id != 0]
-
-        if candidate_offset_front_ids:
-            chosen_offset_front_id = _choose_front_id_from_candidates(candidate_offset_front_ids, offset_fronts, offset_idxs)
-        else:
-            candidate_offset_front_ids = _get_offset_front_ids_after_onset_front(front_id, offset_fronts)
-            if candidate_offset_front_ids:
-                # get the offset_front which is composed of the most overlapping frequencies between onset front and this offset front
-                chosen_offset_front_id = _choose_front_id_from_candidates_by_overlapping_frequencies(candidate_offset_front_ids, front_id)
-            else:
-                # the offset_front is simply the end of the audio in each freq channel
-                frequency_idxs = _get_frequency_idxs_by_front(front_id, onset_fronts)
-                offset_fronts = _form_offset_front_by_last_samples_in_frequencies(frequency_idxs, offset_fronts)
-                chosen_offset_front_id = np.amax(offset_fronts)  # The latest offset front formed is the one we just formed, and the one we want
-        print("CHOSE THIS OFFSET FRONT ID:", chosen_offset_front_id)
-                
-
-        ##          Update all t_offs in matching_offsets whose 'c's are in matching_offset_front to be 'matched', and
-        ##          - update their times to the corresponding channel offset in matching_offset_front.
-        ##          If all t_offs in matching_offsets are 'matched', continue to next onset front
-
+        chosen_offset_front_id = _match_offset_front_id_to_onset_front_id(front_id, onset_fronts, offset_fronts, onsets, offsets)
+        # TODO
     # return segmentation_mask
