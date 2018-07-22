@@ -21,6 +21,7 @@ import sys
 import tempfile
 import warnings
 import webrtcvad
+from algorithms import asa
 
 MS_PER_S = 1000
 S_PER_MIN = 60
@@ -209,268 +210,11 @@ class AudioSegment:
         spect = np.vstack(rows)
         return spect, frequencies
 
-    @staticmethod
-    def _compute_peaks_or_valleys_of_first_derivative(s, do_peaks=True):
-        """
-        Takes a spectrogram and returns a 2D array of the form:
-
-        0 0 0 1 0 0 1 0 0 0 1   <-- Frequency 0
-        0 0 1 0 0 0 0 0 0 1 0   <-- Frequency 1
-        0 0 0 0 0 0 1 0 1 0 0   <-- Frequency 2
-        *** Time axis *******
-
-        Where a 1 means that the value in that time bin in the spectrogram corresponds to
-        a peak/valley in the first derivative.
-
-        This function is used as part of the ASA algorithm and is not meant to be used publicly.
-        """
-        # Get the first derivative of each frequency in the time domain
-        gradient = np.nan_to_num(np.apply_along_axis(np.gradient, 1, s), copy=False)
-
-        # Calculate the value we will use for determinig whether something is an event or not
-        threshold = np.squeeze(np.nanmean(gradient, axis=1) + np.nanstd(gradient, axis=1))
-
-        # Look for relative extrema along the time dimension
-        half_window = 4
-        if do_peaks:
-            indexes = [signal.argrelextrema(gradient[i, :], np.greater, order=half_window)[0] for i in range(gradient.shape[0])]
-        else:
-            indexes = [signal.argrelextrema(gradient[i, :], np.less, order=half_window)[0] for i in range(gradient.shape[0])]
-
-        # indexes should now contain the indexes of possible extrema
-        # But we need to filter out values that are not large enough, and we want the end result
-        # to be a 1 or 0 mask corresponding to locations of extrema
-        extrema = np.zeros(s.shape)
-        for row_index, index_array in enumerate(indexes):
-            # Each index_array is a list of indexes corresponding to all the extrema in a given row
-            for col_index in index_array:
-                if do_peaks and (gradient[row_index, col_index] > threshold[row_index]):
-                    extrema[row_index, col_index] = 1
-                elif not do_peaks:
-                    # Note that we do not remove under-threshold values from the offsets - these will be taken care of later in the algo
-                    extrema[row_index, col_index] = 1
-        return extrema, gradient
-
-    @staticmethod
-    def _correlate_onsets_and_offsets(onsets, offsets, gradients):
-        """
-        Takes an array of onsets and an array of offsets, of the shape [nfrequencies, nsamples], where
-        each item in these arrays is either a 0 (not an on/offset) or a 1 (a possible on/offset).
-
-        This function returns a new offsets array, where there is a one-to-one correlation between
-        onsets and offsets, such that each onset has exactly one offset that occurs after it in
-        the time domain (the second dimension of the array).
-
-        The gradients array is used to decide which offset to use in the case of multiple possibilities.
-        """
-        # For each freq channel:
-        for freq_index, (ons, offs) in enumerate(zip(onsets[:, :], offsets[:, :])):
-            # Scan along onsets[f, :] until we find the first 1
-            indexes_of_all_ones = np.reshape(np.where(ons == 1), (-1,))
-
-            # Zero out anything in the offsets up to (and including) this point
-            # since we can't have an offset before the first onset
-            last_idx = indexes_of_all_ones[0]
-            offs[0:last_idx + 1] = 0
-
-            if len(indexes_of_all_ones > 1):
-                # Do the rest of this only if we have more than one onset in this frequency band
-                for next_idx in indexes_of_all_ones[1:]:
-                    # Get all the indexes of possible offsets from onset index to next onset index
-                    offset_choices = offs[last_idx:next_idx]
-                    offset_choice_indexes = np.where(offset_choices == 1)
-
-                    # Assert that there is at least one offset choice
-                    assert np.any(offset_choices), "Offsets from {} to {} only include zeros".format(last_idx, next_idx)
-
-                    # If we have more than one choice, the offset index is the one that corresponds to the most negative gradient value
-                    # Convert the offset_choice_indexes to indexes in the whole offset array, rather than just the offset_choices array
-                    offset_choice_indexes = np.reshape(last_idx + offset_choice_indexes, (-1,))
-                    assert np.all(offsets[freq_index, offset_choice_indexes])
-                    gradient_values = gradients[freq_index, offset_choice_indexes]
-                    index_of_largest_from_gradient_values = np.where(gradient_values == np.min(gradient_values))[0]
-                    index_of_largest_offset_choice = offset_choice_indexes[index_of_largest_from_gradient_values]
-                    assert offsets[freq_index, index_of_largest_offset_choice] == 1
-
-                    # Zero the others
-                    offsets[freq_index, offset_choice_indexes] = 0
-                    offsets[freq_index, index_of_largest_offset_choice] = 1
-                    last_idx = next_idx
-            else:
-                # We only have one onset in this frequency band, so the offset will be the very last sample
-                offsets[freq_index, :] = 0
-                offsets[freq_index, -1] = 1
-        return offsets
-
-    @staticmethod
-    def _form_onset_offset_fronts(ons_or_offs, sample_rate_hz, threshold_ms=20):
-        """
-        Takes an array of onsets or offsets (shape = [nfrequencies, nsamples], where a 1 corresponds to an on/offset,
-        and samples are 0 otherwise), and returns a new array of the same shape, where each 1 has been replaced by
-        either a 0, if the on/offset has been discarded, or a non-zero positive integer, such that
-        each front within the array has a unique ID - for example, all 2s in the array will be the front for on/offset
-        front 2, and all the 15s will be the front for on/offset front 15, etc.
-
-        Due to implementation details, there will be no 1 IDs.
-        """
-        threshold_s = threshold_ms / 1000
-        threshold_samples = sample_rate_hz * threshold_s
-
-        ons_or_offs = np.copy(ons_or_offs)
-
-        claimed = []
-        this_id = 2
-        # For each frequency,
-        for frequency_index, row in enumerate(ons_or_offs[:, :]):
-            ones = np.reshape(np.where(row == 1), (-1,))
-            print("FREQUENCY:", frequency_index, "ROW:", row, "Ones in this row:", ones)
-
-            # for each 1 in that frequency,
-            for top_level_frequency_one_index in ones:
-                claimed.append((frequency_index, top_level_frequency_one_index))
-                print("  Claiming", top_level_frequency_one_index, "in row", frequency_index)
-
-                found_a_front = False
-                # for each frequencies[i:],
-                for other_frequency_index, other_row in enumerate(ons_or_offs[frequency_index + 1:, :], start=frequency_index + 1):
-                    print("    Checking row", other_frequency_index, "for ones within", threshold_samples, "samples")
-
-                    # for each non-claimed 1 which is less than theshold_ms away in time,
-                    upper_limit_index = top_level_frequency_one_index + threshold_samples
-                    lower_limit_index = top_level_frequency_one_index - threshold_samples
-                    print("      UPPER LIMIT:", upper_limit_index)
-                    print("      LOWER LIMIT:", lower_limit_index)
-                    other_ones = np.reshape(np.where(other_row == 1), (-1,))  # Get the indexes of all the 1s in row
-                    tmp = np.reshape(np.where((other_ones >= lower_limit_index)  # Get the indexes in the other_ones array of all items in bounds
-                                            & (other_ones <= upper_limit_index)), (-1,))
-                    other_ones = other_ones[tmp]  # Get the indexes of all the 1s in the row that are in bounds
-                    print("      !! OTHER ONES:", other_ones)
-                    print("      Ones in row", other_frequency_index)
-                    print("      Row", other_frequency_index, "Looks like:", other_row)
-                    print("      Ones in row", other_frequency_index, "that are within bounds", other_ones)
-                    if len(other_ones) > 0:
-                        unclaimed_idx = other_ones[0]  # Take the first one
-                        print("        Claiming", unclaimed_idx, "from row", other_frequency_index)
-                        claimed.append((other_frequency_index, unclaimed_idx))
-                    elif len(claimed) < 3:
-                        # revert the top-most 1 to 0
-                        print("      Failed to find any ones in this row that are within bounds")
-                        print("      Reverting top-level one")
-                        ons_or_offs[frequency_index, top_level_frequency_one_index] = 0
-                        claimed = []
-                        break  # Break from the for-each-frequencies[i:] loop so we can move on to the next item in the top-most freq
-                    elif len(claimed) >= 3:
-                        print("      Found enough ones to form a front, though did not find one in this frequency.")
-                        found_a_front = True
-                        # this group of so-far-claimed forms a front
-                        claimed_as_indexes = tuple(np.array(claimed).T)
-                        print("MASK:", claimed_as_indexes)
-                        print("      ons_or_offs before applying mask:\n", ons_or_offs)
-                        ons_or_offs[claimed_as_indexes] = this_id
-                        print("      ons_or_offs after applying mask:\n", ons_or_offs)
-                        this_id += 1
-                        print("      New ID:", this_id)
-                        claimed = []
-                        break  # Move on to the next item in the top-most array
-                # If we never found a frequency that did not have a matching offset, handle that case here
-                if len(claimed) >= 3:
-                    print("    Done looking through the frequencies for others. Found enough, so forming a front.")
-                    claimed_as_indexes = tuple(np.array(claimed).T)
-                    print("MASK:", claimed_as_indexes)
-                    print("    ons_or_offs before applying mask:\n", ons_or_offs)
-                    ons_or_offs[claimed_as_indexes] = this_id
-                    print("    ons_or_offs after applying mask:\n", ons_or_offs)
-                    this_id += 1
-                    print("    New ID:", this_id)
-                    claimed = []
-                elif found_a_front:
-                    print("    Done looking through the frequencies for others, found enough and already formed a front.")
-                    this_id += 1
-                else:
-                    print("    Done looking through the frequencies for others, but could not find enough for a front.")
-                    ons_or_offs[frequency_index, top_level_frequency_one_index] = 0
-                    claimed = []
-
-        return ons_or_offs
-
     def auditory_scene_analysis(self):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
         """
-        ######### VISUALIZATION METHODS FOR DEBUGGING ###########
-        import matplotlib.pyplot as plt
-
-        def visualize_time_domain(seg, title=""):
-            plt.plot(seg)
-            plt.title(title)
-            plt.show()
-            plt.clf()
-
-        def visualize(spect, frequencies, title=""):
-            i = 0
-            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-                plt.subplot(spect.shape[0], 1, index + 1)
-                if i == 0:
-                    plt.title(title)
-                    i += 1
-                plt.ylabel("{0:.0f}".format(freq))
-                plt.plot(row)
-            plt.show()
-            plt.clf()
-
-        def visualize_peaks_and_valleys(peaks, valleys, spect):
-            i = 0
-            # Reverse everything to make it have the low fs at the bottom of the figure
-            peaks = peaks[::-1, :]
-            valleys = valleys[::-1, :]
-            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-                plt.subplot(spect.shape[0], 1, index + 1)
-                if i == 0:
-                    plt.title("Peaks (red) and Valleys (blue)")
-                    i +=1
-                plt.ylabel("{0:.0f}".format(freq))
-                plt.plot(row)
-                these_peaks = peaks[index]
-                peak_values = these_peaks * row  # Mask off anything that isn't a peak
-                these_valleys = valleys[index]
-                valley_values = these_valleys * row  # Mask off anything that isn't a valley
-                plt.plot(peak_values, 'ro')
-                plt.plot(valley_values, 'bo')
-            plt.show()
-            plt.clf()
-
-        def visualize_fronts(onsets, offsets, spect, visualize_onsets=True):
-            i = 0
-            # Reverse everything to make it have the low fs at the bottom of the figure
-            onsets = onsets[::-1, :]
-            offsets = offsets[::-1, :]
-            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-                plt.subplot(spect.shape[0], 1, index + 1)
-                if i == 0:
-                    plt.title("Onsets and Offsets")
-                    i +=1
-                plt.ylabel("{0:.0f}".format(freq))
-                plt.plot(row)
-                # Cycle through all the different onsets and offsets and plot them each
-                colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
-                if visualize_onsets:
-                    nonzero_indexes_onsets = np.reshape(np.where(onsets[index, :] != 0), (-1,))
-                    for x in nonzero_indexes_onsets:
-                        id = int(onsets[index][x])
-                        plt.axvline(x=x, color=colors[id % len(colors)], linestyle='--')
-                else:
-                    nonzero_indexes_offsets = np.reshape(np.where(offsets[index, :] != 0), (-1,))
-                    for x in nonzero_indexes_offsets:
-                        id = int(offsets[index][x])
-                        plt.axvline(x=x, color=colors[id % len(colors)], linestyle='--')
-            plt.show()
-            plt.clf()
-
-        # TODO: Add actual spectrogram visualization
-
-        ########### ALGORITHM ITSELF #############
-
         # TODO: Normalization algorithm doesn't currently work
         normalized = self.normalize_spl_by_average(db=60)
 
@@ -493,59 +237,50 @@ class AudioSegment:
             step = int(round(self.frame_rate / downsample_freq_hz))
             spect = spect[:, ::step]
 
-        # Now you have the temporal envelope of each frequency channel
-
         # Smoothing - we will smooth across time and frequency to further remove noise.
         # But we need to do it with several different combinations of kernels to get the best idea of what's going on
         scales = [(6, 1/4), (6, 1/14), (1/2, 1/14)]
 
-        ## For each (sc, st) scale, smooth across time using st, then across frequency using sc
+        # For each (sc, st) scale, smooth across time using st, then across frequency using sc
         gaussian = lambda x, mu, sig: np.exp(-np.power(x - mu, 2.0) / (2 * np.power(sig, 2.0)))
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
         for sc, st in scales:
             time_smoothed = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
             freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
+
             # Remove especially egregious artifacts
             freq_smoothed[freq_smoothed > 1E3] = 1E3
             freq_smoothed[freq_smoothed < -1E3] = -1E3
             spectrograms.append(freq_smoothed)
 
-        ## Now we have a set of scale-space spectrograms of different scales (sc, st)
-
         # Onset/Offset Detection and Matching
         for spect, (sc, st) in zip(spectrograms, scales):
             # Compute sudden upward changes in spect, these are onsets of events
-            onsets, gradients = AudioSegment._compute_peaks_or_valleys_of_first_derivative(spect)
+            onsets, gradients = asa._compute_peaks_or_valleys_of_first_derivative(spect)
 
             # Compute sudden downward changes in spect, these are offsets of events
-            offsets, _ = AudioSegment._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
+            offsets, _ = asa._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
 
             # Correlate offsets with onsets so that we have a 1:1 relationship
-            offsets = AudioSegment._correlate_onsets_and_offsets(onsets, offsets, gradients)
+            offsets = asa._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
-            visualize_peaks_and_valleys(onsets, offsets, spect)
+            #asa.visualize_peaks_and_valleys(onsets, offsets, spect, frequencies)
 
             # Create onset/offset fronts
             # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
-            onsets = AudioSegment._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
-            offsets = AudioSegment._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
-            visualize_fronts(onsets, offsets, spect)
-            exit()
+            onset_fronts = asa._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
+            offset_fronts = asa._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
+            #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
-            ## Now hook up the onsets with the offsets to form segments:
-            ##      For each onset front, (t_on[c, i1, t_on[c + 1, i2], ..., t_on[c + m - 1, im]):
-            ##          matching_offsets = (t_off[c, i1], t_off[c + 1, i2], ..., t_off[c + m - 1, im])
-            ##          Get all offset fronts which contain at least one of offset time found in matching_offsets
-            ##          Among these offset fronts, the one that crosses the most of matching_offsets is chosen,
-            ##          - call this offset front: matching_offset_front
-            ##          Update all t_offs in matching_offsets whose 'c's are in matching_offset_front to be 'matched', and
-            ##          - update their times to the corresponding channel offset in matching_offset_front.
-            ##          If all t_offs in matching_offsets are 'matched', continue to next onset front
+            segments = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
+
+            # segments = asa._break_poorly_matched_fronts(segments)
             ## Now go through all the segments you have created and break them up along frequencies if the temporal
             ##      envelopes don't match well enough. That is, if we have two adjacent channels c and c+1, and they
             ##      are part of the same segment as determined above, break this segment into two along these lines
             ##      if the correlation between them is below theta_c. Theta_c is thetas[i] where i depends on the scale.
+            exit()
 
         # Multiscale Integration
         ##

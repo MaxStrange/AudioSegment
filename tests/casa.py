@@ -1,19 +1,18 @@
 """
 Tests Computer-aided Auditory Scene Analysis algorithm
 """
-import importlib.util
-__spec = importlib.util.spec_from_file_location("audiosegment", "../audiosegment.py")
-asg = importlib.util.module_from_spec(__spec)
-__spec.loader.exec_module(asg)
+import sys
+sys.path.insert(0, '../')
+import audiosegment as asg
+import algorithms.asa as asa
 import numpy as np
 import read_from_file
-import sys
 
 def _test_front_case(function_input, expected_output, sample_rate_hz, threshold_ms, test_name):
     """
     Test whether AudioSegment._form_onset_offset(function_input, sample_rate_hz, threshold_ms) == expected_output.
     """
-    output = asg.AudioSegment._form_onset_offset_fronts(function_input, sample_rate_hz, threshold_ms)
+    output = asa._form_onset_offset_fronts(function_input, sample_rate_hz, threshold_ms)
     assert np.array_equal(output, expected_output), "\n{}\n!=\n{}\n\nFAILED TEST: {}".format(output, expected_output, test_name)
     print("-------- PASS TEST {}-----------".format(test_name))
 
@@ -194,4 +193,4 @@ def test(seg):
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])
     unittest_front_formation(seg)
-    #test(seg)
+    test(seg)
