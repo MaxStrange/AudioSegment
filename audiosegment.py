@@ -22,6 +22,7 @@ import tempfile
 import warnings
 import webrtcvad
 from algorithms import asa
+from algorithms import eventdetection as detect
 
 MS_PER_S = 1000
 S_PER_MIN = 60
@@ -31,7 +32,6 @@ def deprecated(func):
     """
     Deprecator decorator.
     """
-
     @functools.wraps(func)
     def new_func(*args, **kwargs):
         warnings.warn("Call to deprecated function {}.".format(func.__name__), category=DeprecationWarning, stacklevel=2)
@@ -43,7 +43,6 @@ class AudioSegment:
     """
     This class is a wrapper for a pydub.AudioSegment that provides additional methods.
     """
-
     def __init__(self, pydubseg, name):
         self.seg = pydubseg
         self.name = name
@@ -467,90 +466,21 @@ class AudioSegment:
             raise ValueError("`prob_raw_yes` is a probability, and so must be in the range [0.0, 1.0]")
 
         # Get the yeses or nos for when the filter is triggered (when the event is on/off)
-        filter_indices = [yes_or_no for yes_or_no in self._get_filter_indices(start_as_yes,
-                                                                              prob_raw_yes,
-                                                                              ms_per_input,
-                                                                              model,
-                                                                              transition_matrix,
-                                                                              model_stats)]
+        filter_indices = [yes_or_no for yes_or_no in detect._get_filter_indices(self,
+                                                                                start_as_yes,
+                                                                                prob_raw_yes,
+                                                                                ms_per_input,
+                                                                                model,
+                                                                                transition_matrix,
+                                                                                model_stats)]
+
         # Run a homogeneity filter over the values to make local regions more self-similar (reduce noise)
-        ret = self._homogeneity_filter(filter_indices, window_size=int(round(0.25 * MS_PER_S / ms_per_input)))
+        ret = detect._homogeneity_filter(filter_indices, window_size=int(round(0.25 * MS_PER_S / ms_per_input)))
+
         # Group the consecutive ones together
-        ret = self._group_filter_values(ret, ms_per_input)
+        ret = detect._group_filter_values(self, ret, ms_per_input)
+
         # Take the groups and turn them into AudioSegment objects
-        real_ret = self._reduce_filtered_segments(ret)
-
-        return real_ret
-
-    def _get_filter_indices(self, start_as_yes, prob_raw_yes, ms_per_input, model, transition_matrix, model_stats):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-        """
-        filter_triggered = 1 if start_as_yes else 0
-        prob_raw_no = 1.0 - prob_raw_yes
-        for segment, _timestamp in self.generate_frames_as_segments(ms_per_input):
-            yield filter_triggered
-            observation = int(round(model.predict(segment)))
-            assert observation == 1 or observation == 0, "The given model did not output a 1 or a 0, output: "\
-                   + str(observation)
-            prob_hyp_yes_given_last_hyp = 1.0 - transition_matrix[0] if filter_triggered else transition_matrix[1]
-            prob_hyp_no_given_last_hyp  = transition_matrix[0] if filter_triggered else 1.0 - transition_matrix[1]
-            prob_hyp_yes_given_data = model_stats[0] if observation == 1 else model_stats[1]
-            prob_hyp_no_given_data = 1.0 - model_stats[0] if observation == 1 else 1.0 - model_stats[1]
-            hypothesis_yes = prob_raw_yes * prob_hyp_yes_given_last_hyp * prob_hyp_yes_given_data
-            hypothesis_no  = prob_raw_no * prob_hyp_no_given_last_hyp  * prob_hyp_no_given_data
-            # make a list of ints - each is 0 or 1. The number of 1s is hypotheis_yes * 100
-            # the number of 0s is hypothesis_no * 100
-            distribution = [1 for i in range(int(round(hypothesis_yes * 100)))]
-            distribution.extend([0 for i in range(int(round(hypothesis_no * 100)))])
-            # shuffle
-            random.shuffle(distribution)
-            filter_triggered = random.choice(distribution)
-
-    def _group_filter_values(self, filter_indices, ms_per_input):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-        """
-        ret = []
-        for filter_value, (_segment, timestamp) in zip(filter_indices, self.generate_frames_as_segments(ms_per_input)):
-            if filter_value == 1:
-                if len(ret) > 0 and ret[-1][0] == 'n':
-                    ret.append(['y', timestamp])  # The last one was different, so we create a new one
-                elif len(ret) > 0 and ret[-1][0] == 'y':
-                    ret[-1][1] = timestamp  # The last one was the same as this one, so just update the timestamp
-                else:
-                    ret.append(['y', timestamp])  # This is the first one
-            else:
-                if len(ret) > 0 and ret[-1][0] == 'n':
-                    ret[-1][1] = timestamp
-                elif len(ret) > 0 and ret[-1][0] == 'y':
-                    ret.append(['n', timestamp])
-                else:
-                    ret.append(['n', timestamp])
-        return ret
-
-    def _homogeneity_filter(self, ls, window_size):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-
-        ls is a list of 1s or 0s for when the filter is on or off
-        """
-        k = window_size
-        i = k
-        while i <= len(ls) - k:
-            # Get a window of k items
-            window = [ls[i + j] for j in range(k)]
-            # Change the items in the window to be more like the mode of that window
-            mode = 1 if sum(window) >= k / 2 else 0
-            for j in range(k):
-                ls[i+j] = mode
-            i += k
-        return ls
-
-    def _reduce_filtered_segments(self, ret):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-        """
         real_ret = []
         for i, (this_yesno, next_timestamp) in enumerate(ret):
             if i > 0:
@@ -558,10 +488,14 @@ class AudioSegment:
             else:
                 timestamp = 0
 
-            data = self[timestamp * MS_PER_S:next_timestamp * MS_PER_S].raw_data
+            ms_per_s = 1000
+            data = self[timestamp * ms_per_s:next_timestamp * ms_per_s].raw_data
             seg = AudioSegment(pydub.AudioSegment(data=data, sample_width=self.sample_width,
-                                                  frame_rate=self.frame_rate, channels=self.channels), self.name)
+                                                    frame_rate=self.frame_rate, channels=self.channels), self.name)
             real_ret.append((this_yesno, seg))
+        return real_ret
+
+
         return real_ret
 
     def _execute_sox_cmd(self, cmd, console_output=False):
