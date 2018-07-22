@@ -47,7 +47,7 @@ def visualize_peaks_and_valleys(peaks, valleys, spect, frequencies):
     plt.show()
     plt.clf()
 
-def visualize_fronts(onsets, offsets, spect):
+def visualize_fronts(onsets, offsets, spect, frequencies):
     import matplotlib.pyplot as plt
     i = 0
     # Reverse everything to make it have the low fs at the bottom of the figure
@@ -267,12 +267,15 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
 
         # TODO
         # get the onsets that make up front_id
-        onset_idxs = np.where(onsets == front_id)  # ([freq indexes], [sample indexes])
+        onset_freq_idxs, onset_sample_idxs = np.where(onsets == front_id)
+        onset_idxs = [(f, i) for f, i in zip(onset_freq_idxs, onset_sample_idxs)]
 
         # get the offsets that match the onsets in front_id
         offset_idxs = [_lookup_offset_by_onset_idx(i, onsets, offsets) for i in onset_idxs]
 
         # get all offset_fronts which contain at least one of these offsets
+        candidate_offset_front_ids = set([offsets[f, i] for f, i in offset_idxs])
+        print(candidate_offset_front_ids)
         # if offset_fronts:
             # get the offset_front which contains the most of these offsets
         # else:
@@ -287,4 +290,3 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
         ##          If all t_offs in matching_offsets are 'matched', continue to next onset front
 
     # return segmentation_mask
-    pass

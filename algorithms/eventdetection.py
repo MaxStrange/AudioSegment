@@ -8,7 +8,19 @@ import random
 
 def _get_filter_indices(seg, start_as_yes, prob_raw_yes, ms_per_input, model, transition_matrix, model_stats):
     """
-    This has been broken out of the `filter` function to reduce cognitive load.
+    Runs a Markov Decision Process over the given `seg` in chunks of `ms_per_input`, yielding `True` if
+    this `ms_per_input` chunk has been classified as positive (1) and `False` if this chunk has been
+    classified as negative (0).
+
+    :param seg:                 The AudioSegment to apply this algorithm to.
+    :param start_as_yes:        If True, the first `ms_per_input` chunk will be classified as positive.
+    :param prob_raw_yes:        The raw probability of finding the event in any given independently sampled `ms_per_input`.
+    :param ms_per_input:        The number of ms of AudioSegment to be fed into the model at a time.
+    :param model:               The model, which must hava predict() function, which takes an AudioSegment of `ms_per_input`
+                                number of ms and which outputs 1 if the audio event is detected in that input, 0 if not.
+    :param transition_matrix:   An iterable of the form: [p(yes->no), p(no->yes)].
+    :param model_stats:         An iterable of the form: [p(reality=1|output=1), p(reality=1|output=0)].
+    :yields:                    `True` if the event has been classified in this chunk, `False` otherwise.
     """
     filter_triggered = 1 if start_as_yes else 0
     prob_raw_no = 1.0 - prob_raw_yes
@@ -33,7 +45,8 @@ def _get_filter_indices(seg, start_as_yes, prob_raw_yes, ms_per_input, model, tr
 
 def _group_filter_values(seg, filter_indices, ms_per_input):
     """
-    This has been broken out of the `filter` function to reduce cognitive load.
+    Takes a list of 1s and 0s and returns a list of tuples of the form:
+    ['y/n', timestamp].
     """
     ret = []
     for filter_value, (_segment, timestamp) in zip(filter_indices, seg.generate_frames_as_segments(ms_per_input)):
@@ -55,8 +68,14 @@ def _group_filter_values(seg, filter_indices, ms_per_input):
 
 def _homogeneity_filter(ls, window_size):
     """
-    ls is a list of 1s or 0s for when the filter is on or off
+    Takes `ls` (a list of 1s and 0s) and smoothes it so that adjacent values are more likely
+    to be the same.
+
+    :param ls:          A list of 1s and 0s to smooth.
+    :param window_size: How large the smoothing kernel is.
+    :returns:           A list of 1s and 0s, but smoother.
     """
+    # TODO: This is fine way to do this, but it seems like it might be faster and better to do a Gaussian convolution followed by rounding
     k = window_size
     i = k
     while i <= len(ls) - k:
@@ -68,4 +87,3 @@ def _homogeneity_filter(ls, window_size):
             ls[i+j] = mode
         i += k
     return ls
-

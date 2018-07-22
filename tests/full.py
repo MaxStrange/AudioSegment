@@ -22,6 +22,8 @@ if __name__ == "__main__":
         print("USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
         exit(1)
 
+    os.makedirs("results", exist_ok=True)
+
     seg = read_from_file.test(sys.argv[1])
 
     # Print some information about the AudioSegment

@@ -23,6 +23,7 @@ import warnings
 import webrtcvad
 from algorithms import asa
 from algorithms import eventdetection as detect
+from algorithms import filters
 
 MS_PER_S = 1000
 S_PER_MIN = 60
@@ -119,38 +120,6 @@ class AudioSegment:
         """
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
-    @staticmethod
-    def bandpass_filter(data, low, high, fs, order=5):
-        """
-        :param data: The data (numpy array) to be filtered.
-        :param low: The low cutoff in Hz.
-        :param high: The high cutoff in Hz.
-        :param fs: The sample rate (in Hz) of the data.
-        :param order: The order of the filter. The higher the order, the tighter the roll-off.
-        :returns: Filtered data (numpy array).
-        """
-        nyq = 0.5 * fs
-        low = low / nyq
-        high = high / nyq
-        b, a = signal.butter(order, [low, high], btype='band')
-        y = signal.lfilter(b, a, data)
-        return y
-
-    @staticmethod
-    def lowpass_filter(data, cutoff, fs, order=5):
-        """
-        :param data: The data (numpy array) to be filtered.
-        :param cutoff: The high cutoff in Hz.
-        :param fs: The sample rate in Hz of the data.
-        :param order: The order of the filter. The higher the order, the tighter the roll-off.
-        :returns: Filtered data (numpy array).
-        """
-        nyq = 0.5 * fs
-        normal_cutoff = cutoff / nyq
-        b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
-        y = signal.lfilter(b, a, data)
-        return y
-
     def filter_bank(self, lower_bound_hz=50, upper_bound_hz=8E3, nfilters=128):
         """
         Returns a numpy array of shape (nfilters, nsamples), where each
@@ -204,7 +173,7 @@ class AudioSegment:
         frequencies = np.logspace(start, stop, num=nfilters, endpoint=True, base=10.0)
 
         # Do a band-pass filter in each frequency
-        rows = [AudioSegment.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = [filters.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
         rows = np.array(rows)
         spect = np.vstack(rows)
         return spect, frequencies
@@ -228,7 +197,7 @@ class AudioSegment:
         # Low-pass filter each frequency channel to remove a bunch of noise - we are only looking for large changes
         low_boundary = 30
         order = 6
-        spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
+        spect = np.apply_along_axis(filters.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
 
         # Downsample each frequency
         downsample_freq_hz = 400
@@ -245,7 +214,7 @@ class AudioSegment:
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
         for sc, st in scales:
-            time_smoothed = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
+            time_smoothed = np.apply_along_axis(filters.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
             freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
 
             # Remove especially egregious artifacts
@@ -493,9 +462,6 @@ class AudioSegment:
             seg = AudioSegment(pydub.AudioSegment(data=data, sample_width=self.sample_width,
                                                     frame_rate=self.frame_rate, channels=self.channels), self.name)
             real_ret.append((this_yesno, seg))
-        return real_ret
-
-
         return real_ret
 
     def _execute_sox_cmd(self, cmd, console_output=False):
