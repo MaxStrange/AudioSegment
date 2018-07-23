@@ -8,6 +8,46 @@ import algorithms.asa as asa
 import numpy as np
 import read_from_file
 
+def _test_match_case(onset_front_id, expected_match, onset_fronts, offset_fronts, onsets, offsets, test_title):
+    """
+    Run one test case from unittest_front_matching().
+    """
+    outcome = asa._match_offset_front_id_to_onset_front_id(onset_front_id, onset_fronts, offset_fronts, onsets, offsets)
+    assert outcome == expected_match, "TEST {} output {} which does not equal expected value {}".format(
+        test_title, outcome, expected_match
+    )
+    print("-------- PASS TEST {}-----------".format(test_title))
+
+def unittest_front_matching(seg):
+    """
+    Run a test suite for a particularly hairy portion of the CASA algorithm.
+    """
+    onsets = np.array([
+        [0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 1, 0, 1, 0, 0, 1, 0, 0, 0],
+        [0, 1, 0, 0, 1, 0, 1, 0, 0, 0]
+    ])
+    onset_fronts = np.array([
+        [0, 2, 0, 0, 3, 0, 0, 4, 0, 0],
+        [0, 2, 0, 3, 0, 0, 4, 0, 0, 0],
+        [0, 2, 0, 0, 3, 0, 4, 0, 0, 0]
+    ])
+
+    #### TEST CASE 1 & 2 & 3 ####
+    offsets = np.array([
+        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+        [0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0, 0, 0]
+    ])
+    offset_fronts = np.array([
+        [0, 0, 0, 2, 0, 0, 3, 0, 0, 0],
+        [0, 0, 2, 0, 3, 0, 0, 0, 0, 0],
+        [0, 0, 2, 0, 0, 3, 0, 0, 0, 0]
+    ])
+    _test_match_case(onset_front_id=2, expected_match=2, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="1")
+    _test_match_case(onset_front_id=3, expected_match=3, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="2")
+    _test_match_case(onset_front_id=4, expected_match=-1, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="3")
+
 def _test_front_case(function_input, expected_output, sample_rate_hz, threshold_ms, test_name):
     """
     Test whether AudioSegment._form_onset_offset(function_input, sample_rate_hz, threshold_ms) == expected_output.
@@ -192,5 +232,6 @@ def test(seg):
 
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])
+    unittest_front_matching(seg)
     unittest_front_formation(seg)
     test(seg)
