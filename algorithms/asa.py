@@ -364,7 +364,45 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     integer which indicates which segment the sample in that frequency band belongs to.
     """
     onset_front_ids = [int(i) for i in np.unique(onset_fronts) if i != 0]  # 0 means a non-front sample
-    for front_id in onset_front_ids:
-        chosen_offset_front_id = _match_offset_front_id_to_onset_front_id(front_id, onset_fronts, offset_fronts, onsets, offsets)
+    for onset_front_id in onset_front_ids:
+        # TODO: This algorithm needs to be reworked so that we do it frequency by frequency, so that
+        #       we simply claim all samples in a frequency from onset to its nearest offset front,
+        #       then follow that offset front down until it ends or until the onset front ends.
+        #       If the offset front extends past the onset front's end, we zero the rest of the offset front.
+        #       If the onset front extends past the offset front's end, we run the algorithm again, starting
+        #       at the first onset front frequency that extends past the offset front.
+        chosen_offset_front_id = _match_offset_front_id_to_onset_front_id(onset_front_id, onset_fronts, offset_fronts, onsets, offsets)
         # TODO
+        # All items from onset_front_idx to chosen_offset_front_idx are updated to be onset_front_id
+        # E.g.
+        # [ N 0 0 0 0 0 0 0 0 F ]
+        # [ 0 N 0 0 0 0 0 0 F 0 ]
+        # [ 0 N 0 0 0 0 0 0 0 F ]
+        # [ 0 0 0 0 0 0 0 0 0 F ]
+        # Becomes
+        # [ N N N N N N N N N N ]
+        # [ 0 N N N N N N N N 0 ]
+        # [ 0 N N N N N N N N N ]
+        # [ 0 0 0 0 0 0 0 0 0 0 ] <-- Note that edges that extend beyond the overlap are removed
+
+        # After doing this, if our onset front extends beyond the chosen offset front,
+        # find another offset front to match, this time in the frequencies remaining.
+        # I.e.:
+        # [ N 0 0 0 0 0 0 0 0 F ]
+        # [ 0 N 0 0 0 0 0 0 F 0 ]
+        # [ 0 N 0 0 0 0 0 0 0 F ]
+        # [ N 0 0 0 0 0 0 0 0 0 ]
+        # [ N 0 0 0 F 0 0 0 0 0 ]
+        # [ 0 N 0 0 F 0 0 0 0 0 ]
+        # Becomes
+        # [ N N N N N N N N N N ]
+        # [ 0 N N N N N N N N 0 ]
+        # [ 0 N N N N N N N N N ]
+        # [ N 0 0 0 0 0 0 0 0 0 ]  <-- Note that the onset front extends past the segment, so do it again, starting here
+        # [ N 0 0 0 F 0 0 0 0 0 ]
+        # [ 0 N 0 0 F 0 0 0 0 0 ]
+ 
+ 
+        # Keep doing this until you have matched the entire onset front.
+ 
     # return segmentation_mask
