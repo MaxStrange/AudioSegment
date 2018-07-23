@@ -22,6 +22,7 @@ def unittest_front_matching(seg):
     """
     Run a test suite for a particularly hairy portion of the CASA algorithm.
     """
+    #### TEST CASE 1 & 2 & 3 ####
     onsets = np.array([
         [0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
         [0, 1, 0, 1, 0, 0, 1, 0, 0, 0],
@@ -33,7 +34,6 @@ def unittest_front_matching(seg):
         [0, 2, 0, 0, 3, 0, 4, 0, 0, 0]
     ])
 
-    #### TEST CASE 1 & 2 & 3 ####
     offsets = np.array([
         [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
         [0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
@@ -48,6 +48,32 @@ def unittest_front_matching(seg):
     _test_match_case(onset_front_id=3, expected_match=3, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="2")
     _test_match_case(onset_front_id=4, expected_match=-1, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="3")
 
+    #### TEST CASE 4 & 5 6 ####
+    onsets = np.array([
+        [1, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+        [1, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+        [1, 1, 0, 0, 0, 1, 0, 0, 0, 0]
+    ])
+    onset_fronts = np.array([
+        [2, 3, 0, 0, 0, 4, 0, 0, 0, 0],
+        [2, 3, 0, 0, 0, 0, 0, 4, 0, 0],
+        [2, 3, 0, 0, 0, 4, 0, 0, 0, 0]
+    ])
+
+    offsets = np.array([
+        [0, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+        [0, 0, 1, 0, 0, 1, 1, 0, 1, 1],
+        [0, 0, 1, 0, 1, 0, 1, 0, 1, 1]
+    ])
+    offset_fronts = np.array([
+        [0, 0, 2, 0, 3, 0, 4, 0, 5, 6],
+        [0, 0, 2, 0, 0, 3, 4, 0, 5, 6],
+        [0, 0, 2, 0, 3, 0, 4, 0, 5, 6]
+    ])
+    _test_match_case(onset_front_id=2, expected_match=2, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="4")
+    _test_match_case(onset_front_id=3, expected_match=2, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="5")
+    _test_match_case(onset_front_id=4, expected_match=5, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="6")
+ 
 def _test_front_case(function_input, expected_output, sample_rate_hz, threshold_ms, test_name):
     """
     Test whether AudioSegment._form_onset_offset(function_input, sample_rate_hz, threshold_ms) == expected_output.
