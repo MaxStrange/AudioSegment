@@ -353,6 +353,110 @@ def _match_offset_front_id_to_onset_front_id(onset_front_id, onset_fronts, offse
 
     return chosen_offset_front_id
 
+def _update_segmentation_mask(segmentation_mask, onset_fronts, offset_fronts, onset_front_id, offset_front_id_most_overlap):
+    """
+    Returns an updated segmentation mask such that the input `segmentation_mask` has been updated by segmenting between
+    `onset_front_id` and `offset_front_id`, as found in `onset_fronts` and `offset_fronts`, respectively.
+
+    This function also returns the onset_fronts and offset_fronts matrices, updated so that any fronts that are of
+    less than 3 channels wide are removed.
+
+    Specifically, segments by doing the following:
+
+    - Going across frequencies in the onset_front,
+    - add the segment mask ID (the onset front ID) to all samples between the onset_front and the offset_front,
+      if the offset_front is in that frequency.
+
+    Possible scenarios:
+
+    Fronts line up completely:
+    |   |       S S S
+    |   |  =>   S S S
+    |   |       S S S
+    |   |       S S S
+
+    Onset front starts before offset front:
+    |           |
+    |   |       S S S
+    |   |  =>   S S S
+    |   |       S S S
+
+    Onset front ends after offset front:
+    |   |       S S S
+    |   |  =>   S S S
+    |   |       S S S
+    |           |
+
+    Onset front starts before and ends after offset front:
+    |           |
+    |   |  =>   S S S
+    |   |       S S S
+    |           |
+
+    The above three options in reverse:
+        |       |S S|           |
+    |S S|       |S S|       |S S|
+    |S S|       |S S|       |S S|
+    |S S|           |           |
+    """
+    segmentation_mask = np.copy(segmentation_mask)
+    onset_fronts = np.copy(onset_fronts)
+    offset_fronts = np.copy(offset_fronts)
+
+    onset_front = _get_front_idxs_from_id(onset_fronts, onset_front_id)
+    flow_on, slow_on = onset_front[0]
+    fhigh_on, shigh_on = onset_front[-1]
+
+    offset_front = _get_front_idxs_from_id(offset_fronts, offset_front_id_most_overlap)
+    flow_off, slow_off = offset_front[0]
+    fhigh_off, shigh_off = offset_front[-1]
+
+    flow = max(flow_on, flow_off)
+    slow = max(slow_on, slow_off)
+    figh = min(fhigh_on, fhigh_off)
+    shigh = min(shigh_on, shigh_off)
+
+    # Update the segmentation mask
+    segmentation_mask[flow:fhigh, slow:shigh] = onset_front_id
+
+    # Update the other masks
+    indexes = np.arange(flow, fhigh, 1, dtype=np.uint64)
+    onset_front_sample_idxs_across_freqs = np.array([s for _, s in onset_front])
+    offset_front_sample_idxs_across_freqs = np.array([s for _, s in offset_front])
+    offset_fronts[indexes, offset_front_sample_idxs_across_freqs] = 0  # Remove this offset front, since it has already found a match
+    onset_fronts[indexes, onset_front_sample_idxs_across_freqs] = 0    # Remove this offset front, since it has already found a match
+
+    return segmentation_mask, onset_fronts, offset_fronts
+
+def _front_id_from_idx(front, index):
+    """
+    Returns the front ID found in `front` at the given `index`.
+
+    :param front:               An onset or offset front array of shape [nfrequencies, nsamples]
+    :index:                     A tuple of the form (frequency index, sample index)
+    :returns:                   The ID of the front or -1 if not found in `front` and the item at `onsets_or_offsets[index]`
+                                is not a 1.
+    """
+    fidx, sidx = index
+    id = front[fidx, sidx]
+    if id == 0:
+        return -1
+    else:
+        return id
+
+
+def _get_onset_front_ids_one_at_a_time(onset_fronts):
+    """
+    Yields one onset front ID at a time until they are gone. All the onset fronts from a
+    frequency channel are yielded, then all of the next channel's, etc., though one at a time.
+    """
+    yielded_so_far = set()
+    for row in onset_fronts:
+        for id in row:
+            if id != 0 and id not in yielded_so_far:
+                yield id
+                yielded_so_far.add(id)
+
 def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     """
     Returns a segmentation mask, which looks like this:
@@ -362,47 +466,118 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
 
     That is, each item in the array is either a 0 (not part of a segment) or a positive
     integer which indicates which segment the sample in that frequency band belongs to.
-    """
-    onset_front_ids = [int(i) for i in np.unique(onset_fronts) if i != 0]  # 0 means a non-front sample
-    for onset_front_id in onset_front_ids:
-        # TODO: This algorithm needs to be reworked so that we do it frequency by frequency, so that
-        #       we simply claim all samples in a frequency from onset to its nearest offset front,
-        #       then follow that offset front down until it ends or until the onset front ends.
-        #       If the offset front extends past the onset front's end, we zero the rest of the offset front.
-        #       If the onset front extends past the offset front's end, we run the algorithm again, starting
-        #       at the first onset front frequency that extends past the offset front.
-        chosen_offset_front_id = _match_offset_front_id_to_onset_front_id(onset_front_id, onset_fronts, offset_fronts, onsets, offsets)
-        # TODO
-        # All items from onset_front_idx to chosen_offset_front_idx are updated to be onset_front_id
-        # E.g.
-        # [ N 0 0 0 0 0 0 0 0 F ]
-        # [ 0 N 0 0 0 0 0 0 F 0 ]
-        # [ 0 N 0 0 0 0 0 0 0 F ]
-        # [ 0 0 0 0 0 0 0 0 0 F ]
-        # Becomes
-        # [ N N N N N N N N N N ]
-        # [ 0 N N N N N N N N 0 ]
-        # [ 0 N N N N N N N N N ]
-        # [ 0 0 0 0 0 0 0 0 0 0 ] <-- Note that edges that extend beyond the overlap are removed
 
-        # After doing this, if our onset front extends beyond the chosen offset front,
-        # find another offset front to match, this time in the frequencies remaining.
-        # I.e.:
-        # [ N 0 0 0 0 0 0 0 0 F ]
-        # [ 0 N 0 0 0 0 0 0 F 0 ]
-        # [ 0 N 0 0 0 0 0 0 0 F ]
-        # [ N 0 0 0 0 0 0 0 0 0 ]
-        # [ N 0 0 0 F 0 0 0 0 0 ]
-        # [ 0 N 0 0 F 0 0 0 0 0 ]
-        # Becomes
-        # [ N N N N N N N N N N ]
-        # [ 0 N N N N N N N N 0 ]
-        # [ 0 N N N N N N N N N ]
-        # [ N 0 0 0 0 0 0 0 0 0 ]  <-- Note that the onset front extends past the segment, so do it again, starting here
-        # [ N 0 0 0 F 0 0 0 0 0 ]
-        # [ 0 N 0 0 F 0 0 0 0 0 ]
- 
- 
-        # Keep doing this until you have matched the entire onset front.
- 
-    # return segmentation_mask
+    """
+
+    # Make copies of everything, so we can do whatever we want with them
+    onset_fronts = np.copy(onset_fronts)
+    offset_fronts = np.copy(offset_fronts)
+    onsets = np.copy(onsets)
+    offsets = np.copy(offsets)
+
+    # This is what we will return
+    segmentation_mask = np.zeros_like(onset_fronts)
+
+    # - Take the first frequency in the onset_fronts matrix
+    #     [ s s s s s s s s s] <-- This frequency
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+
+    # - Follow it along in time like this:
+
+    #     first sample    last sample
+    #       v      -->      v
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+    #     [ s s s s s s s s s]
+
+    # until you get to the first onset front in that frequency
+
+    #     Here it is!
+    #         v
+    #     [ . O . . . . . . .]
+    #     [ . . O . . . . . .]
+    #     [ . . O . . . . . .]
+    #     [ . O . . . . . . .]
+    #     [ O . . . . . . . .]
+
+    resulting_onset_fronts = np.copy(onset_fronts)
+    for onset_front_id in _get_onset_front_ids_one_at_a_time(onset_fronts):
+        # - Now, starting at this onset front in each frequency, find that onset's corresponding offset
+
+        #     [ . O . . . . F . .]
+        #     [ . . O . . . F . .]
+        #     [ . . O . F . . . .]
+        #     [ . O . F . . . . .]
+        #     [ O F . . . . . . .]
+
+        corresponding_offsets = []
+        for index in _get_front_idxs_from_id(resulting_onset_fronts, onset_front_id):
+            offset_fidx, offset_sidx = _lookup_offset_by_onset_idx(index, onsets, offsets)
+            corresponding_offsets.append((offset_fidx, offset_sidx))
+
+        # - Get all the offset fronts that are composed of at least one of these offset times
+
+        #     [ . O . . . . 1 . .]
+        #     [ . . O 3 . . 1 . .]
+        #     [ . . O 3 F . 1 . .]
+        #     [ . O . 3 . . . 1 .]
+        #     [ O F 3 . . . . . .]
+
+        all_offset_fronts_of_interest = []
+        ids_ntimes_seen = {}
+        for offset_index in corresponding_offsets:
+            offset_id = _front_id_from_idx(offset_front, offset_index)
+            if offset_id not in ids_ntimes_seen:
+                offset_front_idxs = _get_front_idxs_from_id(offset_fronts, offset_id)
+                all_offset_fronts_of_interest.append(offset_front_idxs)
+                ids_ntimes_seen[offset_id] = 1
+            else:
+                ids_ntimes_seen[offset_id] += 1
+
+        # - Check how many of these offset times each of the offset fronts are composed of:
+
+        #     [ . O . . . . Y . .]
+        #     [ . . O 3 . . Y . .]
+        #     [ . . O 3 F . 1 . .]
+        #     [ . O . X . . . 1 .]
+        #     [ O F 3 . . . . . .]
+
+        # In this example, offset front 1 is made up of 4 offset times, 2 of which (the Y's) are offset times
+        # that correspond to onsets in the onset front we are currently dealing with. Meanwhile, offset
+        # front 3 is made up of 4 offset times, only one of which (the X) is one of the offsets that corresponds
+        # to the onset front.
+
+        # - Choose the offset front which matches the most offset time candidates. In this example, offset front 1
+        #   is chosen because it has 2 of these offset times.
+        ntimes_seen_sorted = sorted([(k, v) for k, v in ids_ntimes_seen.items()], key=lambda tup: tup[1])
+        assert len(ntimes_seen_sorted) > 0
+
+        # Only use the special final front (the -1, catch-all front composed of final samples in each frequency) if necessary
+        offset_front_id, ntimes_seen = ntimes_seen_sorted[0]
+        if offset_front_id == -1 and len(ntimes_seen_sorted) > 1:
+            offset_front_id, ntimes_seen = ntimes_seen_sorted[1]
+        offset_front_id_most_overlap = offset_front_id
+
+        # - Finally, update the segmentation mask to follow the offset
+        #   front from where it first overlaps in frequency with the onset front to where it ends or to where
+        #   the onset front ends, whichever happens first.
+
+        #     [ . S S S S S S . .]
+        #     [ . . S S S S S . .]
+        #     [ . . S S S S S . .]
+        #     [ . S S S S S S S .]
+        #     [ O F 3 . . . . . .]  <-- This frequency has not yet been matched with an offset front
+        segmentation_mask, resulting_onset_fronts, offset_fronts = _update_segmentation_mask(segmentation_mask, resulting_onset_fronts, offset_fronts, onset_front_id, offset_front_id_most_overlap)
+
+        # - Repeat this algorithm, restarting in the first frequency channel that did not match (the last frequency in
+        #   the above example). Do this until you have finished with this onset front.
+        #
+        # - Repeat for each onset front in the rest of this frequency
+        # - Repeat for each frequency
+
+     return segmentation_mask

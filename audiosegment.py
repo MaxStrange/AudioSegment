@@ -191,8 +191,9 @@ class AudioSegment:
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
-        # TODO: Make this not output annoying warnings: RuntimeWarning: invalid value encountered in less
-        spect[spect < 0] = 0
+        with warnings.catch_warnings():  # Ignore the annoying Numpy runtime warning for less than
+            warnings.simplefilter("ignore")
+            spect[spect < 0] = 0
 
         # Low-pass filter each frequency channel to remove a bunch of noise - we are only looking for large changes
         low_boundary = 30
@@ -207,6 +208,7 @@ class AudioSegment:
 
         # Smoothing - we will smooth across time and frequency to further remove noise.
         # But we need to do it with several different combinations of kernels to get the best idea of what's going on
+        # Scales are (sc, st), meaning (frequency scale, time scale)
         scales = [(6, 1/4), (6, 1/14), (1/2, 1/14)]
 
         # For each (sc, st) scale, smooth across time using st, then across frequency using sc
@@ -218,8 +220,10 @@ class AudioSegment:
             freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
 
             # Remove especially egregious artifacts
-            freq_smoothed[freq_smoothed > 1E3] = 1E3
-            freq_smoothed[freq_smoothed < -1E3] = -1E3
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                freq_smoothed[freq_smoothed > 1E3] = 1E3
+                freq_smoothed[freq_smoothed < -1E3] = -1E3
             spectrograms.append(freq_smoothed)
 
         # Onset/Offset Detection and Matching
@@ -239,6 +243,20 @@ class AudioSegment:
             # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
             onset_fronts = asa._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
             offset_fronts = asa._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
+
+            # TODO: for each onset front, for each frequency in that front, break the onset front if the signals
+            #       between this frequency's onset and the next frequency's onset are not similar enough.
+            #       Specifically:
+            #       If we have the following two frequency channels, and the two O's are part of the same onset front,
+            #       [ . O . . . . . . . . . . ]
+            #       [ . . . . O . . . . . . . ]
+            #       We compare the signals x and y:
+            #       [ . x x x x . . . . . . . ]
+            #       [ . y y y y . . . . . . . ]
+            #       And if they are not sufficiently similar (via a DSP correlation algorithm), we break the onset
+            #       front between these two channels.
+            #       Once this is done, remove any onset fronts that are less than 3 channels wide.
+
             #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
             segments = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
