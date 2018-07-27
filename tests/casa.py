@@ -12,6 +12,7 @@ def _test_match_case(onset_front_id, expected_match, onset_fronts, offset_fronts
     """
     Run one test case from unittest_front_matching().
     """
+    print("EXPECTED SEGMENTATION MASK:\n", expected_match)
     outcome = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
     # Assert that every onset_front_id in the outcome segmentation mask has a corresponding value at the same index in
     # expected_match, and vice versa

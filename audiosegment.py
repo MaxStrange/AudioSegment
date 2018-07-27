@@ -259,13 +259,7 @@ class AudioSegment:
 
             #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
-            segments = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
-
-            # segments = asa._break_poorly_matched_fronts(segments)
-            ## Now go through all the segments you have created and break them up along frequencies if the temporal
-            ##      envelopes don't match well enough. That is, if we have two adjacent channels c and c+1, and they
-            ##      are part of the same segment as determined above, break this segment into two along these lines
-            ##      if the correlation between them is below theta_c. Theta_c is thetas[i] where i depends on the scale.
+            segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
             exit()
 
         # Multiscale Integration
