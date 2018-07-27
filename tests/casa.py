@@ -69,7 +69,7 @@ def unittest_front_matching(seg):
     _test_match_case(onset_front_id=3, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="2")
     _test_match_case(onset_front_id=4, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="3")
 
-    #### TEST CASE 4 & 5 6 ####
+    #### TEST CASE 4 & 5 & 6 ####
     onsets = np.array([
         [1, 1, 0, 0, 0, 1, 0, 0, 0, 0],
         [1, 1, 0, 0, 0, 0, 0, 1, 0, 0],
@@ -94,7 +94,7 @@ def unittest_front_matching(seg):
 
     expected_segmentation_mask = np.array([
         [2, 2, 2, 0, 0, 4, 4, 0, 0, 0],
-        [2, 2, 2, 0, 0, 0, 0, 4, 4, 0],
+        [2, 2, 2, 0, 0, 0, 4, 4, 0, 0],
         [2, 2, 2, 0, 0, 4, 4, 0, 0, 0]
     ])
  
@@ -143,6 +143,50 @@ def unittest_front_matching(seg):
     _test_match_case(onset_front_id=2, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="7")
     _test_match_case(onset_front_id=3, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="8")
     _test_match_case(onset_front_id=4, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="9")
+
+    # Test what happens when two offset fronts are tied for most offset points
+    onsets = np.array([
+        [1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+        [1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+        [1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+        [1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+        [1, 0, 0, 0, 1, 0, 0, 1, 0, 0]
+    ])
+    onset_fronts = np.array([
+        [2, 0, 0, 0, 3, 0, 0, 4, 0, 0],
+        [2, 0, 0, 0, 3, 0, 0, 4, 0, 0],
+        [2, 0, 0, 0, 3, 0, 0, 4, 0, 0],
+        [2, 0, 0, 0, 3, 0, 0, 4, 0, 0],
+        [2, 0, 0, 0, 3, 0, 0, 4, 0, 0]
+    ])
+
+    offsets = np.array([
+        [0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+        [0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0, 1, 0]
+    ])
+    offset_fronts = np.array([
+        [0, 2, 0, 0, 0, 3, 0, 0, 0, 0],
+        [0, 2, 0, 0, 0, 3, 0, 0, 0, 4],
+        [0, 0, 0, 0, 0, 0, 5, 0, 0, 4],
+        [0, 6, 0, 0, 0, 0, 5, 0, 7, 0],
+        [0, 6, 0, 0, 0, 0, 0, 0, 7, 0]
+    ])
+
+    # TODO: This segmentation mask is a mess. Check what actually happens and see if that's better
+    expected_segmentation_mask = np.array([
+        [2, 2, 0, 0, 3, 3, 0, 4, 4, 4],
+        [2, 2, 0, 0, 3, 3, 0, 4, 4, 4],
+        [2, 2, 2, 2, 2, 2, 2, 4, 4, 4],
+        [2, 2, 0, 0, 3, 3, 3, 4, 4, 0],
+        [2, 2, 0, 0, 3, 3, 3, 3, 3, 0]
+    ])
+
+    _test_match_case(onset_front_id=2, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="10")
+    _test_match_case(onset_front_id=3, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="11")
+    _test_match_case(onset_front_id=4, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="12")
  
 def _test_front_case(function_input, expected_output, sample_rate_hz, threshold_ms, test_name):
     """
