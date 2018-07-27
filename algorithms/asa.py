@@ -460,6 +460,8 @@ def _update_segmentation_mask(segmentation_mask, onset_fronts, offset_fronts, on
     # Get the offset front of interest as well as the frequencies that it starts and stops at
     print("Trying to get offset front", offset_front_id_most_overlap, "from fronts:\n", offset_fronts)
     offset_front = _get_front_idxs_from_id(offset_fronts, offset_front_id_most_overlap)
+    onset_front_frequency_indexes = [f for f, _ in onset_front]
+    offset_front = [(f, s) for f, s in offset_front if f in onset_front_frequency_indexes]
     flow_off, _slow_off = offset_front[0]
     fhigh_off, _shigh_off = offset_front[-1]
 

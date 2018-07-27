@@ -103,11 +103,11 @@ def unittest_front_matching(seg):
     _test_match_case(onset_front_id=4, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="6")
 
     onsets = np.array([
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        [1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+        [1, 0, 0, 0, 0, 1, 0, 0, 1, 0],
+        [1, 0, 0, 0, 0, 1, 0, 0, 0, 0]
     ])
     onset_fronts = np.array([
         [2, 0, 3, 0, 0, 0, 0, 0, 0, 0],
@@ -118,11 +118,11 @@ def unittest_front_matching(seg):
     ])
 
     offsets = np.array([
-        [0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0]
+        [0, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+        [0, 1, 0, 0, 1, 0, 1, 0, 1, 0],
+        [0, 1, 0, 0, 1, 0, 1, 0, 0, 1],
+        [0, 0, 0, 0, 1, 0, 1, 0, 0, 1],
+        [0, 0, 0, 0, 1, 0, 0, 0, 1, 0]
     ])
     offset_fronts = np.array([
         [0, 2, 0, 0, 3, 0, 0, 0, 5, 0],
