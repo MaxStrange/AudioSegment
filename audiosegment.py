@@ -260,7 +260,7 @@ class AudioSegment:
             #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
-            asa.visualize_segmentation_mask(segmentation_mask, spect)
+            asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
             exit()
 
         # Multiscale Integration

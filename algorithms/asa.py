@@ -63,12 +63,35 @@ def visualize_fronts(onsets, offsets, spect, frequencies):
         for x in nonzero_indexes_offsets:
             id = int(offsets[index][x])
             p.axvline(x=x, color=colors[id % len(colors)], linestyle='-')
+    _plot(frequencies, spect, "Fronts", _plot_fronts)
     plt.show()
     plt.clf()
 
-def visualize_segmentation(segmentation, spect):
+def visualize_segmentation_mask(segmentation, spect, frequencies):
     import matplotlib.pyplot as plt
+    # Reverse segmentation mask's frequency dimension so that low fs is at the bottome
+    segmentation = np.copy(segmentation)
+    segmentation = segmentation[::-1, :]
+    def _plot_seg(p, freq, index, row):
+        colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
+        segment_ids_in_this_frequency = np.reshape(np.where(segmentation[index, :] != 0), (-1,))
+        for x in segment_ids_in_this_frequency:
+            id = int(segmentation[index][x])
+            plot_a_line = False
+            if x == 0:  # if this is the first item in the frequency, then it must be a start of the mask
+                plot_a_line = True
+            elif int(segmentation[index][x - 1]) != id:  # this is the start of a mask in this frequency
+                plot_a_line = True
+            elif x == len(row) - 1:  # this is the very last sample, it must be the end of a mask
+                plot_a_line = True
+            elif int(segmentation[index][x + 1]) != id:  # this is the last sample of the mask in this frequency
+                plot_a_line = True
 
+            if plot_a_line:
+                p.axvline(x=x, color=colors[id % len(colors)], linestyle="--")
+    _plot(frequencies, spect, "Segmentation Mask", _plot_seg)
+    plt.show()
+    plt.clf()
 
 def _compute_peaks_or_valleys_of_first_derivative(s, do_peaks=True):
     """
