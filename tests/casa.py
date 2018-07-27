@@ -175,7 +175,6 @@ def unittest_front_matching(seg):
         [0, 6, 0, 0, 0, 0, 0, 0, 7, 0]
     ])
 
-    # TODO: This segmentation mask is a mess. Check what actually happens and see if that's better
     expected_segmentation_mask = np.array([
         [2, 2, 0, 0, 3, 3, 0, 4, 4, 4],
         [2, 2, 0, 0, 3, 3, 0, 4, 4, 4],

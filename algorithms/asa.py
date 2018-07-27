@@ -6,6 +6,18 @@ import numpy as np
 import scipy.signal as signal
 import sys
 
+def _plot(frequencies, spect, title, fn=None):
+    import matplotlib.pyplot as plt
+    i = 0
+    for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+        plt.subplot(spect.shape[0], 1, index + 1)
+        if i == 0:
+            plt.title(title)
+        plt.ylabel("{0:.0f}".format(freq))
+        plt.plot(row)
+        if fn is not None:
+            fn(plt, freq, index, row)
+
 def visualize_time_domain(seg, title=""):
     import matplotlib.pyplot as plt
     plt.plot(seg)
@@ -15,64 +27,48 @@ def visualize_time_domain(seg, title=""):
 
 def visualize(spect, frequencies, title=""):
     import matplotlib.pyplot as plt
-    i = 0
-    for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-        plt.subplot(spect.shape[0], 1, index + 1)
-        if i == 0:
-            plt.title(title)
-            i += 1
-        plt.ylabel("{0:.0f}".format(freq))
-        plt.plot(row)
+    _plot(frequencies, spect, title)
     plt.show()
     plt.clf()
 
 def visualize_peaks_and_valleys(peaks, valleys, spect, frequencies):
     import matplotlib.pyplot as plt
-    i = 0
     # Reverse everything to make it have the low fs at the bottom of the figure
     peaks = peaks[::-1, :]
     valleys = valleys[::-1, :]
-    for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-        plt.subplot(spect.shape[0], 1, index + 1)
-        if i == 0:
-            plt.title("Peaks (red) and Valleys (blue)")
-            i +=1
-        plt.ylabel("{0:.0f}".format(freq))
-        plt.plot(row)
+    def _plot_pandv(p, _freq, index, row):
         these_peaks = peaks[index]
         peak_values = these_peaks * row  # Mask off anything that isn't a peak
         these_valleys = valleys[index]
         valley_values = these_valleys * row  # Mask off anything that isn't a valley
-        plt.plot(peak_values, 'ro')
-        plt.plot(valley_values, 'bo')
+        p.plot(peak_values, 'ro')
+        p.plot(valley_values, 'bo')
+    _plot(frequencies, spect, "Peaks (red) and Valleys (blue)", _plot_pandv)
     plt.show()
     plt.clf()
 
 def visualize_fronts(onsets, offsets, spect, frequencies):
     import matplotlib.pyplot as plt
-    i = 0
     # Reverse everything to make it have the low fs at the bottom of the figure
     onsets = onsets[::-1, :]
     offsets = offsets[::-1, :]
-    for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-        plt.subplot(spect.shape[0], 1, index + 1)
-        if i == 0:
-            plt.title("Onsets (dotted) and Offsets (solid)")
-            i +=1
-        plt.ylabel("{0:.0f}".format(freq))
-        plt.plot(row)
+    def _plot_fronts(p, _freq, index, row):
         # Cycle through all the different onsets and offsets and plot them each
         colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
         nonzero_indexes_onsets = np.reshape(np.where(onsets[index, :] != 0), (-1,))
         for x in nonzero_indexes_onsets:
             id = int(onsets[index][x])
-            plt.axvline(x=x, color=colors[id % len(colors)], linestyle='--')
+            p.axvline(x=x, color=colors[id % len(colors)], linestyle='--')
         nonzero_indexes_offsets = np.reshape(np.where(offsets[index, :] != 0), (-1,))
         for x in nonzero_indexes_offsets:
             id = int(offsets[index][x])
-            plt.axvline(x=x, color=colors[id % len(colors)], linestyle='-')
+            p.axvline(x=x, color=colors[id % len(colors)], linestyle='-')
     plt.show()
     plt.clf()
+
+def visualize_segmentation(segmentation, spect):
+    import matplotlib.pyplot as plt
+
 
 def _compute_peaks_or_valleys_of_first_derivative(s, do_peaks=True):
     """
