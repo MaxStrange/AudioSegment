@@ -630,12 +630,9 @@ def _remove_overlaps(segmentation_mask, fronts):
     segmentation_mask = np.copy(segmentation_mask)
     fronts = np.copy(fronts)
 
-    for i in range(segmentation_mask.shape[0]):
-        for j in range(segmentation_mask.shape[1]):
-            frontval = fronts[i, j]
-            segval = segmentation_mask[i, j]
-            if frontval != segval and frontval != 0 and segval != 0:
-                fronts[i, j] = 0
+    fidxs, sidxs = np.where((segmentation_mask != fronts) & (segmentation_mask != 0) & (fronts != 0))
+    fronts[fidxs, sidxs] = 0
+
     return fronts
 
 def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
