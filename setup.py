@@ -10,7 +10,7 @@ setup(
     author="Max Strange",
     author_email="maxfieldstrange@gmail.com",
     description="Wrapper for pydub.AudioSegment for additional methods.",
-    install_requires=["pydub", "webrtcvad", "numpy", "scipy"],
+    install_requires=["pydub", "webrtcvad", "numpy", "scipy", "librosa"],
     license="MIT",
     keywords="audio sound pydub",
     url="https://github.com/MaxStrange/AudioSegment",

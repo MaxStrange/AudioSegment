@@ -23,11 +23,16 @@ def visualize(spect, frequencies, title=""):
     plt.show()
 
 def test(seg):
+    seg = seg[:25_000]
     print("Applying filterbank...")
-    spec, freqs = seg.filter_bank(nfilters=5)
+    spec, freqs = seg.filter_bank(nfilters=5, mode='log')
     if os.environ.get('DISPLAY', False):
         print("  |-> Plotting...")
-        visualize(spec, freqs)
+    visualize(spec, freqs)
+    print("Now trying linear")
+    spec, freqs = seg.filter_bank(nfilters=5, mode='mel')
+    print("Now trying log")
+    spec, freqs = seg.filter_bank(nfilters=5, mode='log')
 
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])

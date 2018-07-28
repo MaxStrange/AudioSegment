@@ -7,6 +7,7 @@ from __future__ import print_function
 import collections
 import functools
 import itertools
+import librosa
 import math
 import numpy as np
 import pickle
@@ -120,13 +121,14 @@ class AudioSegment:
         """
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
-    def filter_bank(self, lower_bound_hz=50, upper_bound_hz=8E3, nfilters=128):
+    def filter_bank(self, lower_bound_hz=50, upper_bound_hz=8E3, nfilters=128, mode='mel'):
         """
         Returns a numpy array of shape (nfilters, nsamples), where each
         row of data is the result of bandpass filtering the audiosegment
-        round a particular frequency. The frequencies are logrithmically
+        round a particular frequency. The frequencies are
         spaced from `lower_bound_hz` to `upper_bound_hz` and are returned with
-        the np array.
+        the np array. The particular spacing of the frequencies depends on `mode`,
+        which can be either: 'linear', 'mel', or 'log'.
 
         .. note:: This method is an approximation of a gammatone filterbank
                   until I get around to writing an actual gammatone filterbank
@@ -160,17 +162,28 @@ class AudioSegment:
         :param lower_bound_hz:  The lower bound of the frequencies to use in the bandpass filters.
         :param upper_bound_hz:  The upper bound of the frequencies to use in the bandpass filters.
         :param nfilters:        The number of filters to apply. This will determine which frequencies
-                                are used as well, as they are log-space interpolated between
-                                `lower_bound_hz` and `upper_bound_hz`.
+                                are used as well, as they are interpolated between
+                                `lower_bound_hz` and `upper_bound_hz` based on `mode`.
+        :param mode:            The way the frequencies are spaced. Options are: `linear`, in which case
+                                the frequencies are linearly interpolated between `lower_bound_hz` and
+                                `upper_bound_hz`, `mel`, in which case the mel frequencies are used,
+                                or `log`, in which case they are log-10 spaced.
         :returns:               A numpy array of the form (nfilters, nsamples), where each row is the
                                 audiosegment, bandpass-filtered around a particular frequency,
                                 and the list of frequencies. I.e., returns (spec, freqs).
         """
         # Logspace to get all the frequency channels we are after
         data = self.to_numpy_array()
-        start = np.log10(lower_bound_hz)
-        stop = np.log10(upper_bound_hz)
-        frequencies = np.logspace(start, stop, num=nfilters, endpoint=True, base=10.0)
+        if mode.lower() == 'mel':
+            frequencies = librosa.core.mel_frequencies(n_mels=nfilters, fmin=lower_bound_hz, fmax=upper_bound_hz)
+        elif mode.lower() == 'linear':
+            frequencies = np.linspace(lower_bound_hz, upper_bound_hz, num=nfilters, endpoint=True)
+        elif mode.lower() == 'log':
+            start = np.log10(lower_bound_hz)
+            stop = np.log10(upper_bound_hz)
+            frequencies = np.logspace(start, stop, num=nfilters, endpoint=True, base=10.0)
+        else:
+            raise ValueError("'mode' must be one of: (mel, linear, or log), but was {}".format(mode))
 
         # Do a band-pass filter in each frequency
         rows = [filters.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
@@ -188,7 +201,7 @@ class AudioSegment:
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
         print("Making filter bank")
-        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
+        spect, frequencies = normalized.filter_bank(nfilters=10)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
@@ -221,12 +234,13 @@ class AudioSegment:
         spectrograms = []
         print("For each scale...")
         for sc, st in scales:
-            print("  -> Time and frequency smoothing")
+            print("  -> Scale:", sc, st)
+            print("    -> Time and frequency smoothing")
             time_smoothed = np.apply_along_axis(filters.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
             freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
 
             # Remove especially egregious artifacts
-            print("  -> Removing egregious filtering artifacts")
+            print("    -> Removing egregious filtering artifacts")
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 freq_smoothed[freq_smoothed > 1E3] = 1E3
@@ -236,49 +250,40 @@ class AudioSegment:
         # Onset/Offset Detection and Matching
         print("For each scale...")
         for spect, (sc, st) in zip(spectrograms, scales):
-            print("  -> Getting the onsets")
+            print("  -> Scale:", sc, st)
+            print("    -> Getting the onsets")
             # Compute sudden upward changes in spect, these are onsets of events
             onsets, gradients = asa._compute_peaks_or_valleys_of_first_derivative(spect)
 
             # Compute sudden downward changes in spect, these are offsets of events
-            print("  -> Getting the offsets")
+            print("    -> Getting the offsets")
             offsets, _ = asa._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
 
             # Correlate offsets with onsets so that we have a 1:1 relationship
-            print("  -> Lining up the onsets and offsets")
+            print("    -> Lining up the onsets and offsets")
             offsets = asa._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
             #asa.visualize_peaks_and_valleys(onsets, offsets, spect, frequencies)
 
             # Create onset/offset fronts
             # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
-            print("  -> Create vertical contours (fronts)")
+            print("    -> Create vertical contours (fronts)")
             onset_fronts = asa._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
             offset_fronts = asa._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
 
-            # TODO: for each onset front, for each frequency in that front, break the onset front if the signals
-            #       between this frequency's onset and the next frequency's onset are not similar enough.
-            #       Specifically:
-            #       If we have the following two frequency channels, and the two O's are part of the same onset front,
-            #       [ . O . . . . . . . . . . ]
-            #       [ . . . . O . . . . . . . ]
-            #       We compare the signals x and y:
-            #       [ . x x x x . . . . . . . ]
-            #       [ . y y y y . . . . . . . ]
-            #       And if they are not sufficiently similar (via a DSP correlation algorithm), we break the onset
-            #       front between these two channels.
-            #       Once this is done, remove any onset fronts that are less than 3 channels wide.
+            print("    -> Breaking onset fronts between poorly matched frequencies")
+            # Break poorly matched onset fronts
+            asa._break_poorly_matched_fronts(onset_fronts)
 
             #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
-            print("  -> Getting segmentation mask")
+            print("    -> Getting segmentation mask")
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
             asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
 
         # Multiscale Integration
         ##
         ## TODO
-        exit()
 
     def detect_voice(self, prob_detect_voice=0.5):
         """

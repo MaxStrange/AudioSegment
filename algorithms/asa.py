@@ -586,7 +586,7 @@ def _front_id_from_idx(front, index):
     else:
         return id
 
-def _get_onset_front_ids_one_at_a_time(onset_fronts):
+def _get_front_ids_one_at_a_time(onset_fronts):
     """
     Yields one onset front ID at a time until they are gone. All the onset fronts from a
     frequency channel are yielded, then all of the next channel's, etc., though one at a time.
@@ -679,8 +679,8 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     #     [ O . . . . . . . .]
 
     resulting_onset_fronts = np.copy(onset_fronts)
-    for onset_front_id in _get_onset_front_ids_one_at_a_time(onset_fronts):
-        print("    -> Processing onset front ID", onset_front_id)
+    for onset_front_id in _get_front_ids_one_at_a_time(onset_fronts):
+        print("      -> Processing onset front ID", onset_front_id)
         front_is_complete = False
         while not front_is_complete:
             # - Now, starting at this onset front in each frequency, find that onset's corresponding offset
@@ -762,3 +762,85 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
         # - Repeat for each frequency
 
     return segmentation_mask
+
+
+def _remove_fronts_that_are_too_small(fronts, size):
+    """
+    Removes all fronts from `fronts` which are strictly smaller than
+    `size` consecutive frequencies in length.
+    """
+    ids = np.unique(fronts)
+    for id in ids:
+        if id == 0 or id == -1:
+            continue
+        front = _get_front_idxs_from_id(fronts, id)
+        if len(front) < size:
+            indexes = ([f for f, _ in front], [s for _, s in front])
+            fronts[indexes] = 0
+
+def _break_poorly_matched_fronts(fronts, threshold=0.1, threshold_overlap_samples=5):
+    """
+    For each onset front, for each frequency in that front, break the onset front if the signals
+    between this frequency's onset and the next frequency's onset are not similar enough.
+
+    Specifically:
+    If we have the following two frequency channels, and the two O's are part of the same onset front,
+
+    ::
+
+        [ . O . . . . . . . . . . ]
+        [ . . . . O . . . . . . . ]
+
+    We compare the signals x and y:
+
+    ::
+
+        [ . x x x x . . . . . . . ]
+        [ . y y y y . . . . . . . ]
+
+    And if they are not sufficiently similar (via a DSP correlation algorithm), we break the onset
+    front between these two channels.
+
+    Once this is done, remove any onset fronts that are less than 3 channels wide.
+    """
+    assert threshold_overlap_samples > 0, "Number of samples of overlap must be greater than zero"
+    breaks_after = {}
+    for front_id in _get_front_ids_one_at_a_time(fronts):
+        front = _get_front_idxs_from_id(fronts, front_id)
+        for i, (f, s) in enumerate(front):
+            if i < len(front) - 1:
+                # Get the signal from f, s to f, s+1 and the signal from f+1, s to f+1, s+1
+                next_f, next_s = front[i + 1]
+                low_s = min(s, next_s)
+                high_s = max(s, next_s)
+                sig_this_f = fronts[f, low_s:high_s]
+                sig_next_f = fronts[next_f, low_s:high_s]
+                assert len(sig_next_f) == len(sig_this_f)
+
+                if len(sig_next_f) > threshold_overlap_samples:
+                    # If these two signals are not sufficiently close in form, this front should be broken up
+                    correlation = signal.correlate(sig_this_f, sig_next_f, mode='same')
+                    assert len(correlation) > 0
+                    correlation = correlation / max(correlation + 1E-9)
+                    similarity = np.sum(correlation) / len(correlation)
+                    # TODO: the above stuff probably needs to be figured out
+                    if similarity < threshold:
+                        if front_id in breaks_after:
+                            breaks_after[front_id].append((f, s))
+                        else:
+                            breaks_after[front_id] = []
+
+    # Now update the fronts matrix by breaking up any fronts at the points we just identified
+    # and assign the newly created fronts new IDs
+    taken_ids = sorted(np.unique(fronts))
+    next_id = taken_ids[-1] + 1
+    for id in breaks_after.keys():
+        for f, s in breaks_after[id]:
+            fidxs, sidxs = np.where(fronts == id)
+            idxs_greater_than_f = [fidx for fidx in fidxs if fidx > f]
+            start = len(sidxs) - len(idxs_greater_than_f)
+            indexes = (idxs_greater_than_f, sidxs[start:])
+            fronts[indexes] = next_id
+            next_id += 1
+
+    _remove_fronts_that_are_too_small(fronts, 3)
