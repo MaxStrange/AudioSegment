@@ -68,6 +68,13 @@ def visualize_fronts(onsets, offsets, spect, frequencies):
 
 def visualize_segmentation_mask(segmentation, spect, frequencies):
     import matplotlib.pyplot as plt
+
+    times = np.arange(spect.shape[1])
+    spect = spect * 10000
+    plt.pcolormesh(times, frequencies, segmentation)
+    plt.show()
+    exit()
+
     # Reverse segmentation mask's frequency dimension so that low fs is at the bottome
     segmentation = np.copy(segmentation)
     segmentation = segmentation[::-1, :]
@@ -506,11 +513,6 @@ def _update_segmentation_mask(segmentation_mask, onset_fronts, offset_fronts, on
     The other option would be to destroy the offset front from the crossover point on, and
     then search for a new offset front for the rest of the onset front.
     """
-    # Make some copies
-    segmentation_mask = np.copy(segmentation_mask)
-    onset_fronts = np.copy(onset_fronts)
-    offset_fronts = np.copy(offset_fronts)
-
     # Get the portions of the onset and offset fronts that overlap and are consecutive
     onset_front_overlap, offset_front_overlap = _get_consecutive_and_overlapping_fronts(onset_fronts, offset_fronts, onset_front_id, offset_front_id_most_overlap)
     onset_front = _get_front_idxs_from_id(onset_fronts, onset_front_id)
@@ -566,7 +568,7 @@ def _update_segmentation_mask(segmentation_mask, onset_fronts, offset_fronts, on
     # Determine if we matched the entire onset front by checking if there is any more of this onset front in onset_fronts
     whole_onset_front_matched = onset_front_id not in np.unique(onset_fronts)
 
-    return segmentation_mask, onset_fronts, offset_fronts, whole_onset_front_matched
+    return whole_onset_front_matched
 
 def _front_id_from_idx(front, index):
     """
@@ -627,13 +629,8 @@ def _remove_overlaps(segmentation_mask, fronts):
     """
     Removes all points in the fronts that overlap with the segmentation mask.
     """
-    segmentation_mask = np.copy(segmentation_mask)
-    fronts = np.copy(fronts)
-
     fidxs, sidxs = np.where((segmentation_mask != fronts) & (segmentation_mask != 0) & (fronts != 0))
     fronts[fidxs, sidxs] = 0
-
-    return fronts
 
 def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     """
@@ -683,6 +680,7 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
 
     resulting_onset_fronts = np.copy(onset_fronts)
     for onset_front_id in _get_onset_front_ids_one_at_a_time(onset_fronts):
+        print("    -> Processing onset front ID", onset_front_id)
         front_is_complete = False
         while not front_is_complete:
             # - Now, starting at this onset front in each frequency, find that onset's corresponding offset
@@ -693,7 +691,6 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
             #     [ . O . F . . . . .]
             #     [ O F . . . . . . .]
 
-            print("Get corresponding offsets")
             corresponding_offsets = _get_corresponding_offsets(resulting_onset_fronts, onset_front_id, onsets, offsets)
 
             # It is possible that onset_front_id has been removed from resulting_onset_fronts,
@@ -710,7 +707,6 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
             #     [ . O . 3 . . . 1 .]
             #     [ O F 3 . . . . . .]
 
-            print("Getting all offset fronts from corresponding offsets")
             _all_offset_fronts_of_interest, ids_ntimes_seen = _get_all_offset_fronts_from_offsets(offset_fronts, corresponding_offsets)
 
             # - Check how many of these offset times each of the offset fronts are composed of:
@@ -729,7 +725,6 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
             # - Choose the offset front which matches the most offset time candidates. In this example, offset front 1
             #   is chosen because it has 2 of these offset times.
             #   If there is a tie, we choose the ID with the lower number
-            print("Determine offset front")
             ntimes_seen_sorted = sorted([(k, v) for k, v in ids_ntimes_seen.items()], key=lambda tup: (-1 * tup[1], tup[0]))
             assert len(ntimes_seen_sorted) > 0, "We somehow got an empty dict of offset front IDs"
 
@@ -748,21 +743,17 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
             #     [ . . S S S S S . .]
             #     [ . S S S S S S S .]
             #     [ O F 3 . . . . . .]  <-- This frequency has not yet been matched with an offset front
-            print("Getting segmentation")
-            segmentation_mask, resulting_onset_fronts, offset_fronts, front_is_complete = \
-                            _update_segmentation_mask(segmentation_mask,
-                                                    resulting_onset_fronts,
-                                                    offset_fronts,
-                                                    onset_front_id,
-                                                    offset_front_id_most_overlap)
+            front_is_complete = _update_segmentation_mask(segmentation_mask,
+                                                            resulting_onset_fronts,
+                                                            offset_fronts,
+                                                            onset_front_id,
+                                                            offset_front_id_most_overlap)
 
             # Remove any onsets that are covered by the new segmentation mask
-            print("Removing overlaps")
-            resulting_onset_fronts = _remove_overlaps(segmentation_mask, resulting_onset_fronts)
+            _remove_overlaps(segmentation_mask, resulting_onset_fronts)
 
             # Remove any offsets that are covered by the new segmentaion mask
-            print("Removing overlaps")
-            offset_fronts = _remove_overlaps(segmentation_mask, offset_fronts)
+            _remove_overlaps(segmentation_mask, offset_fronts)
 
             # - Repeat this algorithm, restarting in the first frequency channel that did not match (the last frequency in
             #   the above example). Do this until you have finished with this onset front.
