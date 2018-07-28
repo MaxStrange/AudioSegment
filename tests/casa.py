@@ -365,12 +365,90 @@ def unittest_front_formation(seg):
                          [0, 2, 0, 3, 0, 0]])
     _test_front_case(finput, expected, sample_rate_hz, threshold_ms=5, test_name="test 14")
 
+def unittest_overlapping(seg):
+    """
+    Tests the overlapping algorithm in the ASA module.
+    """
+    other    = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 4, 4, 4, 4, 4],
+                         [0, 2, 2, 0, 3, 3, 4, 4, 4, 4, 4],
+                         [0, 0, 0, 0, 3, 3, 3, 0, 4, 4, 0]])
+
+    toupdate = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
+                         [2, 2, 2, 2, 0, 0, 0, 0, 4, 4, 4],
+                         [2, 2, 2, 2, 0, 3, 3, 0, 4, 4, 4],
+                         [0, 0, 0, 0, 0, 3, 3, 0, 4, 4, 0]])
+
+    # Overlaps
+    expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
+                         [2, 2, 2, 2, 0, 0, 0, 0, 4, 4, 4],
+                         [2, 2, 2, 2, 0, 3, 3, 0, 4, 4, 4],
+                         [0, 0, 0, 0, 0, 3, 3, 0, 4, 4, 0]])
+
+    output = np.copy(toupdate)
+    asa._update_segmentation_mask_if_overlap(output, other, id=2, otherid=2)
+    assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+
+    expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
+                         [2, 2, 2, 2, 0, 0, 0, 0, 4, 4, 4],
+                         [2, 2, 2, 2, 3, 3, 3, 0, 4, 4, 4],
+                         [0, 0, 0, 0, 3, 3, 3, 0, 4, 4, 0]])
+
+    output = np.copy(toupdate)
+    asa._update_segmentation_mask_if_overlap(output, other, id=3, otherid=3)
+    assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+
+    expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 3, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 3, 0, 0],
+                         [2, 2, 2, 2, 0, 0, 3, 3, 3, 3, 3],
+                         [2, 2, 2, 2, 0, 3, 3, 3, 3, 3, 3],
+                         [0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 0]])
+
+    output = np.copy(toupdate)
+    asa._update_segmentation_mask_if_overlap(output, other, id=3, otherid=4)
+    assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+
+    expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
+                         [2, 2, 2, 2, 0, 0, 4, 4, 4, 4, 4],
+                         [2, 2, 2, 2, 0, 3, 4, 4, 4, 4, 4],
+                         [0, 0, 0, 0, 0, 3, 3, 0, 4, 4, 0]])
+
+    output = np.copy(toupdate)
+    asa._update_segmentation_mask_if_overlap(output, other, id=4, otherid=4)
+    assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+
+    # No overlaps
+    expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
+                         [2, 2, 2, 2, 0, 0, 0, 0, 4, 4, 4],
+                         [2, 2, 2, 2, 0, 3, 3, 0, 4, 4, 4],
+                         [0, 0, 0, 0, 0, 3, 3, 0, 4, 4, 0]])
+
+    asa._update_segmentation_mask_if_overlap(output, other, id=2, otherid=3)
+    assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+
+    asa._update_segmentation_mask_if_overlap(output, other, id=2, otherid=4)
+    assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+
 def test(seg):
     # 20s of audio
     seg[:30_000].auditory_scene_analysis()
 
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])
+    unittest_overlapping(seg)
     unittest_front_matching(seg)
     unittest_front_formation(seg)
     test(seg)

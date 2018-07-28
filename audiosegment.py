@@ -248,6 +248,7 @@ class AudioSegment:
             spectrograms.append(freq_smoothed)
 
         # Onset/Offset Detection and Matching
+        segmasks = []
         print("For each scale...")
         for spect, (sc, st) in zip(spectrograms, scales):
             print("  -> Scale:", sc, st)
@@ -279,11 +280,18 @@ class AudioSegment:
 
             print("    -> Getting segmentation mask")
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
-            asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
+            segmasks.append(segmentation_mask)
 
         # Multiscale Integration
-        ##
-        ## TODO
+        finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)
+        asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
+
+        # TODO: Split up the mask into separate masks, one for each ID
+        # TODO: Group masks that belong together... somehow...
+        # TODO: Upsample to original Fs for each mask
+        # TODO: Multiply the masks against STFTs
+        # TODO: Compute inverse STFTs to get WAV forms
+        # TODO: Return the wav forms
 
     def detect_voice(self, prob_detect_voice=0.5):
         """

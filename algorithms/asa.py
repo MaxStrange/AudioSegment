@@ -66,36 +66,37 @@ def visualize_fronts(onsets, offsets, spect, frequencies):
     plt.show()
     plt.clf()
 
-def visualize_segmentation_mask(segmentation, spect, frequencies):
+def visualize_segmentation_mask(segmentation, spect, frequencies, mode='new'):
     import matplotlib.pyplot as plt
+    if mode.lower() == 'old':
+        # Reverse segmentation mask's frequency dimension so that low fs is at the bottome
+        segmentation = np.copy(segmentation)
+        segmentation = segmentation[::-1, :]
+        def _plot_seg(p, freq, index, row):
+            colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
+            segment_ids_in_this_frequency = np.reshape(np.where(segmentation[index, :] != 0), (-1,))
+            for x in segment_ids_in_this_frequency:
+                id = int(segmentation[index][x])
+                plot_a_line = False
+                if x == 0:  # if this is the first item in the frequency, then it must be a start of the mask
+                    plot_a_line = True
+                elif int(segmentation[index][x - 1]) != id:  # this is the start of a mask in this frequency
+                    plot_a_line = True
+                elif x == len(row) - 1:  # this is the very last sample, it must be the end of a mask
+                    plot_a_line = True
+                elif int(segmentation[index][x + 1]) != id:  # this is the last sample of the mask in this frequency
+                    plot_a_line = True
 
-    times = np.arange(spect.shape[1])
-    spect = spect * 10000
-    plt.pcolormesh(times, frequencies, segmentation)
-    plt.show()
-    exit()
-
-    # Reverse segmentation mask's frequency dimension so that low fs is at the bottome
-    segmentation = np.copy(segmentation)
-    segmentation = segmentation[::-1, :]
-    def _plot_seg(p, freq, index, row):
-        colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
-        segment_ids_in_this_frequency = np.reshape(np.where(segmentation[index, :] != 0), (-1,))
-        for x in segment_ids_in_this_frequency:
-            id = int(segmentation[index][x])
-            plot_a_line = False
-            if x == 0:  # if this is the first item in the frequency, then it must be a start of the mask
-                plot_a_line = True
-            elif int(segmentation[index][x - 1]) != id:  # this is the start of a mask in this frequency
-                plot_a_line = True
-            elif x == len(row) - 1:  # this is the very last sample, it must be the end of a mask
-                plot_a_line = True
-            elif int(segmentation[index][x + 1]) != id:  # this is the last sample of the mask in this frequency
-                plot_a_line = True
-
-            if plot_a_line:
-                p.axvline(x=x, color=colors[id % len(colors)], linestyle="--")
-    _plot(frequencies, spect, "Segmentation Mask", _plot_seg)
+                if plot_a_line:
+                    p.axvline(x=x, color=colors[id % len(colors)], linestyle="--")
+        _plot(frequencies, spect, "Segmentation Mask", _plot_seg)
+    elif mode.lower() == 'new':
+        times = np.arange(spect.shape[1])
+        spect = spect * 10000
+        plt.pcolormesh(times, frequencies, segmentation)
+        plt.show()
+    else:
+        raise ValueError("Mode must be one of ('new', 'old')")
     plt.show()
     plt.clf()
 
@@ -169,6 +170,8 @@ def _correlate_onsets_and_offsets(onsets, offsets, gradients):
                 offset_choice_indexes = np.where(offset_choices == 1)
 
                 # Assert that there is at least one offset choice
+                if not np.any(offset_choices):
+                    continue
                 assert np.any(offset_choices), "Offsets from {} to {} only include zeros".format(last_idx, next_idx)
 
                 # If we have more than one choice, the offset index is the one that corresponds to the most negative gradient value
@@ -778,7 +781,7 @@ def _remove_fronts_that_are_too_small(fronts, size):
             indexes = ([f for f, _ in front], [s for _, s in front])
             fronts[indexes] = 0
 
-def _break_poorly_matched_fronts(fronts, threshold=0.1, threshold_overlap_samples=5):
+def _break_poorly_matched_fronts(fronts, threshold=0.1, threshold_overlap_samples=3):
     """
     For each onset front, for each frequency in that front, break the onset front if the signals
     between this frequency's onset and the next frequency's onset are not similar enough.
@@ -844,3 +847,31 @@ def _break_poorly_matched_fronts(fronts, threshold=0.1, threshold_overlap_sample
             next_id += 1
 
     _remove_fronts_that_are_too_small(fronts, 3)
+
+def _update_segmentation_mask_if_overlap(toupdate, other, id, otherid):
+    """
+    Merges the segments specified by `id` (found in `toupdate`) and `otherid`
+    (found in `other`) if they overlap at all. Updates `toupdate` accordingly.
+    """
+    # TODO
+    pass
+
+def _integrate_segmentation_masks(segmasks):
+    """
+    `segmasks` should be in sorted order of [coarsest, ..., finest].
+
+    Integrates the given list of segmentation masks together to form one segmentation mask
+    by having each segment subsume ones that exist in the finer masks.
+    """
+    if len(segmasks) == 1:
+        return segmasks
+
+    assert len(segmasks) > 0, "Passed in empty list of segmentation masks"
+    coarse_mask = np.copy(segmasks[0])
+    mask_ids = [id for id in np.unique(coarse_mask) if id != 0]
+    for id in mask_ids:
+        for mask in segmasks[1:]:
+            finer_ids = [i for i in np.unique(mask) if i != 0]
+            for finer_id in finer_ids:
+                _update_segmentation_mask_if_overlap(coarse_mask, mask, id, finer_ids)
+    return coarse_mask
