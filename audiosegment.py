@@ -187,7 +187,7 @@ class AudioSegment:
         normalized = self.normalize_spl_by_average(db=60)
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
-        spect, frequencies = normalized.filter_bank(nfilters=10)  # TODO: replace with correct number from paper
+        spect, frequencies = normalized.filter_bank(nfilters=40)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
@@ -259,8 +259,9 @@ class AudioSegment:
 
             #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
+            print("Getting segmentation mask")
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
-            asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
+            #asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
             exit()
 
         # Multiscale Integration

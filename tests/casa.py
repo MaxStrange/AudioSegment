@@ -28,8 +28,8 @@ def _test_match_case(onset_front_id, expected_match, onset_fronts, offset_fronts
     for i, row in enumerate(expected_match[:, :]):
         for j, item in enumerate(row):
             if item == onset_front_id:
-                assert item == outcome[i, j], "TEST {}: Mismatch at: expected[{}, {}] = {}, outcome[{}, {}] = {}".format(
-                    test_title, i, j, expected_match[i, j], i, j, outcome[i, j]
+                assert item == outcome[i, j], "TEST {}: Mismatch at: expected[{}, {}] = {}, outcome[{}, {}] = {};\nExpected:\n{}\nGot:\n{}".format(
+                    test_title, i, j, expected_match[i, j], i, j, outcome[i, j], expected_match, outcome
                 )
     print("-------- PASS TEST {}-----------".format(test_title))
 
