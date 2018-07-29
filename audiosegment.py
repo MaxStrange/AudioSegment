@@ -15,6 +15,7 @@ import platform
 import pydub
 import os
 import random
+import scipy.interpolate as interpolate
 import scipy.signal as signal
 import string
 import subprocess
@@ -201,7 +202,7 @@ class AudioSegment:
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
         print("Making filter bank")
-        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
+        spect, frequencies = normalized.filter_bank(nfilters=10)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
@@ -281,29 +282,62 @@ class AudioSegment:
             print("    -> Getting segmentation mask")
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
             segmasks.append(segmentation_mask)
+            #asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
 
         # Multiscale Integration, seems to conglomerate too well and take too long
         #finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)
-        asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
+        finished_segmentation_mask = segmasks[0]
+        #asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
 
-        # TODO: Split up the mask into separate masks, one for each ID
-        masks = _separate_masks(finished_segmentation_mask)
+        # TODO: Remove small segments to speed up everything downstream
+
+        # Change the segmentation mask's domain to that of the STFT, so we can invert it into a wave form
+        ## Get the times and interpolator object
+        times = np.arange(2 * downsample_freq_hz * len(self) / MS_PER_S)
+        print("Times vs segmentation_mask's times:", times.shape, finished_segmentation_mask.shape)
+
+        ## Determine the new times and frequencies
+        nsamples_for_each_fft = 256
+        print("Converting self into STFT")
+        stft_frequencies, stft_times, stft = signal.stft(self.to_numpy_array(), self.frame_rate, nperseg=nsamples_for_each_fft)
+        print("STFTs shape:", stft.shape)
+        print("Frequencies:", stft_frequencies.shape)
+        print("Times:", stft_times.shape)
+
+        ## Interpolate to map the data into the new domain
+        print("Attempting to map mask of shape", finished_segmentation_mask.shape, "into shape", (stft_frequencies.shape[0], stft_times.shape[0]))
+        finished_segmentation_mask = asa._map_segmentation_mask_to_stft_domain(finished_segmentation_mask, times, frequencies, stft_times, stft_frequencies)
+
+        #import matplotlib.pyplot as plt
+        #plt.pcolormesh(stft_times, stft_frequencies, finished_segmentation_mask)
+        #plt.show()
+
+        # Separate the mask into a bunch of single segments
+        print("Separating masks...")
+        masks = asa._separate_masks(finished_segmentation_mask)
+        print("N separate masks:", len(masks))
 
         # TODO: Group masks that belong together... somehow...
-        # TODO: Upsample to original Fs for each mask
-        for mask in masks:
-            _upsample_mask()
-            _convert_mask_to_binary(mask)
 
-        # TODO: Multiply the masks against STFTs
-        stft = librosa.stft(self.to_numpy_array, n_fft=nsamples_for_each_fft, hop_length=whatever)
+        # Convert each mask to (1 or 0) rather than (ID or 0)
+        print("Binarizing masks...")
+        for mask in masks:
+            mask = np.where(mask > 0, 1, 0)
+
+        # Multiply the masks against STFTs
+        print("Creating each mask in the STFT domain. This will take a moment...")
         masks = [mask * stft for mask in masks]
 
-        # TODO: Compute inverse STFTs to get WAV forms
-        nparrs = [istft(m) for m in masks]
+        print("Inverting into the time-series domain. This may never end...")
+        nparrs = []
+        for i, m in enumerate(masks):
+            print("  -> Working on {} out of {}...".format(i+1, len(masks)))
+            nparrs.append(signal.istft(m, self.frame_rate, nperseg=nsamples_for_each_fft))
+        # TODO: nparrs is list of (times, WAV data)
 
-        # TODO: Return the newly created WAVs as segments
-        return [from_numpy_array(m) for m in nparrs]
+        # Return the newly created WAVs as segments
+        print("Returning an array of WAVs")
+        return [from_numpy_array(m, self.frame_rate) for m in nparrs]
 
     def detect_voice(self, prob_detect_voice=0.5):
         """
@@ -759,6 +793,7 @@ class AudioSegment:
         if channels is None:
             channels = self.channels
 
+        # TODO: Replace this with librosa's implementation to remove SOX dependency here
         command = "sox {inputfile} -b " + str(sample_width * 8) + " -r " + str(sample_rate_Hz) \
             + " -t wav {outputfile} channels " + str(channels)
 

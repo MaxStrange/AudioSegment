@@ -683,7 +683,6 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
 
     resulting_onset_fronts = np.copy(onset_fronts)
     for onset_front_id in _get_front_ids_one_at_a_time(onset_fronts):
-        print("      -> Processing onset front ID", onset_front_id)
         front_is_complete = False
         while not front_is_complete:
             # - Now, starting at this onset front in each frequency, find that onset's corresponding offset
@@ -916,3 +915,43 @@ def _integrate_segmentation_masks(segmasks):
     # Lastly, merge all adjacent blocks, but just kidding, since this algorithm is waaaay to slow
     #_merge_adjacent_segments(coarse_mask)
     return coarse_mask
+
+def _separate_masks(mask):
+    """
+    Returns a list of segmentation masks each of the same dimension as the input one,
+    but where they each have exactly one segment in them and all other samples in them
+    are zeroed.
+    """
+    mask_ids = [id for id in np.unique(mask) if id != 0]
+    ms = []
+    for id in mask_ids:
+        idxs = np.where(mask == id)
+        m = np.zeros_like(mask)
+        m[idxs] = id
+        ms.append(m)
+
+    return ms
+
+def _map_segmentation_mask_to_stft_domain(mask, times, frequencies, stft_times, stft_frequencies):
+    """
+    Maps the given `mask`, which is in domain (`frequencies`, `times`) to the new domain (`stft_frequencies`, `stft_times`)
+    and returns the result.
+    """
+    assert mask.shape == (frequencies.shape[0], times.shape[0]), "Times is shape {} and frequencies is shape {}, but mask is shaped {}".format(
+        times.shape, frequencies.shape, mask.shape
+    )
+    result = np.zeros((stft_frequencies.shape[0], stft_times.shape[0]))
+
+    if len(stft_times) > len(times):
+        all_j = [j for j in range(len(stft_times))]
+        idxs  = [int(i) for i in np.linspace(0, len(times) - 1, num=len(stft_times))]
+        all_i = [all_j[idx] for idx in idxs]
+    else:
+        all_i = [i for i in range(len(times))]
+        idxs  = [int(i) for i in np.linspace(0, len(stft_times) - 1, num=len(times))]
+        all_j = [all_i[idx] for idx in idxs]
+
+    for i, j in zip(all_i, all_j):
+        result[:, j] = np.interp(stft_frequencies, frequencies, mask[:, i])
+
+    return result

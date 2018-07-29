@@ -17,6 +17,9 @@ def test(seg):
     print("Doing a spectrogram...")
     print("  |-> Computing overlapping FFTs for first", visualize.VIS_MS, "ms...")
     hist_bins, times, amplitudes = seg[1:visualize.VIS_MS].spectrogram(window_length_s=0.03, overlap=1/4)
+    print("Given a waveform of Fs {} and nsamples {}, and a spectrogram of window_length {} and overlap {}, we get {} hist bins and {} times.".format(
+        seg.frame_rate, len(seg[1:visualize.VIS_MS]), 0.03, 1/4, hist_bins.shape, times.shape
+    ))
     amplitudes = 10 * np.log10(amplitudes + 1e-9)
     print("  |-> Plotting...")
     if os.environ.get('DISPLAY', False):
