@@ -394,6 +394,7 @@ def unittest_overlapping(seg):
     output = np.copy(toupdate)
     asa._update_segmentation_mask_if_overlap(output, other, id=2, otherid=2)
     assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+    print("PASS TEST", (2, 2))
 
     expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                          [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
@@ -405,10 +406,11 @@ def unittest_overlapping(seg):
     output = np.copy(toupdate)
     asa._update_segmentation_mask_if_overlap(output, other, id=3, otherid=3)
     assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+    print("PASS TEST", (3, 3))
 
     expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 2, 2, 2, 2, 0, 0, 0, 3, 0, 0],
-                         [0, 2, 2, 0, 0, 0, 0, 0, 3, 0, 0],
+                         [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                         [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
                          [2, 2, 2, 2, 0, 0, 3, 3, 3, 3, 3],
                          [2, 2, 2, 2, 0, 3, 3, 3, 3, 3, 3],
                          [0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 0]])
@@ -416,6 +418,7 @@ def unittest_overlapping(seg):
     output = np.copy(toupdate)
     asa._update_segmentation_mask_if_overlap(output, other, id=3, otherid=4)
     assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+    print("PASS TEST", (3, 4))
 
     expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                          [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
@@ -427,6 +430,7 @@ def unittest_overlapping(seg):
     output = np.copy(toupdate)
     asa._update_segmentation_mask_if_overlap(output, other, id=4, otherid=4)
     assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+    print("PASS TEST", (4, 4))
 
     # No overlaps
     expected = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -436,11 +440,45 @@ def unittest_overlapping(seg):
                          [2, 2, 2, 2, 0, 3, 3, 0, 4, 4, 4],
                          [0, 0, 0, 0, 0, 3, 3, 0, 4, 4, 0]])
 
+    output = np.copy(toupdate)
     asa._update_segmentation_mask_if_overlap(output, other, id=2, otherid=3)
     assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+    print("PASS TEST", (2, 3))
 
+    output = np.copy(toupdate)
     asa._update_segmentation_mask_if_overlap(output, other, id=2, otherid=4)
     assert np.all(output == expected), "Expected\n{}\nbut got\n{}".format(expected, output)
+    print("PASS TEST", (2, 4))
+
+def unittest_adjacent_segments(seg):
+    """
+    Test the algorithm that determines whether segments are adjacent.
+    """
+    mask = np.array([[0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [0, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0],
+                     [0, 2, 2, 0, 0, 0, 0, 0, 4, 0, 0],
+                     [2, 2, 2, 2, 0, 0, 0, 0, 4, 4, 4],
+                     [2, 2, 2, 2, 0, 3, 3, 3, 4, 4, 4],
+                     [0, 0, 0, 0, 0, 3, 3, 0, 4, 4, 0]])
+
+    seg2 = np.where(mask == 2)
+    seg3 = np.where(mask == 3)
+    seg4 = np.where(mask == 4)
+
+    result = asa._segments_are_adjacent(seg2, seg3)
+    assert result == False, "Segment 2 and 3 are not adjacent, but result is True"
+    result = asa._segments_are_adjacent(seg3, seg2)
+    assert result == False, "Segment 3 and 2 are not adjacent, but result is True"
+
+    result = asa._segments_are_adjacent(seg2, seg4)
+    assert result == False, "Segment 2 and 4 are not adjacent, but result is True"
+    result = asa._segments_are_adjacent(seg4, seg2)
+    assert result == False, "Segment 4 and 2 are not adjacent, but result is True"
+
+    result = asa._segments_are_adjacent(seg3, seg4)
+    assert result == True, "Segment 3 and 4 are adjacent, but result is False"
+    result = asa._segments_are_adjacent(seg4, seg3)
+    assert result == True, "Segment 4 and 3 are adjacent, but result is False"
 
 def test(seg):
     # 20s of audio
@@ -448,6 +486,7 @@ def test(seg):
 
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])
+    unittest_adjacent_segments(seg)
     unittest_overlapping(seg)
     unittest_front_matching(seg)
     unittest_front_formation(seg)

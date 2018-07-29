@@ -853,8 +853,46 @@ def _update_segmentation_mask_if_overlap(toupdate, other, id, otherid):
     Merges the segments specified by `id` (found in `toupdate`) and `otherid`
     (found in `other`) if they overlap at all. Updates `toupdate` accordingly.
     """
-    # TODO
-    pass
+    # If there is any overlap or touching, merge the two, otherwise just return
+    yourmask = other == otherid
+    mymask = toupdate == id
+    overlap_exists = np.any(yourmask & mymask)
+    if not overlap_exists:
+        return
+
+    yourfidxs, yoursidxs = np.where(other == otherid)
+    toupdate[yourfidxs, yoursidxs] = id
+
+def _segments_are_adjacent(seg1, seg2):
+    """
+    Checks if seg1 and seg2 are adjacent at any point. Each is a tuple of the form
+    (fidxs, sidxs).
+    """
+    # TODO: This is unnacceptably slow
+    lsf1, lss1 = seg1
+    lsf2, lss2 = seg2
+    for i, f1 in enumerate(lsf1):
+        for j, f2 in enumerate(lsf2):
+            if f1 <= f2 + 1 and f1 >= f2 - 1:
+                # Frequencies are a match, are samples?
+                if lss1[i] <= lss2[j] + 1 and lss1[i] >= lss2[j] - 1:
+                    return True
+    return False
+
+def _merge_adjacent_segments(mask):
+    """
+    Merges all segments in `mask` which are touching.
+    """
+    mask_ids = [id for id in np.unique(mask) if id != 0]
+    for id in mask_ids:
+        myfidxs, mysidxs = np.where(mask == id)
+        for other in mask_ids:  # Ugh, brute force O(N^2) algorithm.. gross..
+            if id == other:
+                continue
+            else:
+                other_fidxs, other_sidxs = np.where(mask == other)
+                if _segments_are_adjacent((myfidxs, mysidxs), (other_fidxs, other_sidxs)):
+                    mask[other_fidxs, other_sidxs] = id  # This may lead to additional adjacencies, but we only do this once - otherwise too much clustering
 
 def _integrate_segmentation_masks(segmasks):
     """
@@ -873,5 +911,8 @@ def _integrate_segmentation_masks(segmasks):
         for mask in segmasks[1:]:
             finer_ids = [i for i in np.unique(mask) if i != 0]
             for finer_id in finer_ids:
-                _update_segmentation_mask_if_overlap(coarse_mask, mask, id, finer_ids)
+                _update_segmentation_mask_if_overlap(coarse_mask, mask, id, finer_id)
+
+    # Lastly, merge all adjacent blocks, but just kidding, since this algorithm is waaaay to slow
+    #_merge_adjacent_segments(coarse_mask)
     return coarse_mask

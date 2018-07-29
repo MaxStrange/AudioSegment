@@ -201,7 +201,7 @@ class AudioSegment:
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
         print("Making filter bank")
-        spect, frequencies = normalized.filter_bank(nfilters=10)  # TODO: replace with correct number from paper
+        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
@@ -282,16 +282,28 @@ class AudioSegment:
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
             segmasks.append(segmentation_mask)
 
-        # Multiscale Integration
-        finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)
+        # Multiscale Integration, seems to conglomerate too well and take too long
+        #finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)
         asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
 
         # TODO: Split up the mask into separate masks, one for each ID
+        masks = _separate_masks(finished_segmentation_mask)
+
         # TODO: Group masks that belong together... somehow...
         # TODO: Upsample to original Fs for each mask
+        for mask in masks:
+            _upsample_mask()
+            _convert_mask_to_binary(mask)
+
         # TODO: Multiply the masks against STFTs
+        stft = librosa.stft(self.to_numpy_array, n_fft=nsamples_for_each_fft, hop_length=whatever)
+        masks = [mask * stft for mask in masks]
+
         # TODO: Compute inverse STFTs to get WAV forms
-        # TODO: Return the wav forms
+        nparrs = [istft(m) for m in masks]
+
+        # TODO: Return the newly created WAVs as segments
+        return [from_numpy_array(m) for m in nparrs]
 
     def detect_voice(self, prob_detect_voice=0.5):
         """
