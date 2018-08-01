@@ -9,6 +9,7 @@ import functools
 import itertools
 import librosa
 import math
+import multiprocessing
 import numpy as np
 import pickle
 import platform
@@ -289,8 +290,6 @@ class AudioSegment:
         finished_segmentation_mask = segmasks[0]
         #asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
 
-        # TODO: Remove small segments to speed up everything downstream
-
         # Change the segmentation mask's domain to that of the STFT, so we can invert it into a wave form
         ## Get the times and interpolator object
         times = np.arange(2 * downsample_freq_hz * len(self) / MS_PER_S)
@@ -319,25 +318,34 @@ class AudioSegment:
 
         # TODO: Group masks that belong together... somehow...
 
-        # Convert each mask to (1 or 0) rather than (ID or 0)
-        print("Binarizing masks...")
-        for mask in masks:
-            mask = np.where(mask > 0, 1, 0)
+        # Now multiprocess the rest, since it takes forever and is easily parallizable
+        try:
+            ncpus = multiprocessing.cpu_count()
+        except NotImplementedError:
+            ncpus = 2
 
-        # Multiply the masks against STFTs
-        print("Creating each mask in the STFT domain. This will take a moment...")
-        masks = [mask * stft for mask in masks]
+        ncpus = len(masks) if len(masks) < ncpus else ncpus
 
-        print("Inverting into the time-series domain. This may never end...")
-        nparrs = []
-        for i, m in enumerate(masks):
-            print("  -> Working on {} out of {}...".format(i+1, len(masks)))
-            nparrs.append(signal.istft(m, self.frame_rate, nperseg=nsamples_for_each_fft))
-        # TODO: nparrs is list of (times, WAV data)
+        chunks = np.array_split(masks, ncpus)
+        assert len(chunks) == ncpus
+        queue = multiprocessing.Queue()
+        for i in range(ncpus):
+            p = multiprocessing.Process(target=asa._asa_task,
+                                        args=(queue, chunks[i], stft, self.sample_width, self.frame_rate, nsamples_for_each_fft),
+                                        daemon=True)
+            p.start()
 
-        # Return the newly created WAVs as segments
-        print("Returning an array of WAVs")
-        return [from_numpy_array(m, self.frame_rate) for m in nparrs]
+        results = []
+        dones = []
+        while len(dones) < ncpus:
+            item = queue.get()
+            if type(item) == str and item == "DONE":
+                dones.append(item)
+            else:
+                wav = from_numpy_array(item, self.frame_rate)
+                results.append(wav)
+
+        return results
 
     def detect_voice(self, prob_detect_voice=0.5):
         """

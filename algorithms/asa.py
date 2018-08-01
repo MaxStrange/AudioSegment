@@ -2,6 +2,7 @@
 This module extracts out a bunch of the Auditory Scene Analysis (ASA)
 logic, which has grown to be a little unwieldy in the AudioSegment class.
 """
+import multiprocessing
 import numpy as np
 import scipy.signal as signal
 import sys
@@ -916,21 +917,34 @@ def _integrate_segmentation_masks(segmasks):
     #_merge_adjacent_segments(coarse_mask)
     return coarse_mask
 
-def _separate_masks(mask):
+def _separate_masks_task(id, threshold, mask):
+    idxs = np.where(mask == id)
+    if len(idxs[0]) > threshold:
+        m = np.zeros_like(mask)
+        m[idxs] = id
+        return m
+    else:
+        return None
+
+def _separate_masks(mask, threshold=0.025):
     """
     Returns a list of segmentation masks each of the same dimension as the input one,
     but where they each have exactly one segment in them and all other samples in them
     are zeroed.
-    """
-    mask_ids = [id for id in np.unique(mask) if id != 0]
-    ms = []
-    for id in mask_ids:
-        idxs = np.where(mask == id)
-        m = np.zeros_like(mask)
-        m[idxs] = id
-        ms.append(m)
 
-    return ms
+    Only bothers to return segments that are larger in total area than `threshold * mask.size`.
+    """
+    try:
+        ncpus = multiprocessing.cpu_count()
+    except NotImplementedError:
+        ncpus = 2
+
+    with multiprocessing.Pool(processes=ncpus) as pool:
+        mask_ids = [id for id in np.unique(mask) if id != 0]
+        thresholds = [threshold * mask.size for _ in range(len(mask_ids))]
+        masks = [mask for _ in range(len(mask_ids))]
+        ms = pool.starmap(_separate_masks_task, zip(mask_ids, thresholds, masks))
+    return [m for m in ms if m is not None]
 
 def _map_segmentation_mask_to_stft_domain(mask, times, frequencies, stft_times, stft_frequencies):
     """
@@ -955,3 +969,31 @@ def _map_segmentation_mask_to_stft_domain(mask, times, frequencies, stft_times, 
         result[:, j] = np.interp(stft_frequencies, frequencies, mask[:, i])
 
     return result
+
+def _asa_task(q, masks, stft, sample_width, frame_rate, nsamples_for_each_fft):
+    """
+    Worker for the ASA algorithm's multiprocessing step.
+    """
+    # Convert each mask to (1 or 0) rather than (ID or 0)
+    print("Binarizing masks...")
+    for mask in masks:
+        mask = np.where(mask > 0, 1, 0)
+
+    # Multiply the masks against STFTs
+    print("Creating each mask in the STFT domain. This will take a moment...")
+    masks = [mask * stft for mask in masks]
+
+    print("Inverting into the time-series domain. This may never end...")
+    nparrs = []
+    dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
+    dtype = dtype_dict[sample_width]
+    for i, m in enumerate(masks):
+        print("  -> Working on {} out of {}...".format(i+1, len(masks)))
+        _times, nparr = signal.istft(m, frame_rate, nperseg=nsamples_for_each_fft)
+        nparr = nparr.astype(dtype)
+        nparrs.append(nparr)
+
+    print("Returning results as Numpy Arrays...")
+    for m in nparrs:
+        q.put(m)
+    q.put("DONE")
