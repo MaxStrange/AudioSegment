@@ -482,7 +482,12 @@ def unittest_adjacent_segments(seg):
 
 def test(seg):
     # 20s of audio
-    seg[:30_000].auditory_scene_analysis()
+    wavs = seg[:30_000].auditory_scene_analysis()
+    ntosave = 5
+    print("Got", len(wavs), "back. Saving up to the first", ntosave, "of them to disk")
+    for i in range(min(ntosave, len(wavs))):
+        name = "asa_results_{}.wav".format(i)
+        wavs[i].export(name, format="wav")
 
 if __name__ == "__main__":
     seg = read_from_file.test(sys.argv[1])

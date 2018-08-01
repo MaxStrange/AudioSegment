@@ -203,7 +203,7 @@ class AudioSegment:
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
         print("Making filter bank")
-        spect, frequencies = normalized.filter_bank(nfilters=10)  # TODO: replace with correct number from paper
+        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
