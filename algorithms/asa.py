@@ -636,7 +636,7 @@ def _remove_overlaps(segmentation_mask, fronts):
     fidxs, sidxs = np.where((segmentation_mask != fronts) & (segmentation_mask != 0) & (fronts != 0))
     fronts[fidxs, sidxs] = 0
 
-def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
+def _match_fronts(onset_fronts, offset_fronts, onsets, offsets, debug=False):
     """
     Returns a segmentation mask, which looks like this:
     frequency 1: 0 0 4 4 4 4 4 0 0 5 5 5
@@ -646,6 +646,10 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     That is, each item in the array is either a 0 (not part of a segment) or a positive
     integer which indicates which segment the sample in that frequency band belongs to.
     """
+    def printd(*args, **kwargs):
+        if debug:
+            print(*args, **kwargs)
+
     # Make copies of everything, so we can do whatever we want with them
     onset_fronts = np.copy(onset_fronts)
     offset_fronts = np.copy(offset_fronts)
@@ -683,7 +687,9 @@ def _match_fronts(onset_fronts, offset_fronts, onsets, offsets):
     #     [ O . . . . . . . .]
 
     resulting_onset_fronts = np.copy(onset_fronts)
+    printd("    -> Dealing with onset fronts...")
     for onset_front_id in _get_front_ids_one_at_a_time(onset_fronts):
+        printd("      -> Dealing with onset front", int(onset_front_id))
         front_is_complete = False
         while not front_is_complete:
             # - Now, starting at this onset front in each frequency, find that onset's corresponding offset
@@ -975,25 +981,20 @@ def _asa_task(q, masks, stft, sample_width, frame_rate, nsamples_for_each_fft):
     Worker for the ASA algorithm's multiprocessing step.
     """
     # Convert each mask to (1 or 0) rather than (ID or 0)
-    print("Binarizing masks...")
     for mask in masks:
         mask = np.where(mask > 0, 1, 0)
 
     # Multiply the masks against STFTs
-    print("Creating each mask in the STFT domain. This will take a moment...")
     masks = [mask * stft for mask in masks]
 
-    print("Inverting into the time-series domain. This may never end...")
     nparrs = []
     dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
     dtype = dtype_dict[sample_width]
     for i, m in enumerate(masks):
-        print("  -> Working on {} out of {}...".format(i+1, len(masks)))
         _times, nparr = signal.istft(m, frame_rate, nperseg=nsamples_for_each_fft)
         nparr = nparr.astype(dtype)
         nparrs.append(nparr)
 
-    print("Returning results as Numpy Arrays...")
     for m in nparrs:
         q.put(m)
     q.put("DONE")

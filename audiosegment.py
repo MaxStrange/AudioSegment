@@ -193,33 +193,49 @@ class AudioSegment:
         spect = np.vstack(rows)
         return spect, frequencies
 
-    def auditory_scene_analysis(self):
+    def auditory_scene_analysis(self, debug=False, debugplot=False):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
+
+        Returns a list of AudioSegments, each of which is all the sound during this AudioSegment's duration from
+        a particular source. That is, if there are several overlapping sounds in this AudioSegment, this
+        method will return one AudioSegment object for each of those sounds. At least, that's the idea.
+
+        Current version is very much in alpha, and while it shows promise, will require quite a bit more
+        tuning before it can really claim to work.
+
+        :param debug:       If `True` will print out debug outputs along the way. Useful if you want to see why it is
+                            taking so long.
+        :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.
+        :returns:           List of AudioSegment objects, each of which is from a particular sound source.
         """
         # TODO: Normalization algorithm doesn't currently work
         normalized = self.normalize_spl_by_average(db=60)
 
+        def printd(*args, **kwargs):
+            if debug:
+                print(*args, **kwargs)
+
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
-        print("Making filter bank")
+        printd("Making filter bank. This takes a little bit.")
         spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
-        print("Half-wave rectifying")
+        printd("Half-wave rectifying")
         with warnings.catch_warnings():  # Ignore the annoying Numpy runtime warning for less than
             warnings.simplefilter("ignore")
             spect[spect < 0] = 0
 
         # Low-pass filter each frequency channel to remove a bunch of noise - we are only looking for large changes
-        print("Low pass filtering")
+        printd("Low pass filtering")
         low_boundary = 30
         order = 6
         spect = np.apply_along_axis(filters.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
 
         # Downsample each frequency
-        print("Downsampling")
+        printd("Downsampling")
         downsample_freq_hz = 400
         if self.frame_rate > downsample_freq_hz:
             step = int(round(self.frame_rate / downsample_freq_hz))
@@ -234,15 +250,15 @@ class AudioSegment:
         gaussian = lambda x, mu, sig: np.exp(-np.power(x - mu, 2.0) / (2 * np.power(sig, 2.0)))
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
-        print("For each scale...")
+        printd("For each scale...")
         for sc, st in scales:
-            print("  -> Scale:", sc, st)
-            print("    -> Time and frequency smoothing")
+            printd("  -> Scale:", sc, st)
+            printd("    -> Time and frequency smoothing")
             time_smoothed = np.apply_along_axis(filters.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
             freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
 
             # Remove especially egregious artifacts
-            print("    -> Removing egregious filtering artifacts")
+            printd("    -> Removing egregious filtering artifacts")
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 freq_smoothed[freq_smoothed > 1E3] = 1E3
@@ -251,70 +267,68 @@ class AudioSegment:
 
         # Onset/Offset Detection and Matching
         segmasks = []
-        print("For each scale...")
+        printd("For each scale...")
         for spect, (sc, st) in zip(spectrograms, scales):
-            print("  -> Scale:", sc, st)
-            print("    -> Getting the onsets")
+            printd("  -> Scale:", sc, st)
+            printd("    -> Getting the onsets")
             # Compute sudden upward changes in spect, these are onsets of events
             onsets, gradients = asa._compute_peaks_or_valleys_of_first_derivative(spect)
 
             # Compute sudden downward changes in spect, these are offsets of events
-            print("    -> Getting the offsets")
+            printd("    -> Getting the offsets")
             offsets, _ = asa._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
 
             # Correlate offsets with onsets so that we have a 1:1 relationship
-            print("    -> Lining up the onsets and offsets")
+            printd("    -> Lining up the onsets and offsets")
             offsets = asa._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
             #asa.visualize_peaks_and_valleys(onsets, offsets, spect, frequencies)
 
             # Create onset/offset fronts
             # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
-            print("    -> Create vertical contours (fronts)")
+            printd("    -> Create vertical contours (fronts)")
             onset_fronts = asa._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
             offset_fronts = asa._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
 
-            print("    -> Breaking onset fronts between poorly matched frequencies")
+            printd("    -> Breaking onset fronts between poorly matched frequencies")
             # Break poorly matched onset fronts
             asa._break_poorly_matched_fronts(onset_fronts)
 
             #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
-            print("    -> Getting segmentation mask")
-            segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets)
+            printd("    -> Getting segmentation mask")
+            segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets, debug=debug)
             segmasks.append(segmentation_mask)
             #asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
+            break  # TODO: We currently don't bother using the multiscale integration, so we should only do one of the scales
 
         # Multiscale Integration, seems to conglomerate too well and take too long
-        #finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)
+        #finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)  # TODO: doesn't work well and takes too long.
         finished_segmentation_mask = segmasks[0]
-        #asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
+        if debugplot:
+            asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
 
         # Change the segmentation mask's domain to that of the STFT, so we can invert it into a wave form
-        ## Get the times and interpolator object
+        ## Get the times
         times = np.arange(2 * downsample_freq_hz * len(self) / MS_PER_S)
-        print("Times vs segmentation_mask's times:", times.shape, finished_segmentation_mask.shape)
+        printd("Times vs segmentation_mask's times:", times.shape, finished_segmentation_mask.shape)
 
         ## Determine the new times and frequencies
         nsamples_for_each_fft = 256
-        print("Converting self into STFT")
+        printd("Converting self into STFT")
         stft_frequencies, stft_times, stft = signal.stft(self.to_numpy_array(), self.frame_rate, nperseg=nsamples_for_each_fft)
-        print("STFTs shape:", stft.shape)
-        print("Frequencies:", stft_frequencies.shape)
-        print("Times:", stft_times.shape)
+        printd("STFTs shape:", stft.shape)
+        printd("Frequencies:", stft_frequencies.shape)
+        printd("Times:", stft_times.shape)
 
         ## Interpolate to map the data into the new domain
-        print("Attempting to map mask of shape", finished_segmentation_mask.shape, "into shape", (stft_frequencies.shape[0], stft_times.shape[0]))
+        printd("Attempting to map mask of shape", finished_segmentation_mask.shape, "into shape", (stft_frequencies.shape[0], stft_times.shape[0]))
         finished_segmentation_mask = asa._map_segmentation_mask_to_stft_domain(finished_segmentation_mask, times, frequencies, stft_times, stft_frequencies)
 
-        #import matplotlib.pyplot as plt
-        #plt.pcolormesh(stft_times, stft_frequencies, finished_segmentation_mask)
-        #plt.show()
-
         # Separate the mask into a bunch of single segments
-        print("Separating masks...")
+        printd("Separating masks and throwing out inconsequential ones...")
         masks = asa._separate_masks(finished_segmentation_mask)
-        print("N separate masks:", len(masks))
+        printd("N separate masks:", len(masks))
 
         # TODO: Group masks that belong together... somehow...
 
@@ -329,6 +343,7 @@ class AudioSegment:
         chunks = np.array_split(masks, ncpus)
         assert len(chunks) == ncpus
         queue = multiprocessing.Queue()
+        printd("Using {} processes to convert {} masks into linear STFT space and then time domain.".format(ncpus, len(masks)))
         for i in range(ncpus):
             p = multiprocessing.Process(target=asa._asa_task,
                                         args=(queue, chunks[i], stft, self.sample_width, self.frame_rate, nsamples_for_each_fft),

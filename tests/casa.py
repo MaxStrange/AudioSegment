@@ -482,7 +482,7 @@ def unittest_adjacent_segments(seg):
 
 def test(seg):
     # 20s of audio
-    wavs = seg[:30_000].auditory_scene_analysis()
+    wavs = seg[:30_000].auditory_scene_analysis(debug=False, debugplot=False)
     ntosave = 5
     print("Got", len(wavs), "back. Saving up to the first", ntosave, "of them to disk")
     for i in range(min(ntosave, len(wavs))):
