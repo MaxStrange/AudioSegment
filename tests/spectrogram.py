@@ -1,13 +1,14 @@
 """
 Tests doing a spectrogram using an AudioSegment.
 """
-import matplotlib
 import platform
-if platform.system() != "Windows":
-    matplotlib.use('qt5agg')
-import matplotlib.pyplot as plt
-import numpy as np
 import os
+if os.environ.get('DISPLAY', False):
+    import matplotlib
+    if platform.system() != "Windows":
+        matplotlib.use('qt5agg')
+    import matplotlib.pyplot as plt
+import numpy as np
 import read_from_file
 import sys
 import visualize

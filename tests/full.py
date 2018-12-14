@@ -1,9 +1,7 @@
-import importlib.util
-__spec = importlib.util.spec_from_file_location("audiosegment", "../audiosegment.py")
-asg = importlib.util.module_from_spec(__spec)
-__spec.loader.exec_module(asg)
-import os
 import sys
+sys.path.insert(0, '../')
+import audiosegment as asg
+import os
 
 #testsuites
 import casa

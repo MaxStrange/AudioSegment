@@ -2,11 +2,12 @@
 Tests creation of an FFT and plotting of it.
 """
 import platform
-import matplotlib
 import os
-if platform.system() != "Windows":
-    matplotlib.use('qt5agg')
-import matplotlib.pyplot as plt
+if os.environ.get('DISPLAY', False):
+    import matplotlib
+    if platform.system() != "Windows":
+        matplotlib.use('qt5agg')
+    import matplotlib.pyplot as plt
 import numpy as np
 import read_from_file
 import sys
