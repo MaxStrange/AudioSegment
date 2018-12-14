@@ -80,7 +80,7 @@ def unittest_front_matching(seg):
         [2, 3, 0, 0, 0, 0, 0, 4, 0, 0],
         [2, 3, 0, 0, 0, 4, 0, 0, 0, 0]
     ])
- 
+
     offsets = np.array([
         [0, 0, 1, 0, 1, 0, 1, 0, 1, 1],
         [0, 0, 1, 0, 0, 1, 1, 0, 1, 1],
@@ -97,7 +97,7 @@ def unittest_front_matching(seg):
         [2, 2, 2, 0, 0, 0, 4, 4, 0, 0],
         [2, 2, 2, 0, 0, 4, 4, 0, 0, 0]
     ])
- 
+
     _test_match_case(onset_front_id=2, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="4")
     _test_match_case(onset_front_id=3, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="5")
     _test_match_case(onset_front_id=4, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="6")
@@ -186,7 +186,7 @@ def unittest_front_matching(seg):
     _test_match_case(onset_front_id=2, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="10")
     _test_match_case(onset_front_id=3, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="11")
     _test_match_case(onset_front_id=4, expected_match=expected_segmentation_mask, onset_fronts=onset_fronts, offset_fronts=offset_fronts, onsets=onsets, offsets=offsets, test_title="12")
- 
+
 def _test_front_case(function_input, expected_output, sample_rate_hz, threshold_ms, test_name):
     """
     Test whether AudioSegment._form_onset_offset(function_input, sample_rate_hz, threshold_ms) == expected_output.
@@ -202,7 +202,7 @@ def unittest_front_formation(seg):
     sample_period_s = 5E-3  # Each sample is 5 ms apart
     sample_rate_hz = 1/sample_period_s
     threshold_ms = 20
- 
+
     #### SIMPLEST POSSIBLE CASE ####
     finput = np.array([[0, 0, 0, 1, 0, 0],
                        [0, 1, 0, 0, 0, 0],
@@ -481,8 +481,7 @@ def unittest_adjacent_segments(seg):
     assert result == True, "Segment 4 and 3 are adjacent, but result is False"
 
 def test(seg):
-    # 20s of audio
-    wavs = seg[:30_000].auditory_scene_analysis(debug=False, debugplot=False)
+    wavs = seg[:20000].auditory_scene_analysis(debug=True, debugplot=False)
     ntosave = 5
     print("Got", len(wavs), "back. Saving up to the first", ntosave, "of them to disk")
     for i in range(min(ntosave, len(wavs))):

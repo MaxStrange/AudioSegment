@@ -23,7 +23,7 @@ def visualize(spect, frequencies, title=""):
     plt.show()
 
 def test(seg):
-    seg = seg[:25_000]
+    seg = seg[:25000]
     print("Applying filterbank...")
     spec, freqs = seg.filter_bank(nfilters=5, mode='log')
     if os.environ.get('DISPLAY', False):

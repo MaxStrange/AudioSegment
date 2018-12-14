@@ -4,6 +4,9 @@ This module simply exposes a wrapper of a pydub.AudioSegment object.
 from __future__ import division
 from __future__ import print_function
 
+# Disable the annoying "cannot import x" pylint
+# pylint: disable=E0401
+
 import collections
 import functools
 import itertools
@@ -127,7 +130,7 @@ class AudioSegment:
         """
         Returns a numpy array of shape (nfilters, nsamples), where each
         row of data is the result of bandpass filtering the audiosegment
-        round a particular frequency. The frequencies are
+        around a particular frequency. The frequencies are
         spaced from `lower_bound_hz` to `upper_bound_hz` and are returned with
         the np array. The particular spacing of the frequencies depends on `mode`,
         which can be either: 'linear', 'mel', or 'log'.
@@ -154,7 +157,7 @@ class AudioSegment:
                     plt.ylabel("{0:.0f}".format(freq))
                     plt.plot(row)
                 plt.show()
-    
+
             seg = audiosegment.from_file("some_audio.wav").resample(sample_rate_Hz=24000, sample_width=2, channels=1)
             spec, frequencies = seg.filter_bank(nfilters=5)
             visualize(spec, frequencies)
@@ -282,24 +285,19 @@ class AudioSegment:
             printd("    -> Lining up the onsets and offsets")
             offsets = asa._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
-            #asa.visualize_peaks_and_valleys(onsets, offsets, spect, frequencies)
-
             # Create onset/offset fronts
             # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
             printd("    -> Create vertical contours (fronts)")
             onset_fronts = asa._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
             offset_fronts = asa._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
 
-            printd("    -> Breaking onset fronts between poorly matched frequencies")
             # Break poorly matched onset fronts
+            printd("    -> Breaking onset fronts between poorly matched frequencies")
             asa._break_poorly_matched_fronts(onset_fronts)
-
-            #asa.visualize_fronts(onset_fronts, offset_fronts, spect)
 
             printd("    -> Getting segmentation mask")
             segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets, debug=debug)
             segmasks.append(segmentation_mask)
-            #asa.visualize_segmentation_mask(segmentation_mask, spect, frequencies)
             break  # TODO: We currently don't bother using the multiscale integration, so we should only do one of the scales
 
         # Multiscale Integration, seems to conglomerate too well and take too long
@@ -311,15 +309,27 @@ class AudioSegment:
         # Change the segmentation mask's domain to that of the STFT, so we can invert it into a wave form
         ## Get the times
         times = np.arange(2 * downsample_freq_hz * len(self) / MS_PER_S)
-        printd("Times vs segmentation_mask's times:", times.shape, finished_segmentation_mask.shape)
+        printd("Times vs segmentation_mask's times:", times.shape, finished_segmentation_mask.shape[1])
 
         ## Determine the new times and frequencies
-        nsamples_for_each_fft = 256
+        nsamples_for_each_fft = 2 * finished_segmentation_mask.shape[0]
         printd("Converting self into STFT")
         stft_frequencies, stft_times, stft = signal.stft(self.to_numpy_array(), self.frame_rate, nperseg=nsamples_for_each_fft)
         printd("STFTs shape:", stft.shape)
         printd("Frequencies:", stft_frequencies.shape)
         printd("Times:", stft_times.shape)
+
+        ## Due to rounding, the STFT frequency may be one more than we want
+        if stft_frequencies.shape[0] > finished_segmentation_mask.shape[0]:
+            stft_frequencies = stft_frequencies[:finished_segmentation_mask.shape[0]]
+            stft = stft[:stft_frequencies.shape[0], :]
+
+        ## Downsample one into the other's times (if needed)
+        finished_segmentation_mask, times, stft, stft_times = asa._downsample_one_or_the_other(stft, stft_times, finished_segmentation_mask, times)
+        printd("Adjusted STFTs shape:", stft.shape)
+        printd("Adjusted STFTs frequencies:", stft_frequencies.shape)
+        printd("Adjusted STFTs times:", stft_times.shape)
+        printd("Segmentation mask:", finished_segmentation_mask.shape)
 
         ## Interpolate to map the data into the new domain
         printd("Attempting to map mask of shape", finished_segmentation_mask.shape, "into shape", (stft_frequencies.shape[0], stft_times.shape[0]))
@@ -330,9 +340,16 @@ class AudioSegment:
         masks = asa._separate_masks(finished_segmentation_mask)
         printd("N separate masks:", len(masks))
 
+        # If we couldn't segment into masks after thresholding,
+        # there wasn't more than a single audio stream
+        # Just return us as the only audio stream
+        if len(masks) == 0:
+            clone = from_numpy_array(self.to_numpy_array(), self.frame_rate)
+            return [clone]
+
         # TODO: Group masks that belong together... somehow...
 
-        # Now multiprocess the rest, since it takes forever and is easily parallizable
+        # Now multiprocess the rest, since it takes forever and is easily parallelizable
         try:
             ncpus = multiprocessing.cpu_count()
         except NotImplementedError:

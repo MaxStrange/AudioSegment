@@ -500,7 +500,7 @@ def _update_segmentation_mask(segmentation_mask, onset_fronts, offset_fronts, on
         |   |
         \   /
          \ /
-         / \ 
+         / \
         |   |
 
     Where the offset and onset fronts cross one another. If this happens, we simply
@@ -511,7 +511,7 @@ def _update_segmentation_mask(segmentation_mask, onset_fronts, offset_fronts, on
         |sss|
         \sss/
          \s/
-         /s\ 
+         /s\
         |sss|
 
     The other option would be to destroy the offset front from the crossover point on, and
@@ -952,6 +952,49 @@ def _separate_masks(mask, threshold=0.025):
         ms = pool.starmap(_separate_masks_task, zip(mask_ids, thresholds, masks))
     return [m for m in ms if m is not None]
 
+def _get_downsampled_indexes(arr, factor):
+    fractional_component = factor - int(factor)
+    indexes_to_keep = []
+    overflow_counter = 0.0
+    for index in range(arr.shape[1]):
+        # if we overflowed, skip this item
+        if overflow_counter >= 1.0:
+            overflow_counter = 0.0
+            continue
+
+        # if the integer component of the factor is satisfied, skip this item
+        if int(factor) != 1 and index % int(factor) == 0:
+            overflow_counter += fractional_component
+            continue
+        elif int(factor) == 1:
+            overflow_counter += fractional_component
+
+        # Otherwise, add this index
+        indexes_to_keep.append(index)
+    return indexes_to_keep
+
+def _downsample_one_or_the_other(mask, mask_indexes, stft, stft_indexes):
+    """
+    Takes the given `mask` and `stft`, which must be matrices of shape `frequencies, times`
+    and downsamples one of them into the other one's times, so that the time dimensions
+    are equal. Leaves the frequency dimension untouched.
+    """
+    assert len(mask.shape) == 2, "Expected a two-dimensional `mask`, but got one of {} dimensions.".format(len(mask.shape))
+    assert len(stft.shape) == 2, "Expected a two-dimensional `stft`, but got one of {} dimensions.".format(len(stft.shape))
+
+    if mask.shape[1] > stft.shape[1]:
+        downsample_factor = mask.shape[1] / stft.shape[1]
+        indexes = _get_downsampled_indexes(mask, downsample_factor)
+        mask = mask[:, indexes]
+        mask_indexes = np.array(indexes)
+    elif mask.shape[1] < stft.shape[1]:
+        downsample_factor = stft.shape[1] / mask.shape[1]
+        indexes = _get_downsampled_indexes(stft, downsample_factor)
+        stft = stft[:, indexes]
+        stft_indexes = np.array(indexes)
+
+    return mask, mask_indexes, stft, stft_indexes
+
 def _map_segmentation_mask_to_stft_domain(mask, times, frequencies, stft_times, stft_frequencies):
     """
     Maps the given `mask`, which is in domain (`frequencies`, `times`) to the new domain (`stft_frequencies`, `stft_times`)
@@ -990,7 +1033,7 @@ def _asa_task(q, masks, stft, sample_width, frame_rate, nsamples_for_each_fft):
     nparrs = []
     dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
     dtype = dtype_dict[sample_width]
-    for i, m in enumerate(masks):
+    for m in masks:
         _times, nparr = signal.istft(m, frame_rate, nperseg=nsamples_for_each_fft)
         nparr = nparr.astype(dtype)
         nparrs.append(nparr)
