@@ -598,8 +598,8 @@ class AudioSegment:
         # Write the command to sox
         stdout = stderr = subprocess.PIPE if console_output else subprocess.DEVNULL
         command = cmd.format(inputfile=tmp.name, outputfile=othertmp.name)
-        res = subprocess.run(command.split(' '), stdout=stdout, stderr=stderr)
-        assert res.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
+        res = subprocess.call(command.split(' '), stdout=stdout, stderr=stderr)
+        assert res == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
 
         # Create a new AudioSegment from the other temp file (where Sox put the result)
         other = AudioSegment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
@@ -633,7 +633,7 @@ class AudioSegment:
         command = "sox {inputfile} -t wav {outputfile} silence -l 1 0.1 "\
             + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
         return self._execute_sox_cmd(command)
- 
+
     def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):
         """
         Transforms the indicated slice of the AudioSegment into the frequency domain and returns the bins
@@ -1053,4 +1053,3 @@ def silent(duration=1000, frame_rate=11025):
     """
     seg = pydub.AudioSegment.silent(duration=duration, frame_rate=frame_rate)
     return AudioSegment(seg, "")
-
