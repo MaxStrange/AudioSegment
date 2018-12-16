@@ -34,7 +34,7 @@ if __name__ == "__main__":
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
 
-    casa.test(seg)
+    #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)
     normalized = normalize.test(resampled)
     serde.test(normalized)
