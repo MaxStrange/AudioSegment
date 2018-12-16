@@ -10,7 +10,6 @@ from __future__ import print_function
 import collections
 import functools
 import itertools
-import librosa
 import math
 import multiprocessing
 import numpy as np
@@ -30,6 +29,12 @@ import webrtcvad
 from algorithms import asa
 from algorithms import eventdetection as detect
 from algorithms import filters
+
+try:
+    import librosa
+except ImportError as e:
+    print("Could not import librosa: {}".format(e))
+    print("This likely means that you will not be able to use the filterbank method.")
 
 MS_PER_S = 1000
 S_PER_MIN = 60
