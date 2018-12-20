@@ -1,11 +1,9 @@
 """
 Tests pickling and unpickling of an audiosegment.
 """
-
 import sys
 sys.path.insert(0, '../')
 import audiosegment as asg
-
 import pickle
 
 def test(seg):

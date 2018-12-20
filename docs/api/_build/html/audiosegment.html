@@ -163,6 +163,29 @@
 by Hu and Wang, 2007.</p>
 </dd></dl>
 
+<dl class="staticmethod">
+<dt id="audiosegment.AudioSegment.bandpass_filter">
+<em class="property">static </em><code class="descname">bandpass_filter</code><span class="sig-paren">(</span><em>data</em>, <em>low</em>, <em>high</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.bandpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.bandpass_filter" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>data</strong> – The data (numpy array) to be filtered.</li>
+<li><strong>low</strong> – The low cutoff in Hz.</li>
+<li><strong>high</strong> – The high cutoff in Hz.</li>
+<li><strong>fs</strong> – The sample rate (in Hz) of the data.</li>
+<li><strong>order</strong> – The order of the filter. The higher the order, the tighter the roll-off.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Filtered data (numpy array).</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="audiosegment.AudioSegment.detect_event">
 <code class="descname">detect_event</code><span class="sig-paren">(</span><em>model</em>, <em>ms_per_input</em>, <em>transition_matrix</em>, <em>model_stats</em>, <em>event_length_s</em>, <em>start_as_yes=False</em>, <em>prob_raw_yes=0.5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.detect_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.detect_event" title="Permalink to this definition">¶</a></dt>
@@ -344,6 +367,65 @@ the AudioSegment, the end is zero padded to prevent this.</li>
 </tr>
 <tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">ValueError If <cite>start_s</cite> and <cite>start_sample</cite> are both specified and/or if both <cite>duration_s</cite> and
 <cite>num_samples</cite> are specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.filter_bank">
+<code class="descname">filter_bank</code><span class="sig-paren">(</span><em>lower_bound_hz=50</em>, <em>upper_bound_hz=8000.0</em>, <em>nfilters=128</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.filter_bank"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.filter_bank" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a numpy array of shape (nfilters, nsamples), where each
+row of data is the result of bandpass filtering the audiosegment
+round a particular frequency. The frequencies are logrithmically
+spaced from <cite>lower_bound_hz</cite> to <cite>upper_bound_hz</cite> and are returned with
+the np array.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This method is an approximation of a gammatone filterbank
+until I get around to writing an actual gammatone filterbank
+function.</p>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example usage</span>
+<span class="kn">import</span> <span class="nn">audiosegment</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="c1"># Visualize the result of calling seg.filter_bank() for any number of filters</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">freq</span><span class="p">,</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">frequencies</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">spect</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">spect</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;{0:.0f}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">freq</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="n">seg</span> <span class="o">=</span> <span class="n">audiosegment</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;some_audio.wav&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="o">=</span><span class="mi">24000</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">spec</span><span class="p">,</span> <span class="n">frequencies</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">filter_bank</span><span class="p">(</span><span class="n">nfilters</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">visualize</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">)</span>
+</pre></div>
+</div>
+<img alt="_images/filter_bank.png" src="_images/filter_bank.png" />
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>lower_bound_hz</strong> – The lower bound of the frequencies to use in the bandpass filters.</li>
+<li><strong>upper_bound_hz</strong> – The upper bound of the frequencies to use in the bandpass filters.</li>
+<li><strong>nfilters</strong> – The number of filters to apply. This will determine which frequencies
+are used as well, as they are log-space interpolated between
+<cite>lower_bound_hz</cite> and <cite>upper_bound_hz</cite>.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A numpy array of the form (nfilters, nsamples), where each row is the
+audiosegment, bandpass-filtered around a particular frequency,
+and the list of frequencies. I.e., returns (spec, freqs).</p>
 </td>
 </tr>
 </tbody>

@@ -1,10 +1,10 @@
 """
 Tests serialization and deserialization of an audiosegment.
 """
-import read_from_file
 import sys
 sys.path.insert(0, '../')
 import audiosegment as asg
+import read_from_file
 
 def test(seg):
     print("Serializing segment...")

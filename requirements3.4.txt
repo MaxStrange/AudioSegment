@@ -5,4 +5,3 @@ scipy==1.0.0
 webrtcvad==2.0.10
 sphinx_rtd_theme==0.4.0
 matplotlib==2.2.2
-librosa==0.6.2

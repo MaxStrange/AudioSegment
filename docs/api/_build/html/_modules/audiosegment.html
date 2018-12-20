@@ -267,8 +267,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mf">20.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1E-9</span><span class="p">))</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<div class="viewcode-block" id="AudioSegment.bandpass_filter"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.bandpass_filter">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param data: The data (numpy array) to be filtered.</span>
 <span class="sd">        :param low: The low cutoff in Hz.</span>
@@ -282,7 +282,7 @@
         <span class="n">high</span> <span class="o">=</span> <span class="n">high</span> <span class="o">/</span> <span class="n">nyq</span>
         <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="p">[</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">],</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;band&#39;</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">lfilter</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">y</span>
+        <span class="k">return</span> <span class="n">y</span></div>
 
 <div class="viewcode-block" id="AudioSegment.lowpass_filter"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.lowpass_filter">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">lowpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
@@ -298,6 +298,64 @@
         <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">normal_cutoff</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">,</span> <span class="n">analog</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">lfilter</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span></div>
+
+<div class="viewcode-block" id="AudioSegment.filter_bank"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.filter_bank">[docs]</a>    <span class="k">def</span> <span class="nf">filter_bank</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lower_bound_hz</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">upper_bound_hz</span><span class="o">=</span><span class="mf">8E3</span><span class="p">,</span> <span class="n">nfilters</span><span class="o">=</span><span class="mi">128</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a numpy array of shape (nfilters, nsamples), where each</span>
+<span class="sd">        row of data is the result of bandpass filtering the audiosegment</span>
+<span class="sd">        round a particular frequency. The frequencies are logrithmically</span>
+<span class="sd">        spaced from `lower_bound_hz` to `upper_bound_hz` and are returned with</span>
+<span class="sd">        the np array.</span>
+
+<span class="sd">        .. note:: This method is an approximation of a gammatone filterbank</span>
+<span class="sd">                  until I get around to writing an actual gammatone filterbank</span>
+<span class="sd">                  function.</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            # Example usage</span>
+<span class="sd">            import audiosegment</span>
+<span class="sd">            import matplotlib.pyplot as plt</span>
+<span class="sd">            import numpy as np</span>
+
+<span class="sd">            def visualize(spect, frequencies, title=&quot;&quot;):</span>
+<span class="sd">                # Visualize the result of calling seg.filter_bank() for any number of filters</span>
+<span class="sd">                i = 0</span>
+<span class="sd">                for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):</span>
+<span class="sd">                    plt.subplot(spect.shape[0], 1, index + 1)</span>
+<span class="sd">                    if i == 0:</span>
+<span class="sd">                        plt.title(title)</span>
+<span class="sd">                        i += 1</span>
+<span class="sd">                    plt.ylabel(&quot;{0:.0f}&quot;.format(freq))</span>
+<span class="sd">                    plt.plot(row)</span>
+<span class="sd">                plt.show()</span>
+<span class="sd">    </span>
+<span class="sd">            seg = audiosegment.from_file(&quot;some_audio.wav&quot;).resample(sample_rate_Hz=24000, sample_width=2, channels=1)</span>
+<span class="sd">            spec, frequencies = seg.filter_bank(nfilters=5)</span>
+<span class="sd">            visualize(spec, frequencies)</span>
+
+<span class="sd">        .. image:: images/filter_bank.png</span>
+
+<span class="sd">        :param lower_bound_hz:  The lower bound of the frequencies to use in the bandpass filters.</span>
+<span class="sd">        :param upper_bound_hz:  The upper bound of the frequencies to use in the bandpass filters.</span>
+<span class="sd">        :param nfilters:        The number of filters to apply. This will determine which frequencies</span>
+<span class="sd">                                are used as well, as they are log-space interpolated between</span>
+<span class="sd">                                `lower_bound_hz` and `upper_bound_hz`.</span>
+<span class="sd">        :returns:               A numpy array of the form (nfilters, nsamples), where each row is the</span>
+<span class="sd">                                audiosegment, bandpass-filtered around a particular frequency,</span>
+<span class="sd">                                and the list of frequencies. I.e., returns (spec, freqs).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Logspace to get all the frequency channels we are after</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">lower_bound_hz</span><span class="p">)</span>
+        <span class="n">stop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">upper_bound_hz</span><span class="p">)</span>
+        <span class="n">frequencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="n">nfilters</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+
+        <span class="c1"># Do a band-pass filter in each frequency</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">freq</span><span class="o">*</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">freq</span><span class="o">*</span><span class="mf">1.2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span> <span class="k">for</span> <span class="n">freq</span> <span class="ow">in</span> <span class="n">frequencies</span><span class="p">]</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">spect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span></div>
 
 <div class="viewcode-block" id="AudioSegment.auditory_scene_analysis"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.auditory_scene_analysis">[docs]</a>    <span class="k">def</span> <span class="nf">auditory_scene_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -326,27 +384,21 @@
             <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
 
         <span class="c1"># Normalize self into 25dB average SPL</span>
+        <span class="c1"># TODO: Normalization algorithm doesn&#39;t currently work</span>
         <span class="n">normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_spl_by_average</span><span class="p">(</span><span class="n">db</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
-        <span class="n">visualize_time_domain</span><span class="p">(</span><span class="n">normalized</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">(),</span> <span class="s2">&quot;Normalized&quot;</span><span class="p">)</span>
-        <span class="c1"># Do a band-pass filter in each frequency</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">normalized</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span>
-        <span class="n">start_frequency</span> <span class="o">=</span> <span class="mi">50</span>
-        <span class="n">stop_frequency</span> <span class="o">=</span> <span class="mi">8000</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">start_frequency</span><span class="p">)</span>
-        <span class="n">stop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">stop_frequency</span><span class="p">)</span>
-        <span class="n">frequencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Dealing with the following frequencies:&quot;</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">)</span>
-        <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">_bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">freq</span><span class="o">*</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">freq</span><span class="o">*</span><span class="mf">1.2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span> <span class="k">for</span> <span class="n">freq</span> <span class="ow">in</span> <span class="n">frequencies</span><span class="p">]</span>
-        <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
-        <span class="n">spect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="c1">#visualize_time_domain(normalized.to_numpy_array(), &quot;Normalized&quot;)</span>
+
         <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After bandpass filtering (cochlear model)&quot;</span><span class="p">)</span>
 
         <span class="c1"># Half-wave rectify each frequency channel</span>
+        <span class="c1"># TODO: Make this not output annoying warnings</span>
         <span class="n">spect</span><span class="p">[</span><span class="n">spect</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After half-wave rectification in each frequency&quot;</span><span class="p">)</span>
 
         <span class="c1"># Low-pass filter each frequency channel</span>
-        <span class="n">spect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">lowpass_filter</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+        <span class="n">low_boundary</span> <span class="o">=</span> <span class="mi">30</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="mi">6</span>
+        <span class="n">spect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">lowpass_filter</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">low_boundary</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>
         <span class="n">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After low-pass filtering in each frequency&quot;</span><span class="p">)</span>
 
         <span class="c1"># Downsample each frequency to 400 Hz</span>
@@ -360,14 +412,15 @@
 
         <span class="c1"># Smoothing</span>
         <span class="n">scales</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="mi">14</span><span class="p">)]</span>
+        <span class="c1"># TODO: What do we do with thetas?</span>
         <span class="n">thetas</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.95</span><span class="p">,</span>     <span class="mf">0.95</span><span class="p">,</span>      <span class="mf">0.85</span><span class="p">]</span>
         <span class="c1">## For each (sc, st) scale, smooth across time using st, then across frequency using sc</span>
         <span class="n">gaussian</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sig</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)))</span>
         <span class="n">gaussian_kernel</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">sig</span><span class="p">:</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
         <span class="n">spectrograms</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">sc</span><span class="p">,</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">scales</span><span class="p">:</span>
+            <span class="c1"># TODO: What am I supposed to do with time_smoothed and freq_smoothed? I don&#39;t do anything with them yet</span>
             <span class="n">time_smoothed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">AudioSegment</span><span class="o">.</span><span class="n">lowpass_filter</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">st</span><span class="p">,</span> <span class="n">downsample_freq_hz</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
-            <span class="n">visualize</span><span class="p">(</span><span class="n">time_smoothed</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After time smoothing with scale: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">))</span>
             <span class="n">freq_smoothed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">gaussian_kernel</span><span class="p">(</span><span class="n">sc</span><span class="p">))</span>
             <span class="n">spectrograms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">freq_smoothed</span><span class="p">)</span>
             <span class="n">visualize</span><span class="p">(</span><span class="n">freq_smoothed</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="s2">&quot;After time and frequency smoothing with scales (freq) &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; and (time) &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">))</span>
@@ -906,10 +959,12 @@
             <span class="sd">&quot;&quot;&quot;Calculates the (positive) &#39;PCM&#39; value for the given SPl val&quot;&quot;&quot;</span>
             <span class="k">return</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">val</span> <span class="o">/</span> <span class="mf">20.0</span><span class="p">)</span>
 
+        <span class="c1"># TODO: This doesn&#39;t seem to work - the math is right, but the resultant SPL way overshoots the mark</span>
+        <span class="c1">#       I must be misunderstanding something... too tired to think about it right now...</span>
         <span class="c1"># Convert dB into &#39;PCM&#39;</span>
         <span class="n">db_pcm</span> <span class="o">=</span> <span class="n">inverse_spl</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
         <span class="c1"># Calculate current &#39;PCM&#39; average</span>
-        <span class="n">curavg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()))</span>
+        <span class="n">curavg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()))</span>
         <span class="c1"># Calculate ratio of dB_pcm / curavg_pcm</span>
         <span class="n">ratio</span> <span class="o">=</span> <span class="n">db_pcm</span> <span class="o">/</span> <span class="n">curavg</span>
         <span class="c1"># Multiply all values by ratio</span>

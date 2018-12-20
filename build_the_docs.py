@@ -97,10 +97,12 @@ if __name__ == "__main__":
     image_folder_path = os.sep.join([apipath, "..", "images"])
     fft_path = os.sep.join([image_folder_path, "fft.png"])
     spectrogram_path = os.sep.join([image_folder_path, "spectrogram.png"])
+    filter_path = os.sep.join([image_folder_path, "filter_bank.png"])
     new_image_folder_path = os.sep.join([apipath, "images"])
     os.makedirs(new_image_folder_path)
     shutil.copyfile(fft_path, os.sep.join([new_image_folder_path, "fft.png"]))
     shutil.copyfile(spectrogram_path, os.sep.join([new_image_folder_path, "spectrogram.png"]))
+    shutil.copyfile(filter_path, os.sep.join([new_image_folder_path, "filter_bank.png"]))
 
     # cd into the Makefile's directory and execute make clean and make
     os.chdir(apipath)

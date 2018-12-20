@@ -6,6 +6,7 @@ import os
 #testsuites
 import casa
 import fft
+import filterbank
 import normalize
 import read_from_file
 import resample
@@ -21,6 +22,8 @@ if __name__ == "__main__":
         print("USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
         exit(1)
 
+    os.makedirs("results", exist_ok=True)
+
     seg = read_from_file.test(sys.argv[1])
 
     # Print some information about the AudioSegment
@@ -31,12 +34,13 @@ if __name__ == "__main__":
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
 
+    #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)
-    #casa.test()
     normalized = normalize.test(resampled)
     serde.test(normalized)
     slices = trim.test(normalized)
     fft.test(normalized)
+    filterbank.test(normalized)
     spectrogram.test(normalized)
     silence.test(normalized)
     vad.test(normalized)

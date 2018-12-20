@@ -4,16 +4,21 @@ This module simply exposes a wrapper of a pydub.AudioSegment object.
 from __future__ import division
 from __future__ import print_function
 
+# Disable the annoying "cannot import x" pylint
+# pylint: disable=E0401
+
 import collections
 import functools
 import itertools
 import math
+import multiprocessing
 import numpy as np
 import pickle
 import platform
 import pydub
 import os
 import random
+import scipy.interpolate as interpolate
 import scipy.signal as signal
 import string
 import subprocess
@@ -21,6 +26,15 @@ import sys
 import tempfile
 import warnings
 import webrtcvad
+from algorithms import asa
+from algorithms import eventdetection as detect
+from algorithms import filters
+
+try:
+    import librosa
+except ImportError as e:
+    print("Could not import librosa: {}".format(e))
+    print("This likely means that you will not be able to use the filterbank method.")
 
 MS_PER_S = 1000
 S_PER_MIN = 60
@@ -30,7 +44,6 @@ def deprecated(func):
     """
     Deprecator decorator.
     """
-
     @functools.wraps(func)
     def new_func(*args, **kwargs):
         warnings.warn("Call to deprecated function {}.".format(func.__name__), category=DeprecationWarning, stacklevel=2)
@@ -42,7 +55,6 @@ class AudioSegment:
     """
     This class is a wrapper for a pydub.AudioSegment that provides additional methods.
     """
-
     def __init__(self, pydubseg, name):
         self.seg = pydubseg
         self.name = name
@@ -119,176 +131,258 @@ class AudioSegment:
         """
         return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
 
-    @staticmethod
-    def _bandpass_filter(data, low, high, fs, order=5):
+    def filter_bank(self, lower_bound_hz=50, upper_bound_hz=8E3, nfilters=128, mode='mel'):
         """
-        :param data: The data (numpy array) to be filtered.
-        :param low: The low cutoff in Hz.
-        :param high: The high cutoff in Hz.
-        :param fs: The sample rate (in Hz) of the data.
-        :param order: The order of the filter. The higher the order, the tighter the roll-off.
-        :returns: Filtered data (numpy array).
-        """
-        nyq = 0.5 * fs
-        low = low / nyq
-        high = high / nyq
-        b, a = signal.butter(order, [low, high], btype='band')
-        y = signal.lfilter(b, a, data)
-        return y
+        Returns a numpy array of shape (nfilters, nsamples), where each
+        row of data is the result of bandpass filtering the audiosegment
+        around a particular frequency. The frequencies are
+        spaced from `lower_bound_hz` to `upper_bound_hz` and are returned with
+        the np array. The particular spacing of the frequencies depends on `mode`,
+        which can be either: 'linear', 'mel', or 'log'.
 
-    @staticmethod
-    def lowpass_filter(data, cutoff, fs, order=5):
-        """
-        :param data: The data (numpy array) to be filtered.
-        :param cutoff: The high cutoff in Hz.
-        :param fs: The sample rate in Hz of the data.
-        :param order: The order of the filter. The higher the order, the tighter the roll-off.
-        :returns: Filtered data (numpy array).
-        """
-        nyq = 0.5 * fs
-        normal_cutoff = cutoff / nyq
-        b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
-        y = signal.lfilter(b, a, data)
-        return y
+        .. note:: This method is an approximation of a gammatone filterbank
+                  until I get around to writing an actual gammatone filterbank
+                  function.
 
-    def auditory_scene_analysis(self):
+        .. code-block:: python
+
+            # Example usage
+            import audiosegment
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            def visualize(spect, frequencies, title=""):
+                # Visualize the result of calling seg.filter_bank() for any number of filters
+                i = 0
+                for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
+                    plt.subplot(spect.shape[0], 1, index + 1)
+                    if i == 0:
+                        plt.title(title)
+                        i += 1
+                    plt.ylabel("{0:.0f}".format(freq))
+                    plt.plot(row)
+                plt.show()
+
+            seg = audiosegment.from_file("some_audio.wav").resample(sample_rate_Hz=24000, sample_width=2, channels=1)
+            spec, frequencies = seg.filter_bank(nfilters=5)
+            visualize(spec, frequencies)
+
+        .. image:: images/filter_bank.png
+
+        :param lower_bound_hz:  The lower bound of the frequencies to use in the bandpass filters.
+        :param upper_bound_hz:  The upper bound of the frequencies to use in the bandpass filters.
+        :param nfilters:        The number of filters to apply. This will determine which frequencies
+                                are used as well, as they are interpolated between
+                                `lower_bound_hz` and `upper_bound_hz` based on `mode`.
+        :param mode:            The way the frequencies are spaced. Options are: `linear`, in which case
+                                the frequencies are linearly interpolated between `lower_bound_hz` and
+                                `upper_bound_hz`, `mel`, in which case the mel frequencies are used,
+                                or `log`, in which case they are log-10 spaced.
+        :returns:               A numpy array of the form (nfilters, nsamples), where each row is the
+                                audiosegment, bandpass-filtered around a particular frequency,
+                                and the list of frequencies. I.e., returns (spec, freqs).
+        """
+        # Logspace to get all the frequency channels we are after
+        data = self.to_numpy_array()
+        if mode.lower() == 'mel':
+            frequencies = librosa.core.mel_frequencies(n_mels=nfilters, fmin=lower_bound_hz, fmax=upper_bound_hz)
+        elif mode.lower() == 'linear':
+            frequencies = np.linspace(lower_bound_hz, upper_bound_hz, num=nfilters, endpoint=True)
+        elif mode.lower() == 'log':
+            start = np.log10(lower_bound_hz)
+            stop = np.log10(upper_bound_hz)
+            frequencies = np.logspace(start, stop, num=nfilters, endpoint=True, base=10.0)
+        else:
+            raise ValueError("'mode' must be one of: (mel, linear, or log), but was {}".format(mode))
+
+        # Do a band-pass filter in each frequency
+        rows = [filters.bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
+        rows = np.array(rows)
+        spect = np.vstack(rows)
+        return spect, frequencies
+
+    def auditory_scene_analysis(self, debug=False, debugplot=False):
         """
         Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
         by Hu and Wang, 2007.
+
+        Returns a list of AudioSegments, each of which is all the sound during this AudioSegment's duration from
+        a particular source. That is, if there are several overlapping sounds in this AudioSegment, this
+        method will return one AudioSegment object for each of those sounds. At least, that's the idea.
+
+        Current version is very much in alpha, and while it shows promise, will require quite a bit more
+        tuning before it can really claim to work.
+
+        :param debug:       If `True` will print out debug outputs along the way. Useful if you want to see why it is
+                            taking so long.
+        :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.
+        :returns:           List of AudioSegment objects, each of which is from a particular sound source.
         """
+        # TODO: Normalization algorithm doesn't currently work
+        normalized = self.normalize_spl_by_average(db=60)
 
-        import matplotlib.pyplot as plt
+        def printd(*args, **kwargs):
+            if debug:
+                print(*args, **kwargs)
 
-        def visualize_time_domain(seg, title=""):
-            plt.plot(seg)
-            plt.title(title)
-            plt.show()
-            plt.clf()
+        # Create a spectrogram from a filterbank: [nfreqs, nsamples]
+        printd("Making filter bank. This takes a little bit.")
+        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
 
-        def visualize(spect, frequencies, title=""):
-            i = 0
-            for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
-                plt.subplot(spect.shape[0], 1, index + 1)
-                if i == 0:
-                    plt.title(title)
-                    i += 1
-                plt.ylabel("{0:.0f}".format(freq))
-                plt.plot(row)
-            plt.show()
-            plt.clf()
+        # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
+        # envelope in each frequency channel
+        printd("Half-wave rectifying")
+        with warnings.catch_warnings():  # Ignore the annoying Numpy runtime warning for less than
+            warnings.simplefilter("ignore")
+            spect[spect < 0] = 0
 
-        # Normalize self into 25dB average SPL
-        normalized = self.normalize_spl_by_average(db=25)
-        visualize_time_domain(normalized.to_numpy_array(), "Normalized")
-        # Do a band-pass filter in each frequency
-        data = normalized.to_numpy_array()
-        start_frequency = 50
-        stop_frequency = 8000
-        start = np.log10(start_frequency)
-        stop = np.log10(stop_frequency)
-        frequencies = np.logspace(start, stop, num=10, endpoint=True, base=10.0)
-        print("Dealing with the following frequencies:", frequencies)
-        rows = [AudioSegment._bandpass_filter(data, freq*0.8, freq*1.2, self.frame_rate) for freq in frequencies]
-        rows = np.array(rows)
-        spect = np.vstack(rows)
-        visualize(spect, frequencies, "After bandpass filtering (cochlear model)")
+        # Low-pass filter each frequency channel to remove a bunch of noise - we are only looking for large changes
+        printd("Low pass filtering")
+        low_boundary = 30
+        order = 6
+        spect = np.apply_along_axis(filters.lowpass_filter, 1, spect, low_boundary, self.frame_rate, order)
 
-        # Half-wave rectify each frequency channel
-        spect[spect < 0] = 0
-        visualize(spect, frequencies, "After half-wave rectification in each frequency")
-
-        # Low-pass filter each frequency channel
-        spect = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 30, self.frame_rate, 6)
-        visualize(spect, frequencies, "After low-pass filtering in each frequency")
-
-        # Downsample each frequency to 400 Hz
+        # Downsample each frequency
+        printd("Downsampling")
         downsample_freq_hz = 400
         if self.frame_rate > downsample_freq_hz:
             step = int(round(self.frame_rate / downsample_freq_hz))
             spect = spect[:, ::step]
-        visualize(spect, frequencies, "After downsampling in each frequency")
 
-        # Now you have the temporal envelope of each frequency channel
-
-        # Smoothing
+        # Smoothing - we will smooth across time and frequency to further remove noise.
+        # But we need to do it with several different combinations of kernels to get the best idea of what's going on
+        # Scales are (sc, st), meaning (frequency scale, time scale)
         scales = [(6, 1/4), (6, 1/14), (1/2, 1/14)]
-        thetas = [0.95,     0.95,      0.85]
-        ## For each (sc, st) scale, smooth across time using st, then across frequency using sc
+
+        # For each (sc, st) scale, smooth across time using st, then across frequency using sc
         gaussian = lambda x, mu, sig: np.exp(-np.power(x - mu, 2.0) / (2 * np.power(sig, 2.0)))
         gaussian_kernel = lambda sig: gaussian(np.linspace(-10, 10, len(frequencies) / 2), 0, sig)
         spectrograms = []
+        printd("For each scale...")
         for sc, st in scales:
-            time_smoothed = np.apply_along_axis(AudioSegment.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
-            visualize(time_smoothed, frequencies, "After time smoothing with scale: " + str(st))
-            freq_smoothed = np.apply_along_axis(np.convolve, 0, spect, gaussian_kernel(sc))
+            printd("  -> Scale:", sc, st)
+            printd("    -> Time and frequency smoothing")
+            time_smoothed = np.apply_along_axis(filters.lowpass_filter, 1, spect, 1/st, downsample_freq_hz, 6)
+            freq_smoothed = np.apply_along_axis(np.convolve, 0, time_smoothed, gaussian_kernel(sc), 'same')
+
+            # Remove especially egregious artifacts
+            printd("    -> Removing egregious filtering artifacts")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                freq_smoothed[freq_smoothed > 1E3] = 1E3
+                freq_smoothed[freq_smoothed < -1E3] = -1E3
             spectrograms.append(freq_smoothed)
-            visualize(freq_smoothed, frequencies, "After time and frequency smoothing with scales (freq) " + str(sc) + " and (time) " + str(st))
-        ## Now we have a set of scale-space spectrograms of different scales (sc, st)
 
         # Onset/Offset Detection and Matching
-        def theta_on(spect):
-            return np.nanmean(spect) + np.nanstd(spect)
-
-        def compute_peaks_or_valleys_of_first_derivative(s, do_peaks=True):
-            """
-            Takes a spectrogram and returns a 2D array of the form:
-
-            0 0 0 1 0 0 1 0 0 0 1   <-- Frequency 0
-            0 0 1 0 0 0 0 0 0 1 0   <-- Frequency 1
-            0 0 0 0 0 0 1 0 1 0 0   <-- Frequency 2
-            *** Time axis *******
-
-            Where a 1 means that the value in that time bin in the spectrogram corresponds to
-            a peak/valley in the first derivative.
-            """
-            gradient = np.nan_to_num(np.apply_along_axis(np.gradient, 1, s), copy=False)
-            half_window = 4
-            if do_peaks:
-                indexes = [signal.argrelextrema(gradient[i, :], np.greater, order=half_window) for i in range(gradient.shape[0])]
-            else:
-                indexes = [signal.argrelextrema(gradient[i, :], np.less, order=half_window) for i in range(gradient.shape[0])]
-            extrema = np.zeros(s.shape)
-            for row_index, index_array in enumerate(indexes):
-                # Each index_array is a list of indexes corresponding to all the extrema in a given row
-                for col_index in index_array:
-                    extrema[row_index, col_index] = 1
-            return extrema
-
+        segmasks = []
+        printd("For each scale...")
         for spect, (sc, st) in zip(spectrograms, scales):
+            printd("  -> Scale:", sc, st)
+            printd("    -> Getting the onsets")
             # Compute sudden upward changes in spect, these are onsets of events
-            onsets = compute_peaks_or_valleys_of_first_derivative(spect)
+            onsets, gradients = asa._compute_peaks_or_valleys_of_first_derivative(spect)
+
             # Compute sudden downward changes in spect, these are offsets of events
-            offsets = compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
-            print("TOTAL ONSETS:", np.sum(onsets, axis=1))
-            print("TOTAL OFFSETS:", np.sum(offsets, axis=1))
-            exit()
+            printd("    -> Getting the offsets")
+            offsets, _ = asa._compute_peaks_or_valleys_of_first_derivative(spect, do_peaks=False)
 
-            # onsets and offsets are 2D arrays
+            # Correlate offsets with onsets so that we have a 1:1 relationship
+            printd("    -> Lining up the onsets and offsets")
+            offsets = asa._correlate_onsets_and_offsets(onsets, offsets, gradients)
 
-            ## Determine the offset time for each onset:
-            ### If t_on[c, i] represents the time of the ith onset in frequency channel c, the corresponding offset
-            ###     must occur between t_on[c, i] and t_on[c, i+1]
-            ### If there are more than one offsets candidates in this range, choose the one with largest intensity decrease.
-            ## Create onset/offset fronts by connecting onsets across frequency channels (connect two onsets
-            ##      if they occur within 20ms of each other). Start over whenever a frequency band does not contain an offset
-            ##      in this range. Do the same procedure for offsets. Now you have onset and offset fronts.
-            ## Now hook up the onsets with the offsets to form segments:
-            ##      For each onset front, (t_on[c, i1, t_on[c + 1, i2], ..., t_on[c + m - 1, im]):
-            ##          matching_offsets = (t_off[c, i1], t_off[c + 1, i2], ..., t_off[c + m - 1, im])
-            ##          Get all offset fronts which contain at least one of offset time found in matching_offsets
-            ##          Among these offset fronts, the one that crosses the most of matching_offsets is chosen,
-            ##          - call this offset front: matching_offset_front
-            ##          Update all t_offs in matching_offsets whose 'c's are in matching_offset_front to be 'matched', and
-            ##          - update their times to the corresponding channel offset in matching_offset_front.
-            ##          If all t_offs in matching_offsets are 'matched', continue to next onset front
-            ## Now go through all the segments you have created and break them up along frequencies if the temporal
-            ##      envelopes don't match well enough. That is, if we have two adjacent channels c and c+1, and they
-            ##      are part of the same segment as determined above, break this segment into two along these lines
-            ##      if the correlation between them is below theta_c. Theta_c is thetas[i] where i depends on the scale.
+            # Create onset/offset fronts
+            # Do this by connecting onsets across frequency channels if they occur within 20ms of each other
+            printd("    -> Create vertical contours (fronts)")
+            onset_fronts = asa._form_onset_offset_fronts(onsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
+            offset_fronts = asa._form_onset_offset_fronts(offsets, sample_rate_hz=downsample_freq_hz, threshold_ms=20)
 
-        # Multiscale Integration
-        ##
-        ## TODO
+            # Break poorly matched onset fronts
+            printd("    -> Breaking onset fronts between poorly matched frequencies")
+            asa._break_poorly_matched_fronts(onset_fronts)
+
+            printd("    -> Getting segmentation mask")
+            segmentation_mask = asa._match_fronts(onset_fronts, offset_fronts, onsets, offsets, debug=debug)
+            segmasks.append(segmentation_mask)
+            break  # TODO: We currently don't bother using the multiscale integration, so we should only do one of the scales
+
+        # Multiscale Integration, seems to conglomerate too well and take too long
+        #finished_segmentation_mask = asa._integrate_segmentation_masks(segmasks)  # TODO: doesn't work well and takes too long.
+        finished_segmentation_mask = segmasks[0]
+        if debugplot:
+            asa.visualize_segmentation_mask(finished_segmentation_mask, spect, frequencies)
+
+        # Change the segmentation mask's domain to that of the STFT, so we can invert it into a wave form
+        ## Get the times
+        times = np.arange(2 * downsample_freq_hz * len(self) / MS_PER_S)
+        printd("Times vs segmentation_mask's times:", times.shape, finished_segmentation_mask.shape[1])
+
+        ## Determine the new times and frequencies
+        nsamples_for_each_fft = 2 * finished_segmentation_mask.shape[0]
+        printd("Converting self into STFT")
+        stft_frequencies, stft_times, stft = signal.stft(self.to_numpy_array(), self.frame_rate, nperseg=nsamples_for_each_fft)
+        printd("STFTs shape:", stft.shape)
+        printd("Frequencies:", stft_frequencies.shape)
+        printd("Times:", stft_times.shape)
+
+        ## Due to rounding, the STFT frequency may be one more than we want
+        if stft_frequencies.shape[0] > finished_segmentation_mask.shape[0]:
+            stft_frequencies = stft_frequencies[:finished_segmentation_mask.shape[0]]
+            stft = stft[:stft_frequencies.shape[0], :]
+
+        ## Downsample one into the other's times (if needed)
+        finished_segmentation_mask, times, stft, stft_times = asa._downsample_one_or_the_other(stft, stft_times, finished_segmentation_mask, times)
+        printd("Adjusted STFTs shape:", stft.shape)
+        printd("Adjusted STFTs frequencies:", stft_frequencies.shape)
+        printd("Adjusted STFTs times:", stft_times.shape)
+        printd("Segmentation mask:", finished_segmentation_mask.shape)
+
+        ## Interpolate to map the data into the new domain
+        printd("Attempting to map mask of shape", finished_segmentation_mask.shape, "into shape", (stft_frequencies.shape[0], stft_times.shape[0]))
+        finished_segmentation_mask = asa._map_segmentation_mask_to_stft_domain(finished_segmentation_mask, times, frequencies, stft_times, stft_frequencies)
+
+        # Separate the mask into a bunch of single segments
+        printd("Separating masks and throwing out inconsequential ones...")
+        masks = asa._separate_masks(finished_segmentation_mask)
+        printd("N separate masks:", len(masks))
+
+        # If we couldn't segment into masks after thresholding,
+        # there wasn't more than a single audio stream
+        # Just return us as the only audio stream
+        if len(masks) == 0:
+            clone = from_numpy_array(self.to_numpy_array(), self.frame_rate)
+            return [clone]
+
+        # TODO: Group masks that belong together... somehow...
+
+        # Now multiprocess the rest, since it takes forever and is easily parallelizable
+        try:
+            ncpus = multiprocessing.cpu_count()
+        except NotImplementedError:
+            ncpus = 2
+
+        ncpus = len(masks) if len(masks) < ncpus else ncpus
+
+        chunks = np.array_split(masks, ncpus)
+        assert len(chunks) == ncpus
+        queue = multiprocessing.Queue()
+        printd("Using {} processes to convert {} masks into linear STFT space and then time domain.".format(ncpus, len(masks)))
+        for i in range(ncpus):
+            p = multiprocessing.Process(target=asa._asa_task,
+                                        args=(queue, chunks[i], stft, self.sample_width, self.frame_rate, nsamples_for_each_fft),
+                                        daemon=True)
+            p.start()
+
+        results = []
+        dones = []
+        while len(dones) < ncpus:
+            item = queue.get()
+            if type(item) == str and item == "DONE":
+                dones.append(item)
+            else:
+                wav = from_numpy_array(item, self.frame_rate)
+                results.append(wav)
+
+        return results
 
     def detect_voice(self, prob_detect_voice=0.5):
         """
@@ -471,90 +565,21 @@ class AudioSegment:
             raise ValueError("`prob_raw_yes` is a probability, and so must be in the range [0.0, 1.0]")
 
         # Get the yeses or nos for when the filter is triggered (when the event is on/off)
-        filter_indices = [yes_or_no for yes_or_no in self._get_filter_indices(start_as_yes,
-                                                                              prob_raw_yes,
-                                                                              ms_per_input,
-                                                                              model,
-                                                                              transition_matrix,
-                                                                              model_stats)]
+        filter_indices = [yes_or_no for yes_or_no in detect._get_filter_indices(self,
+                                                                                start_as_yes,
+                                                                                prob_raw_yes,
+                                                                                ms_per_input,
+                                                                                model,
+                                                                                transition_matrix,
+                                                                                model_stats)]
+
         # Run a homogeneity filter over the values to make local regions more self-similar (reduce noise)
-        ret = self._homogeneity_filter(filter_indices, window_size=int(round(0.25 * MS_PER_S / ms_per_input)))
+        ret = detect._homogeneity_filter(filter_indices, window_size=int(round(0.25 * MS_PER_S / ms_per_input)))
+
         # Group the consecutive ones together
-        ret = self._group_filter_values(ret, ms_per_input)
+        ret = detect._group_filter_values(self, ret, ms_per_input)
+
         # Take the groups and turn them into AudioSegment objects
-        real_ret = self._reduce_filtered_segments(ret)
-
-        return real_ret
-
-    def _get_filter_indices(self, start_as_yes, prob_raw_yes, ms_per_input, model, transition_matrix, model_stats):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-        """
-        filter_triggered = 1 if start_as_yes else 0
-        prob_raw_no = 1.0 - prob_raw_yes
-        for segment, _timestamp in self.generate_frames_as_segments(ms_per_input):
-            yield filter_triggered
-            observation = int(round(model.predict(segment)))
-            assert observation == 1 or observation == 0, "The given model did not output a 1 or a 0, output: "\
-                   + str(observation)
-            prob_hyp_yes_given_last_hyp = 1.0 - transition_matrix[0] if filter_triggered else transition_matrix[1]
-            prob_hyp_no_given_last_hyp  = transition_matrix[0] if filter_triggered else 1.0 - transition_matrix[1]
-            prob_hyp_yes_given_data = model_stats[0] if observation == 1 else model_stats[1]
-            prob_hyp_no_given_data = 1.0 - model_stats[0] if observation == 1 else 1.0 - model_stats[1]
-            hypothesis_yes = prob_raw_yes * prob_hyp_yes_given_last_hyp * prob_hyp_yes_given_data
-            hypothesis_no  = prob_raw_no * prob_hyp_no_given_last_hyp  * prob_hyp_no_given_data
-            # make a list of ints - each is 0 or 1. The number of 1s is hypotheis_yes * 100
-            # the number of 0s is hypothesis_no * 100
-            distribution = [1 for i in range(int(round(hypothesis_yes * 100)))]
-            distribution.extend([0 for i in range(int(round(hypothesis_no * 100)))])
-            # shuffle
-            random.shuffle(distribution)
-            filter_triggered = random.choice(distribution)
-
-    def _group_filter_values(self, filter_indices, ms_per_input):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-        """
-        ret = []
-        for filter_value, (_segment, timestamp) in zip(filter_indices, self.generate_frames_as_segments(ms_per_input)):
-            if filter_value == 1:
-                if len(ret) > 0 and ret[-1][0] == 'n':
-                    ret.append(['y', timestamp])  # The last one was different, so we create a new one
-                elif len(ret) > 0 and ret[-1][0] == 'y':
-                    ret[-1][1] = timestamp  # The last one was the same as this one, so just update the timestamp
-                else:
-                    ret.append(['y', timestamp])  # This is the first one
-            else:
-                if len(ret) > 0 and ret[-1][0] == 'n':
-                    ret[-1][1] = timestamp
-                elif len(ret) > 0 and ret[-1][0] == 'y':
-                    ret.append(['n', timestamp])
-                else:
-                    ret.append(['n', timestamp])
-        return ret
-
-    def _homogeneity_filter(self, ls, window_size):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-
-        ls is a list of 1s or 0s for when the filter is on or off
-        """
-        k = window_size
-        i = k
-        while i <= len(ls) - k:
-            # Get a window of k items
-            window = [ls[i + j] for j in range(k)]
-            # Change the items in the window to be more like the mode of that window
-            mode = 1 if sum(window) >= k / 2 else 0
-            for j in range(k):
-                ls[i+j] = mode
-            i += k
-        return ls
-
-    def _reduce_filtered_segments(self, ret):
-        """
-        This has been broken out of the `filter` function to reduce cognitive load.
-        """
         real_ret = []
         for i, (this_yesno, next_timestamp) in enumerate(ret):
             if i > 0:
@@ -562,9 +587,10 @@ class AudioSegment:
             else:
                 timestamp = 0
 
-            data = self[timestamp * MS_PER_S:next_timestamp * MS_PER_S].raw_data
+            ms_per_s = 1000
+            data = self[timestamp * ms_per_s:next_timestamp * ms_per_s].raw_data
             seg = AudioSegment(pydub.AudioSegment(data=data, sample_width=self.sample_width,
-                                                  frame_rate=self.frame_rate, channels=self.channels), self.name)
+                                                    frame_rate=self.frame_rate, channels=self.channels), self.name)
             real_ret.append((this_yesno, seg))
         return real_ret
 
@@ -758,10 +784,12 @@ class AudioSegment:
             """Calculates the (positive) 'PCM' value for the given SPl val"""
             return 10 ** (val / 20.0)
 
+        # TODO: This doesn't seem to work - the math is right, but the resultant SPL way overshoots the mark
+        #       I must be misunderstanding something... too tired to think about it right now...
         # Convert dB into 'PCM'
         db_pcm = inverse_spl(db)
         # Calculate current 'PCM' average
-        curavg = np.abs(np.mean(self.to_numpy_array()))
+        curavg = np.mean(np.abs(self.to_numpy_array()))
         # Calculate ratio of dB_pcm / curavg_pcm
         ratio = db_pcm / curavg
         # Multiply all values by ratio
@@ -810,6 +838,7 @@ class AudioSegment:
         if channels is None:
             channels = self.channels
 
+        # TODO: Replace this with librosa's implementation to remove SOX dependency here
         command = "sox {inputfile} -b " + str(sample_width * 8) + " -r " + str(sample_rate_Hz) \
             + " -t wav {outputfile} channels " + str(channels)
 
@@ -932,31 +961,6 @@ class AudioSegment:
                      }
         dtype = dtype_dict[self.sample_width]
         return np.array(self.get_array_of_samples(), dtype=dtype)
-
-    @deprecated
-    def trim_to_minutes(self, strip_last_seconds=False):
-        """
-        Returns a list of minute-long (at most) Segment objects.
-
-        .. note:: This function has been deprecated. Use the `dice` function instead.
-
-        :param strip_last_seconds: If True, this method will return minute-long segments,
-                                   but the last three seconds of this AudioSegment won't be returned.
-                                   This is useful for removing the microphone artifact at the end of the recording.
-        :returns: A list of AudioSegment objects, each of which is one minute long at most
-                  (and only the last one - if any - will be less than one minute).
-        """
-        outs = self.dice(seconds=60, zero_pad=False)
-
-        # Now cut out the last three seconds of the last item in outs (it will just be microphone artifact)
-        # or, if the last item is less than three seconds, just get rid of it
-        if strip_last_seconds:
-            if outs[-1].duration_seconds > 3:
-                outs[-1] = outs[-1][:-MS_PER_S * 3]
-            else:
-                outs = outs[:-1]
-
-        return outs
 
     def zero_extend(self, duration_s=None, num_samples=None):
         """
