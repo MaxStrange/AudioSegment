@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name="audiosegment",
-    version="0.12.0",
+    version="0.14.0",
     author="Max Strange",
     author_email="maxfieldstrange@gmail.com",
     description="Wrapper for pydub.AudioSegment for additional methods.",
@@ -16,7 +16,7 @@ setup(
     url="https://github.com/MaxStrange/AudioSegment",
     py_modules=["audiosegment"],
     packages=["algorithms"],
-    python_requires="~=3.5",
+    python_requires="~=3.4",
     long_description=__doc__,
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -25,6 +25,7 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Topic :: Multimedia :: Sound/Audio",
