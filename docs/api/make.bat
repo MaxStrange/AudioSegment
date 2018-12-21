@@ -5,11 +5,10 @@ pushd %~dp0
 REM Command file for Sphinx documentation
 
 if "%SPHINXBUILD%" == "" (
-	set SPHINXBUILD=python -m sphinx
+	set SPHINXBUILD=python3 -m sphinx
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=AudioSegment
 
 if "%1" == "" goto help
 

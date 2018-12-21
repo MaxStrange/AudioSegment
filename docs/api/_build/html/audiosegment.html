@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Welcome to AudioSegment’s documentation!" href="index.html" /> 
+    <link rel="prev" title="algorithms package" href="algorithms.html" /> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -57,7 +57,7 @@
             
             
               <div class="version">
-                0.12.0
+                0.14.0
               </div>
             
           
@@ -83,6 +83,7 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="algorithms.html">algorithms package</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">audiosegment module</a></li>
 </ul>
 
@@ -158,28 +159,26 @@
 <p>This class is a wrapper for a pydub.AudioSegment that provides additional methods.</p>
 <dl class="method">
 <dt id="audiosegment.AudioSegment.auditory_scene_analysis">
-<code class="descname">auditory_scene_analysis</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.auditory_scene_analysis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.auditory_scene_analysis" title="Permalink to this definition">¶</a></dt>
+<code class="descname">auditory_scene_analysis</code><span class="sig-paren">(</span><em>debug=False</em>, <em>debugplot=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.auditory_scene_analysis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.auditory_scene_analysis" title="Permalink to this definition">¶</a></dt>
 <dd><p>Algorithm based on paper: Auditory Segmentation Based on Onset and Offset Analysis,
 by Hu and Wang, 2007.</p>
-</dd></dl>
-
-<dl class="staticmethod">
-<dt id="audiosegment.AudioSegment.bandpass_filter">
-<em class="property">static </em><code class="descname">bandpass_filter</code><span class="sig-paren">(</span><em>data</em>, <em>low</em>, <em>high</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.bandpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.bandpass_filter" title="Permalink to this definition">¶</a></dt>
-<dd><table class="docutils field-list" frame="void" rules="none">
+<p>Returns a list of AudioSegments, each of which is all the sound during this AudioSegment’s duration from
+a particular source. That is, if there are several overlapping sounds in this AudioSegment, this
+method will return one AudioSegment object for each of those sounds. At least, that’s the idea.</p>
+<p>Current version is very much in alpha, and while it shows promise, will require quite a bit more
+tuning before it can really claim to work.</p>
+<table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>data</strong> – The data (numpy array) to be filtered.</li>
-<li><strong>low</strong> – The low cutoff in Hz.</li>
-<li><strong>high</strong> – The high cutoff in Hz.</li>
-<li><strong>fs</strong> – The sample rate (in Hz) of the data.</li>
-<li><strong>order</strong> – The order of the filter. The higher the order, the tighter the roll-off.</li>
+<li><strong>debug</strong> – If <cite>True</cite> will print out debug outputs along the way. Useful if you want to see why it is
+taking so long.</li>
+<li><strong>debugplot</strong> – If <cite>True</cite> will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Filtered data (numpy array).</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">List of AudioSegment objects, each of which is from a particular sound source.</p>
 </td>
 </tr>
 </tbody>
@@ -375,12 +374,13 @@ the AudioSegment, the end is zero padded to prevent this.</li>
 
 <dl class="method">
 <dt id="audiosegment.AudioSegment.filter_bank">
-<code class="descname">filter_bank</code><span class="sig-paren">(</span><em>lower_bound_hz=50</em>, <em>upper_bound_hz=8000.0</em>, <em>nfilters=128</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.filter_bank"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.filter_bank" title="Permalink to this definition">¶</a></dt>
+<code class="descname">filter_bank</code><span class="sig-paren">(</span><em>lower_bound_hz=50</em>, <em>upper_bound_hz=8000.0</em>, <em>nfilters=128</em>, <em>mode='mel'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.filter_bank"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.filter_bank" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a numpy array of shape (nfilters, nsamples), where each
 row of data is the result of bandpass filtering the audiosegment
-round a particular frequency. The frequencies are logrithmically
+around a particular frequency. The frequencies are
 spaced from <cite>lower_bound_hz</cite> to <cite>upper_bound_hz</cite> and are returned with
-the np array.</p>
+the np array. The particular spacing of the frequencies depends on <cite>mode</cite>,
+which can be either: ‘linear’, ‘mel’, or ‘log’.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">This method is an approximation of a gammatone filterbank
@@ -418,8 +418,12 @@ function.</p>
 <li><strong>lower_bound_hz</strong> – The lower bound of the frequencies to use in the bandpass filters.</li>
 <li><strong>upper_bound_hz</strong> – The upper bound of the frequencies to use in the bandpass filters.</li>
 <li><strong>nfilters</strong> – The number of filters to apply. This will determine which frequencies
-are used as well, as they are log-space interpolated between
-<cite>lower_bound_hz</cite> and <cite>upper_bound_hz</cite>.</li>
+are used as well, as they are interpolated between
+<cite>lower_bound_hz</cite> and <cite>upper_bound_hz</cite> based on <cite>mode</cite>.</li>
+<li><strong>mode</strong> – The way the frequencies are spaced. Options are: <cite>linear</cite>, in which case
+the frequencies are linearly interpolated between <cite>lower_bound_hz</cite> and
+<cite>upper_bound_hz</cite>, <cite>mel</cite>, in which case the mel frequencies are used,
+or <cite>log</cite>, in which case they are log-10 spaced.</li>
 </ul>
 </td>
 </tr>
@@ -493,28 +497,6 @@ of the Segment that is cut off (the part will be &lt;= <cite>frame_duration_ms</
 <dt id="audiosegment.AudioSegment.generate_frames_as_segments">
 <code class="descname">generate_frames_as_segments</code><span class="sig-paren">(</span><em>frame_duration_ms</em>, <em>zero_pad=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.generate_frames_as_segments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.generate_frames_as_segments" title="Permalink to this definition">¶</a></dt>
 <dd><p>Does the same thing as <cite>generate_frames</cite>, but yields tuples of (AudioSegment, timestamp) instead of Frames.</p>
-</dd></dl>
-
-<dl class="staticmethod">
-<dt id="audiosegment.AudioSegment.lowpass_filter">
-<em class="property">static </em><code class="descname">lowpass_filter</code><span class="sig-paren">(</span><em>data</em>, <em>cutoff</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.lowpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.lowpass_filter" title="Permalink to this definition">¶</a></dt>
-<dd><table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>data</strong> – The data (numpy array) to be filtered.</li>
-<li><strong>cutoff</strong> – The high cutoff in Hz.</li>
-<li><strong>fs</strong> – The sample rate in Hz of the data.</li>
-<li><strong>order</strong> – The order of the filter. The higher the order, the tighter the roll-off.</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Filtered data (numpy array).</p>
-</td>
-</tr>
-</tbody>
-</table>
 </dd></dl>
 
 <dl class="method">
@@ -674,29 +656,6 @@ keeping the appropriate dtype.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="audiosegment.AudioSegment.trim_to_minutes">
-<code class="descname">trim_to_minutes</code><span class="sig-paren">(</span><em>strip_last_seconds=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.trim_to_minutes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.trim_to_minutes" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of minute-long (at most) Segment objects.</p>
-<div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">This function has been deprecated. Use the <cite>dice</cite> function instead.</p>
-</div>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>strip_last_seconds</strong> – If True, this method will return minute-long segments,
-but the last three seconds of this AudioSegment won’t be returned.
-This is useful for removing the microphone artifact at the end of the recording.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A list of AudioSegment objects, each of which is one minute long at most
-(and only the last one - if any - will be less than one minute).</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
 <dt id="audiosegment.AudioSegment.zero_extend">
 <code class="descname">zero_extend</code><span class="sig-paren">(</span><em>duration_s=None</em>, <em>num_samples=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.zero_extend"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.zero_extend" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds a number of zeros (digital silence) to the AudioSegment (returning a new one).</p>
@@ -839,7 +798,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
       
-        <a href="index.html" class="btn btn-neutral" title="Welcome to AudioSegment’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="algorithms.html" class="btn btn-neutral" title="algorithms package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   
@@ -848,7 +807,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright Max Strange (MIT License).
+        &copy; Copyright Max Strange (MIT License)
 
     </p>
   </div>
@@ -867,20 +826,13 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 
   
 
-    <script type="text/javascript">
-        var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'./',
-            VERSION:'',
-            LANGUAGE:'en',
-            COLLAPSE_INDEX:false,
-            FILE_SUFFIX:'.html',
-            HAS_SOURCE:  true,
-            SOURCELINK_SUFFIX: '.txt'
-        };
-    </script>
-      <script type="text/javascript" src="_static/jquery.js"></script>
-      <script type="text/javascript" src="_static/underscore.js"></script>
-      <script type="text/javascript" src="_static/doctools.js"></script>
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
 
   
 

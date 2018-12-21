@@ -1,0 +1,1243 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>algorithms.asa &mdash; AudioSegment  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> AudioSegment
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.14.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../algorithms.html">algorithms package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../audiosegment.html">audiosegment module</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">AudioSegment</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>algorithms.asa</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for algorithms.asa</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module extracts out a bunch of the Auditory Scene Analysis (ASA)</span>
+<span class="sd">logic, which has grown to be a little unwieldy in the AudioSegment class.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">signal</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="k">def</span> <span class="nf">_plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">fn</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="k">for</span> <span class="n">freq</span><span class="p">,</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">frequencies</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">spect</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">spect</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0:.0f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">freq</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fn</span><span class="p">(</span><span class="n">plt</span><span class="p">,</span> <span class="n">freq</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span>
+
+<div class="viewcode-block" id="visualize_time_domain"><a class="viewcode-back" href="../../algorithms.html#algorithms.asa.visualize_time_domain">[docs]</a><span class="k">def</span> <span class="nf">visualize_time_domain</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="visualize"><a class="viewcode-back" href="../../algorithms.html#algorithms.asa.visualize">[docs]</a><span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="n">_plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="visualize_peaks_and_valleys"><a class="viewcode-back" href="../../algorithms.html#algorithms.asa.visualize_peaks_and_valleys">[docs]</a><span class="k">def</span> <span class="nf">visualize_peaks_and_valleys</span><span class="p">(</span><span class="n">peaks</span><span class="p">,</span> <span class="n">valleys</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="c1"># Reverse everything to make it have the low fs at the bottom of the figure</span>
+    <span class="n">peaks</span> <span class="o">=</span> <span class="n">peaks</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">valleys</span> <span class="o">=</span> <span class="n">valleys</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="k">def</span> <span class="nf">_plot_pandv</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">_freq</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+        <span class="n">these_peaks</span> <span class="o">=</span> <span class="n">peaks</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">peak_values</span> <span class="o">=</span> <span class="n">these_peaks</span> <span class="o">*</span> <span class="n">row</span>  <span class="c1"># Mask off anything that isn&#39;t a peak</span>
+        <span class="n">these_valleys</span> <span class="o">=</span> <span class="n">valleys</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">valley_values</span> <span class="o">=</span> <span class="n">these_valleys</span> <span class="o">*</span> <span class="n">row</span>  <span class="c1"># Mask off anything that isn&#39;t a valley</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">peak_values</span><span class="p">,</span> <span class="s1">&#39;ro&#39;</span><span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">valley_values</span><span class="p">,</span> <span class="s1">&#39;bo&#39;</span><span class="p">)</span>
+    <span class="n">_plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="s2">&quot;Peaks (red) and Valleys (blue)&quot;</span><span class="p">,</span> <span class="n">_plot_pandv</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="visualize_fronts"><a class="viewcode-back" href="../../algorithms.html#algorithms.asa.visualize_fronts">[docs]</a><span class="k">def</span> <span class="nf">visualize_fronts</span><span class="p">(</span><span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="c1"># Reverse everything to make it have the low fs at the bottom of the figure</span>
+    <span class="n">onsets</span> <span class="o">=</span> <span class="n">onsets</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="n">offsets</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="k">def</span> <span class="nf">_plot_fronts</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">_freq</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+        <span class="c1"># Cycle through all the different onsets and offsets and plot them each</span>
+        <span class="n">colors</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;k&#39;</span><span class="p">)</span>
+        <span class="n">nonzero_indexes_onsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">onsets</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">nonzero_indexes_onsets</span><span class="p">:</span>
+            <span class="nb">id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">onsets</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="n">x</span><span class="p">])</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="nb">id</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">)],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">)</span>
+        <span class="n">nonzero_indexes_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">nonzero_indexes_offsets</span><span class="p">:</span>
+            <span class="nb">id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="n">x</span><span class="p">])</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="nb">id</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">)],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;-&#39;</span><span class="p">)</span>
+    <span class="n">_plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="s2">&quot;Fronts&quot;</span><span class="p">,</span> <span class="n">_plot_fronts</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="visualize_segmentation_mask"><a class="viewcode-back" href="../../algorithms.html#algorithms.asa.visualize_segmentation_mask">[docs]</a><span class="k">def</span> <span class="nf">visualize_segmentation_mask</span><span class="p">(</span><span class="n">segmentation</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;new&#39;</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="k">if</span> <span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;old&#39;</span><span class="p">:</span>
+        <span class="c1"># Reverse segmentation mask&#39;s frequency dimension so that low fs is at the bottome</span>
+        <span class="n">segmentation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">segmentation</span><span class="p">)</span>
+        <span class="n">segmentation</span> <span class="o">=</span> <span class="n">segmentation</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="k">def</span> <span class="nf">_plot_seg</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">freq</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;k&#39;</span><span class="p">)</span>
+            <span class="n">segment_ids_in_this_frequency</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">segmentation</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">segment_ids_in_this_frequency</span><span class="p">:</span>
+                <span class="nb">id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">segmentation</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="n">x</span><span class="p">])</span>
+                <span class="n">plot_a_line</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># if this is the first item in the frequency, then it must be a start of the mask</span>
+                    <span class="n">plot_a_line</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">elif</span> <span class="nb">int</span><span class="p">(</span><span class="n">segmentation</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="n">x</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">id</span><span class="p">:</span>  <span class="c1"># this is the start of a mask in this frequency</span>
+                    <span class="n">plot_a_line</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">elif</span> <span class="n">x</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># this is the very last sample, it must be the end of a mask</span>
+                    <span class="n">plot_a_line</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">elif</span> <span class="nb">int</span><span class="p">(</span><span class="n">segmentation</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">id</span><span class="p">:</span>  <span class="c1"># this is the last sample of the mask in this frequency</span>
+                    <span class="n">plot_a_line</span> <span class="o">=</span> <span class="kc">True</span>
+
+                <span class="k">if</span> <span class="n">plot_a_line</span><span class="p">:</span>
+                    <span class="n">p</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="nb">id</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">)],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">)</span>
+        <span class="n">_plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">spect</span><span class="p">,</span> <span class="s2">&quot;Segmentation Mask&quot;</span><span class="p">,</span> <span class="n">_plot_seg</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;new&#39;</span><span class="p">:</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">spect</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">spect</span> <span class="o">=</span> <span class="n">spect</span> <span class="o">*</span> <span class="mi">10000</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">segmentation</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Mode must be one of (&#39;new&#39;, &#39;old&#39;)&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span></div>
+
+<span class="k">def</span> <span class="nf">_compute_peaks_or_valleys_of_first_derivative</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">do_peaks</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes a spectrogram and returns a 2D array of the form:</span>
+
+<span class="sd">    0 0 0 1 0 0 1 0 0 0 1   &lt;-- Frequency 0</span>
+<span class="sd">    0 0 1 0 0 0 0 0 0 1 0   &lt;-- Frequency 1</span>
+<span class="sd">    0 0 0 0 0 0 1 0 1 0 0   &lt;-- Frequency 2</span>
+<span class="sd">    *** Time axis *******</span>
+
+<span class="sd">    Where a 1 means that the value in that time bin in the spectrogram corresponds to</span>
+<span class="sd">    a peak/valley in the first derivative.</span>
+
+<span class="sd">    This function is used as part of the ASA algorithm and is not meant to be used publicly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get the first derivative of each frequency in the time domain</span>
+    <span class="n">gradient</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">s</span><span class="p">),</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Calculate the value we will use for determinig whether something is an event or not</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">gradient</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">gradient</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># Look for relative extrema along the time dimension</span>
+    <span class="n">half_window</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="k">if</span> <span class="n">do_peaks</span><span class="p">:</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">signal</span><span class="o">.</span><span class="n">argrelextrema</span><span class="p">(</span><span class="n">gradient</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">greater</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">half_window</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gradient</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">signal</span><span class="o">.</span><span class="n">argrelextrema</span><span class="p">(</span><span class="n">gradient</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">less</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">half_window</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gradient</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+
+    <span class="c1"># indexes should now contain the indexes of possible extrema</span>
+    <span class="c1"># But we need to filter out values that are not large enough, and we want the end result</span>
+    <span class="c1"># to be a 1 or 0 mask corresponding to locations of extrema</span>
+    <span class="n">extrema</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">row_index</span><span class="p">,</span> <span class="n">index_array</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indexes</span><span class="p">):</span>
+        <span class="c1"># Each index_array is a list of indexes corresponding to all the extrema in a given row</span>
+        <span class="k">for</span> <span class="n">col_index</span> <span class="ow">in</span> <span class="n">index_array</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">do_peaks</span> <span class="ow">and</span> <span class="p">(</span><span class="n">gradient</span><span class="p">[</span><span class="n">row_index</span><span class="p">,</span> <span class="n">col_index</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">[</span><span class="n">row_index</span><span class="p">]):</span>
+                <span class="n">extrema</span><span class="p">[</span><span class="n">row_index</span><span class="p">,</span> <span class="n">col_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">do_peaks</span><span class="p">:</span>
+                <span class="c1"># Note that we do not remove under-threshold values from the offsets - these will be taken care of later in the algo</span>
+                <span class="n">extrema</span><span class="p">[</span><span class="n">row_index</span><span class="p">,</span> <span class="n">col_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">extrema</span><span class="p">,</span> <span class="n">gradient</span>
+
+<span class="k">def</span> <span class="nf">_correlate_onsets_and_offsets</span><span class="p">(</span><span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">gradients</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes an array of onsets and an array of offsets, of the shape [nfrequencies, nsamples], where</span>
+<span class="sd">    each item in these arrays is either a 0 (not an on/offset) or a 1 (a possible on/offset).</span>
+
+<span class="sd">    This function returns a new offsets array, where there is a one-to-one correlation between</span>
+<span class="sd">    onsets and offsets, such that each onset has exactly one offset that occurs after it in</span>
+<span class="sd">    the time domain (the second dimension of the array).</span>
+
+<span class="sd">    The gradients array is used to decide which offset to use in the case of multiple possibilities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># For each freq channel:</span>
+    <span class="k">for</span> <span class="n">freq_index</span><span class="p">,</span> <span class="p">(</span><span class="n">ons</span><span class="p">,</span> <span class="n">offs</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">onsets</span><span class="p">[:,</span> <span class="p">:],</span> <span class="n">offsets</span><span class="p">[:,</span> <span class="p">:])):</span>
+        <span class="c1"># Scan along onsets[f, :] until we find the first 1</span>
+        <span class="n">indexes_of_all_ones</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ons</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+
+        <span class="c1"># Zero out anything in the offsets up to (and including) this point</span>
+        <span class="c1"># since we can&#39;t have an offset before the first onset</span>
+        <span class="n">last_idx</span> <span class="o">=</span> <span class="n">indexes_of_all_ones</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">offs</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">last_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indexes_of_all_ones</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="c1"># Do the rest of this only if we have more than one onset in this frequency band</span>
+            <span class="k">for</span> <span class="n">next_idx</span> <span class="ow">in</span> <span class="n">indexes_of_all_ones</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                <span class="c1"># Get all the indexes of possible offsets from onset index to next onset index</span>
+                <span class="n">offset_choices</span> <span class="o">=</span> <span class="n">offs</span><span class="p">[</span><span class="n">last_idx</span><span class="p">:</span><span class="n">next_idx</span><span class="p">]</span>
+                <span class="n">offset_choice_indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">offset_choices</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+
+                <span class="c1"># Assert that there is at least one offset choice</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">offset_choices</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">offset_choices</span><span class="p">),</span> <span class="s2">&quot;Offsets from </span><span class="si">{}</span><span class="s2"> to </span><span class="si">{}</span><span class="s2"> only include zeros&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">last_idx</span><span class="p">,</span> <span class="n">next_idx</span><span class="p">)</span>
+
+                <span class="c1"># If we have more than one choice, the offset index is the one that corresponds to the most negative gradient value</span>
+                <span class="c1"># Convert the offset_choice_indexes to indexes in the whole offset array, rather than just the offset_choices array</span>
+                <span class="n">offset_choice_indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">last_idx</span> <span class="o">+</span> <span class="n">offset_choice_indexes</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+                <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="n">offset_choice_indexes</span><span class="p">])</span>
+                <span class="n">gradient_values</span> <span class="o">=</span> <span class="n">gradients</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="n">offset_choice_indexes</span><span class="p">]</span>
+                <span class="n">index_of_largest_from_gradient_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">gradient_values</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">gradient_values</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">index_of_largest_offset_choice</span> <span class="o">=</span> <span class="n">offset_choice_indexes</span><span class="p">[</span><span class="n">index_of_largest_from_gradient_values</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="n">offsets</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="n">index_of_largest_offset_choice</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+
+                <span class="c1"># Zero the others</span>
+                <span class="n">offsets</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="n">offset_choice_indexes</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">offsets</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="n">index_of_largest_offset_choice</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">last_idx</span> <span class="o">=</span> <span class="n">next_idx</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We only have one onset in this frequency band, so the offset will be the very last sample</span>
+            <span class="n">offsets</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">offsets</span><span class="p">[</span><span class="n">freq_index</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">offsets</span>
+
+<span class="k">def</span> <span class="nf">_form_onset_offset_fronts</span><span class="p">(</span><span class="n">ons_or_offs</span><span class="p">,</span> <span class="n">sample_rate_hz</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes an array of onsets or offsets (shape = [nfrequencies, nsamples], where a 1 corresponds to an on/offset,</span>
+<span class="sd">    and samples are 0 otherwise), and returns a new array of the same shape, where each 1 has been replaced by</span>
+<span class="sd">    either a 0, if the on/offset has been discarded, or a non-zero positive integer, such that</span>
+<span class="sd">    each front within the array has a unique ID - for example, all 2s in the array will be the front for on/offset</span>
+<span class="sd">    front 2, and all the 15s will be the front for on/offset front 15, etc.</span>
+
+<span class="sd">    Due to implementation details, there will be no 1 IDs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">threshold_s</span> <span class="o">=</span> <span class="n">threshold_ms</span> <span class="o">/</span> <span class="mi">1000</span>
+    <span class="n">threshold_samples</span> <span class="o">=</span> <span class="n">sample_rate_hz</span> <span class="o">*</span> <span class="n">threshold_s</span>
+
+    <span class="n">ons_or_offs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ons_or_offs</span><span class="p">)</span>
+
+    <span class="n">claimed</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">this_id</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="c1"># For each frequency,</span>
+    <span class="k">for</span> <span class="n">frequency_index</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ons_or_offs</span><span class="p">[:,</span> <span class="p">:]):</span>
+        <span class="n">ones</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">row</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+
+        <span class="c1"># for each 1 in that frequency,</span>
+        <span class="k">for</span> <span class="n">top_level_frequency_one_index</span> <span class="ow">in</span> <span class="n">ones</span><span class="p">:</span>
+            <span class="n">claimed</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">frequency_index</span><span class="p">,</span> <span class="n">top_level_frequency_one_index</span><span class="p">))</span>
+
+            <span class="n">found_a_front</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># for each frequencies[i:],</span>
+            <span class="k">for</span> <span class="n">other_frequency_index</span><span class="p">,</span> <span class="n">other_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ons_or_offs</span><span class="p">[</span><span class="n">frequency_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:,</span> <span class="p">:],</span> <span class="n">start</span><span class="o">=</span><span class="n">frequency_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+
+                <span class="c1"># for each non-claimed 1 which is less than theshold_ms away in time,</span>
+                <span class="n">upper_limit_index</span> <span class="o">=</span> <span class="n">top_level_frequency_one_index</span> <span class="o">+</span> <span class="n">threshold_samples</span>
+                <span class="n">lower_limit_index</span> <span class="o">=</span> <span class="n">top_level_frequency_one_index</span> <span class="o">-</span> <span class="n">threshold_samples</span>
+                <span class="n">other_ones</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">other_row</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>  <span class="c1"># Get the indexes of all the 1s in row</span>
+                <span class="n">tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">other_ones</span> <span class="o">&gt;=</span> <span class="n">lower_limit_index</span><span class="p">)</span>  <span class="c1"># Get the indexes in the other_ones array of all items in bounds</span>
+                                        <span class="o">&amp;</span> <span class="p">(</span><span class="n">other_ones</span> <span class="o">&lt;=</span> <span class="n">upper_limit_index</span><span class="p">)),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+                <span class="n">other_ones</span> <span class="o">=</span> <span class="n">other_ones</span><span class="p">[</span><span class="n">tmp</span><span class="p">]</span>  <span class="c1"># Get the indexes of all the 1s in the row that are in bounds</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">other_ones</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">unclaimed_idx</span> <span class="o">=</span> <span class="n">other_ones</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Take the first one</span>
+                    <span class="n">claimed</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">other_frequency_index</span><span class="p">,</span> <span class="n">unclaimed_idx</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">claimed</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="c1"># revert the top-most 1 to 0</span>
+                    <span class="n">ons_or_offs</span><span class="p">[</span><span class="n">frequency_index</span><span class="p">,</span> <span class="n">top_level_frequency_one_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">claimed</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">break</span>  <span class="c1"># Break from the for-each-frequencies[i:] loop so we can move on to the next item in the top-most freq</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">claimed</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">found_a_front</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="c1"># this group of so-far-claimed forms a front</span>
+                    <span class="n">claimed_as_indexes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">claimed</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                    <span class="n">ons_or_offs</span><span class="p">[</span><span class="n">claimed_as_indexes</span><span class="p">]</span> <span class="o">=</span> <span class="n">this_id</span>
+                    <span class="n">this_id</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">claimed</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">break</span>  <span class="c1"># Move on to the next item in the top-most array</span>
+            <span class="c1"># If we never found a frequency that did not have a matching offset, handle that case here</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">claimed</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">claimed_as_indexes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">claimed</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                <span class="n">ons_or_offs</span><span class="p">[</span><span class="n">claimed_as_indexes</span><span class="p">]</span> <span class="o">=</span> <span class="n">this_id</span>
+                <span class="n">this_id</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">claimed</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">elif</span> <span class="n">found_a_front</span><span class="p">:</span>
+                <span class="n">this_id</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ons_or_offs</span><span class="p">[</span><span class="n">frequency_index</span><span class="p">,</span> <span class="n">top_level_frequency_one_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">claimed</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">return</span> <span class="n">ons_or_offs</span>
+
+<span class="k">def</span> <span class="nf">_lookup_offset_by_onset_idx</span><span class="p">(</span><span class="n">onset_idx</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes an onset index (freq, sample) and returns the offset index (freq, sample)</span>
+<span class="sd">    such that frequency index is the same, and sample index is the minimum of all</span>
+<span class="sd">    offsets ocurring after the given onset. If there are no offsets after the given</span>
+<span class="sd">    onset in that frequency channel, the final sample in that channel is returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">onset_idx</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Onset_idx must be a tuple of the form (freq_idx, sample_idx)&quot;</span>
+    <span class="n">frequency_idx</span><span class="p">,</span> <span class="n">sample_idx</span> <span class="o">=</span> <span class="n">onset_idx</span>
+    <span class="n">offset_sample_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="n">frequency_idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,))</span>
+    <span class="c1"># get the offsets which occur after onset</span>
+    <span class="n">offset_sample_idxs</span> <span class="o">=</span> <span class="n">offset_sample_idxs</span><span class="p">[</span><span class="n">offset_sample_idxs</span> <span class="o">&gt;</span> <span class="n">sample_idx</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">offset_sample_idxs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># There is no offset in this frequency that occurs after the onset, just return the last sample</span>
+        <span class="n">chosen_offset_sample_idx</span> <span class="o">=</span> <span class="n">offsets</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">assert</span> <span class="n">offsets</span><span class="p">[</span><span class="n">frequency_idx</span><span class="p">,</span> <span class="n">chosen_offset_sample_idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Return the closest offset to the onset</span>
+        <span class="n">chosen_offset_sample_idx</span> <span class="o">=</span> <span class="n">offset_sample_idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">offsets</span><span class="p">[</span><span class="n">frequency_idx</span><span class="p">,</span> <span class="n">chosen_offset_sample_idx</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">frequency_idx</span><span class="p">,</span> <span class="n">chosen_offset_sample_idx</span>
+
+<span class="k">def</span> <span class="nf">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">fronts</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return a list of tuples of the form (frequency_idx, sample_idx),</span>
+<span class="sd">    corresponding to all the indexes of the given front.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">id</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># This is the only special case.</span>
+        <span class="c1"># -1 is the index of the catch-all final column offset front.</span>
+        <span class="n">freq_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">fronts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">sample_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">freq_idxs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">fronts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">freq_idxs</span><span class="p">,</span> <span class="n">sample_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">fronts</span> <span class="o">==</span> <span class="nb">id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">f</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">freq_idxs</span><span class="p">,</span> <span class="n">sample_idxs</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">_choose_front_id_from_candidates</span><span class="p">(</span><span class="n">candidate_offset_front_ids</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offsets_corresponding_to_onsets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a front ID which is the id of the offset front that contains the most overlap</span>
+<span class="sd">    with offsets that correspond to the given onset front ID.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">noverlaps</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># will contain tuples of the form (number_overlapping, offset_front_id)</span>
+    <span class="k">for</span> <span class="n">offset_front_id</span> <span class="ow">in</span> <span class="n">candidate_offset_front_ids</span><span class="p">:</span>
+        <span class="n">offset_front_f_idxs</span><span class="p">,</span> <span class="n">offset_front_s_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">offset_fronts</span> <span class="o">==</span> <span class="n">offset_front_id</span><span class="p">)</span>
+        <span class="n">offset_front_idxs</span> <span class="o">=</span> <span class="p">[(</span><span class="n">f</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">offset_front_f_idxs</span><span class="p">,</span> <span class="n">offset_front_s_idxs</span><span class="p">)]</span>
+        <span class="n">noverlap_this_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">offset_front_idxs</span><span class="p">)</span><span class="o">.</span><span class="n">symmetric_difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">offsets_corresponding_to_onsets</span><span class="p">)))</span>
+        <span class="n">noverlaps</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">noverlap_this_id</span><span class="p">,</span> <span class="n">offset_front_id</span><span class="p">))</span>
+    <span class="n">_overlapped</span><span class="p">,</span> <span class="n">chosen_offset_front_id</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">noverlaps</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">chosen_offset_front_id</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_get_offset_front_id_after_onset_sample_idx</span><span class="p">(</span><span class="n">onset_sample_idx</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the offset_front_id which corresponds to the offset front which occurs</span>
+<span class="sd">    first entirely after the given onset sample_idx.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get all the offset_front_ids</span>
+    <span class="n">offset_front_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">best_id_so_far</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">closest_offset_sample_idx</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">maxsize</span>
+    <span class="k">for</span> <span class="n">offset_front_id</span> <span class="ow">in</span> <span class="n">offset_front_ids</span><span class="p">:</span>
+        <span class="c1"># get all that offset front&#39;s indexes</span>
+        <span class="n">offset_front_idxs</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offset_front_id</span><span class="p">)</span>
+
+        <span class="c1"># get the sample indexes</span>
+        <span class="n">offset_front_sample_idxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">_f</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">offset_front_idxs</span><span class="p">]</span>
+
+        <span class="c1"># if each sample index is greater than onset_sample_idx, keep this offset front if it is the best one so far</span>
+        <span class="n">min_sample_idx</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">offset_front_sample_idxs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">min_sample_idx</span> <span class="o">&gt;</span> <span class="n">onset_sample_idx</span> <span class="ow">and</span> <span class="n">min_sample_idx</span> <span class="o">&lt;</span> <span class="n">closest_offset_sample_idx</span><span class="p">:</span>
+            <span class="n">closest_offset_sample_idx</span> <span class="o">=</span> <span class="n">min_sample_idx</span>
+            <span class="n">best_id_so_far</span> <span class="o">=</span> <span class="n">offset_front_id</span>
+
+    <span class="k">assert</span> <span class="n">best_id_so_far</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">best_id_so_far</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">return</span> <span class="n">best_id_so_far</span>
+
+<span class="k">def</span> <span class="nf">_get_offset_front_id_after_onset_front</span><span class="p">(</span><span class="n">onset_front_id</span><span class="p">,</span> <span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the ID corresponding to the offset which occurs first after the given onset_front_id.</span>
+<span class="sd">    By `first` I mean the front which contains the offset which is closest to the latest point</span>
+<span class="sd">    in the onset front. By `after`, I mean that the offset must contain only offsets which</span>
+<span class="sd">    occur after the latest onset in the onset front.</span>
+
+<span class="sd">    If there is no appropriate offset front, the id returned is -1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get the onset idxs for this front</span>
+    <span class="n">onset_idxs</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">)</span>
+
+    <span class="c1"># get the sample idxs for this front</span>
+    <span class="n">onset_sample_idxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">_f</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">onset_idxs</span><span class="p">]</span>
+
+    <span class="c1"># get the latest onset in this onset front</span>
+    <span class="n">latest_onset_in_front</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">onset_sample_idxs</span><span class="p">)</span>
+
+    <span class="n">offset_front_id_after_this_onset_front</span> <span class="o">=</span> <span class="n">_get_offset_front_id_after_onset_sample_idx</span><span class="p">(</span><span class="n">latest_onset_in_front</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">offset_front_id_after_this_onset_front</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_match_offset_front_id_to_onset_front_id</span><span class="p">(</span><span class="n">onset_front_id</span><span class="p">,</span> <span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find all offset fronts which are composed of at least one offset which corresponds to one of the onsets in the</span>
+<span class="sd">    given onset front.</span>
+<span class="sd">    The offset front which contains the most of such offsets is the match.</span>
+<span class="sd">    If there are no such offset fronts, return -1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># find all offset fronts which are composed of at least one offset which corresponds to one of the onsets in the onset front</span>
+    <span class="c1"># the offset front which contains the most of such offsets is the match</span>
+
+    <span class="c1"># get the onsets that make up front_id</span>
+    <span class="n">onset_idxs</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">)</span>
+
+    <span class="c1"># get the offsets that match the onsets in front_id</span>
+    <span class="n">offset_idxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">_lookup_offset_by_onset_idx</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">onset_idxs</span><span class="p">]</span>
+
+    <span class="c1"># get all offset_fronts which contain at least one of these offsets</span>
+    <span class="n">candidate_offset_front_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">offset_idxs</span><span class="p">])</span>
+
+    <span class="c1"># It is possible that offset_idxs contains offset indexes that correspond to offsets that did not</span>
+    <span class="c1"># get formed into a front - those will have a front ID of 0. Remove them.</span>
+    <span class="n">candidate_offset_front_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nb">id</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">candidate_offset_front_ids</span> <span class="k">if</span> <span class="nb">id</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">candidate_offset_front_ids</span><span class="p">:</span>
+        <span class="n">chosen_offset_front_id</span> <span class="o">=</span> <span class="n">_choose_front_id_from_candidates</span><span class="p">(</span><span class="n">candidate_offset_front_ids</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offset_idxs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">chosen_offset_front_id</span> <span class="o">=</span> <span class="n">_get_offset_front_id_after_onset_front</span><span class="p">(</span><span class="n">onset_front_id</span><span class="p">,</span> <span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">chosen_offset_front_id</span>
+
+<span class="k">def</span> <span class="nf">_get_consecutive_portions_of_front</span><span class="p">(</span><span class="n">front</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Yields lists of the form [(f, s), (f, s)], one at a time from the given front (which is a list of the same form),</span>
+<span class="sd">    such that each list yielded is consecutive in frequency.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">last_f</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ls</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">front</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">last_f</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">f</span> <span class="o">!=</span> <span class="n">last_f</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">ls</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ls</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="n">s</span><span class="p">))</span>
+        <span class="n">last_f</span> <span class="o">=</span> <span class="n">f</span>
+    <span class="k">yield</span> <span class="n">ls</span>
+
+<span class="k">def</span> <span class="nf">_get_consecutive_and_overlapping_fronts</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">,</span> <span class="n">offset_front_id</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets an onset_front and an offset_front such that they both occupy at least some of the same</span>
+<span class="sd">    frequency channels, then returns the portion of each that overlaps with the other.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get the onset front of interest</span>
+    <span class="n">onset_front</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">)</span>
+
+    <span class="c1"># Get the offset front of interest</span>
+    <span class="n">offset_front</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offset_front_id</span><span class="p">)</span>
+
+    <span class="c1"># Keep trying consecutive portions of this onset front until we find a consecutive portion</span>
+    <span class="c1"># that overlaps with part of the offset front</span>
+    <span class="n">consecutive_portions_of_onset_front</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">_get_consecutive_portions_of_front</span><span class="p">(</span><span class="n">onset_front</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">consecutive_portion_of_onset_front</span> <span class="ow">in</span> <span class="n">consecutive_portions_of_onset_front</span><span class="p">:</span>
+        <span class="c1"># Only get the segment of this front that overlaps in frequencies with the onset front of interest</span>
+        <span class="n">onset_front_frequency_indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">consecutive_portion_of_onset_front</span><span class="p">]</span>
+        <span class="n">overlapping_offset_front</span> <span class="o">=</span> <span class="p">[(</span><span class="n">f</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">offset_front</span> <span class="k">if</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">onset_front_frequency_indexes</span><span class="p">]</span>
+
+        <span class="c1"># Only get as much of this overlapping portion as is actually consecutive</span>
+        <span class="k">for</span> <span class="n">consecutive_portion_of_offset_front</span> <span class="ow">in</span> <span class="n">_get_consecutive_portions_of_front</span><span class="p">(</span><span class="n">overlapping_offset_front</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">consecutive_portion_of_offset_front</span><span class="p">:</span>
+                <span class="c1"># Just return the first one we get - if we get any it means we found a portion of overlap</span>
+                <span class="k">return</span> <span class="n">consecutive_portion_of_onset_front</span><span class="p">,</span> <span class="n">consecutive_portion_of_offset_front</span>
+    <span class="k">return</span> <span class="p">[],</span> <span class="p">[]</span>  <span class="c1"># These two fronts have no overlap</span>
+
+
+<span class="k">def</span> <span class="nf">_update_segmentation_mask</span><span class="p">(</span><span class="n">segmentation_mask</span><span class="p">,</span> <span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">,</span> <span class="n">offset_front_id_most_overlap</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns an updated segmentation mask such that the input `segmentation_mask` has been updated by segmenting between</span>
+<span class="sd">    `onset_front_id` and `offset_front_id`, as found in `onset_fronts` and `offset_fronts`, respectively.</span>
+
+<span class="sd">    This function also returns the onset_fronts and offset_fronts matrices, updated so that any fronts that are of</span>
+<span class="sd">    less than 3 channels wide are removed.</span>
+
+<span class="sd">    This function also returns a boolean value indicating whether the onset channel went to completion.</span>
+
+<span class="sd">    Specifically, segments by doing the following:</span>
+
+<span class="sd">    - Going across frequencies in the onset_front,</span>
+<span class="sd">    - add the segment mask ID (the onset front ID) to all samples between the onset_front and the offset_front,</span>
+<span class="sd">      if the offset_front is in that frequency.</span>
+
+<span class="sd">    Possible scenarios:</span>
+
+<span class="sd">    Fronts line up completely:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        |   |       S S S</span>
+<span class="sd">        |   |  =&gt;   S S S</span>
+<span class="sd">        |   |       S S S</span>
+<span class="sd">        |   |       S S S</span>
+
+<span class="sd">    Onset front starts before offset front:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        |           |</span>
+<span class="sd">        |   |       S S S</span>
+<span class="sd">        |   |  =&gt;   S S S</span>
+<span class="sd">        |   |       S S S</span>
+
+<span class="sd">    Onset front ends after offset front:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        |   |       S S S</span>
+<span class="sd">        |   |  =&gt;   S S S</span>
+<span class="sd">        |   |       S S S</span>
+<span class="sd">        |           |</span>
+
+<span class="sd">    Onset front starts before and ends after offset front:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        |           |</span>
+<span class="sd">        |   |  =&gt;   S S S</span>
+<span class="sd">        |   |       S S S</span>
+<span class="sd">        |           |</span>
+
+<span class="sd">    The above three options in reverse:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">            |       |S S|           |</span>
+<span class="sd">        |S S|       |S S|       |S S|</span>
+<span class="sd">        |S S|       |S S|       |S S|</span>
+<span class="sd">        |S S|           |           |</span>
+
+<span class="sd">    There is one last scenario:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        |   |</span>
+<span class="sd">        \   /</span>
+<span class="sd">         \ /</span>
+<span class="sd">         / \</span>
+<span class="sd">        |   |</span>
+
+<span class="sd">    Where the offset and onset fronts cross one another. If this happens, we simply</span>
+<span class="sd">    reverse the indices and accept:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        |sss|</span>
+<span class="sd">        \sss/</span>
+<span class="sd">         \s/</span>
+<span class="sd">         /s\</span>
+<span class="sd">        |sss|</span>
+
+<span class="sd">    The other option would be to destroy the offset front from the crossover point on, and</span>
+<span class="sd">    then search for a new offset front for the rest of the onset front.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get the portions of the onset and offset fronts that overlap and are consecutive</span>
+    <span class="n">onset_front_overlap</span><span class="p">,</span> <span class="n">offset_front_overlap</span> <span class="o">=</span> <span class="n">_get_consecutive_and_overlapping_fronts</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">,</span> <span class="n">offset_front_id_most_overlap</span><span class="p">)</span>
+    <span class="n">onset_front</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">)</span>
+    <span class="n">offset_front</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offset_front_id_most_overlap</span><span class="p">)</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Onset front </span><span class="si">{}</span><span class="s2"> and offset front </span><span class="si">{}</span><span class="s2"> result in consecutive overlapping portions of (on) </span><span class="si">{}</span><span class="s2"> and (off) </span><span class="si">{}</span><span class="s2">, one of which is empty&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">onset_front</span><span class="p">,</span> <span class="n">offset_front</span><span class="p">,</span> <span class="n">onset_front_overlap</span><span class="p">,</span> <span class="n">offset_front_overlap</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">onset_front_overlap</span><span class="p">,</span> <span class="n">msg</span>
+    <span class="k">assert</span> <span class="n">offset_front_overlap</span><span class="p">,</span> <span class="n">msg</span>
+    <span class="n">onset_front</span> <span class="o">=</span> <span class="n">onset_front_overlap</span>
+    <span class="n">offset_front</span> <span class="o">=</span> <span class="n">offset_front_overlap</span>
+
+    <span class="c1"># Figure out which frequencies will go in the segment</span>
+    <span class="n">flow_on</span><span class="p">,</span> <span class="n">_slow_on</span> <span class="o">=</span> <span class="n">onset_front</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">fhigh_on</span><span class="p">,</span> <span class="n">_shigh_on</span> <span class="o">=</span> <span class="n">onset_front</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">flow_off</span><span class="p">,</span> <span class="n">_slow_off</span> <span class="o">=</span> <span class="n">offset_front</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">fhigh_off</span><span class="p">,</span> <span class="n">_shigh_off</span> <span class="o">=</span> <span class="n">offset_front</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">flow</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">flow_on</span><span class="p">,</span> <span class="n">flow_off</span><span class="p">)</span>
+    <span class="n">fhigh</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">fhigh_on</span><span class="p">,</span> <span class="n">fhigh_off</span><span class="p">)</span>
+
+    <span class="c1"># Update all the masks with the segment</span>
+    <span class="k">for</span> <span class="n">fidx</span><span class="p">,</span> <span class="n">_freqchan</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">segmentation_mask</span><span class="p">[</span><span class="n">flow</span><span class="p">:</span><span class="n">fhigh</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">start</span><span class="o">=</span><span class="n">flow</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">fidx</span> <span class="o">&gt;=</span> <span class="n">flow</span><span class="p">,</span> <span class="s2">&quot;Frequency index is </span><span class="si">{}</span><span class="s2">, but we should have started at </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fidx</span><span class="p">,</span> <span class="n">flow</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">fidx</span> <span class="o">-</span> <span class="n">flow</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">onset_front</span><span class="p">),</span> <span class="s2">&quot;Frequency index </span><span class="si">{}</span><span class="s2"> minus starting frequency </span><span class="si">{}</span><span class="s2"> is too large for nfrequencies </span><span class="si">{}</span><span class="s2"> in onset front </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">fidx</span><span class="p">,</span> <span class="n">flow</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">onset_front</span><span class="p">),</span> <span class="n">onset_front</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">fidx</span> <span class="o">-</span> <span class="n">flow</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">offset_front</span><span class="p">),</span> <span class="s2">&quot;Frequency index </span><span class="si">{}</span><span class="s2"> minus starting frequency </span><span class="si">{}</span><span class="s2"> is too large for nfrequencies </span><span class="si">{}</span><span class="s2"> in offset front </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">fidx</span><span class="p">,</span> <span class="n">flow</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">offset_front</span><span class="p">),</span> <span class="n">offset_front</span>
+        <span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">beg</span> <span class="o">=</span> <span class="n">onset_front</span><span class="p">[</span><span class="n">fidx</span> <span class="o">-</span> <span class="n">flow</span><span class="p">]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">offset_front</span><span class="p">[</span><span class="n">fidx</span> <span class="o">-</span> <span class="n">flow</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">beg</span> <span class="o">&gt;</span> <span class="n">end</span><span class="p">:</span>
+            <span class="n">end</span><span class="p">,</span> <span class="n">beg</span> <span class="o">=</span> <span class="n">beg</span><span class="p">,</span> <span class="n">end</span>
+        <span class="k">assert</span> <span class="n">end</span> <span class="o">&gt;=</span> <span class="n">beg</span>
+        <span class="n">segmentation_mask</span><span class="p">[</span><span class="n">fidx</span><span class="p">,</span> <span class="n">beg</span><span class="p">:</span><span class="n">end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">onset_front_id</span>
+        <span class="n">onset_fronts</span><span class="p">[</span><span class="n">fidx</span><span class="p">,</span> <span class="p">(</span><span class="n">beg</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):(</span><span class="n">end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">offset_fronts</span><span class="p">[</span><span class="n">fidx</span><span class="p">,</span> <span class="p">(</span><span class="n">beg</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):(</span><span class="n">end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">nfreqs_used_in_onset_front</span> <span class="o">=</span> <span class="p">(</span><span class="n">fidx</span> <span class="o">-</span> <span class="n">flow</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="c1"># Update the other masks to delete fronts that have been used</span>
+    <span class="n">indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">flow</span><span class="p">,</span> <span class="n">fhigh</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">onset_front_sample_idxs_across_freqs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">s</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">onset_front</span><span class="p">])</span>
+    <span class="n">onset_front_sample_idxs_across_freqs_up_to_break</span> <span class="o">=</span> <span class="n">onset_front_sample_idxs_across_freqs</span><span class="p">[:</span><span class="n">nfreqs_used_in_onset_front</span><span class="p">]</span>
+    <span class="n">offset_front_sample_idxs_across_freqs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">s</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">offset_front</span><span class="p">])</span>
+    <span class="n">offset_front_sample_idxs_across_freqs_up_to_break</span> <span class="o">=</span> <span class="n">offset_front_sample_idxs_across_freqs</span><span class="p">[:</span><span class="n">nfreqs_used_in_onset_front</span><span class="p">]</span>
+
+    <span class="c1">## Remove the offset front from where we started to where we ended</span>
+    <span class="n">offset_fronts</span><span class="p">[</span><span class="n">indexes</span><span class="p">[:</span><span class="n">nfreqs_used_in_onset_front</span><span class="p">],</span> <span class="n">offset_front_sample_idxs_across_freqs_up_to_break</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1">## Remove the onset front from where we started to where we ended</span>
+    <span class="n">onset_fronts</span><span class="p">[</span><span class="n">indexes</span><span class="p">[:</span><span class="n">nfreqs_used_in_onset_front</span><span class="p">],</span> <span class="n">onset_front_sample_idxs_across_freqs_up_to_break</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Determine if we matched the entire onset front by checking if there is any more of this onset front in onset_fronts</span>
+    <span class="n">whole_onset_front_matched</span> <span class="o">=</span> <span class="n">onset_front_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">whole_onset_front_matched</span>
+
+<span class="k">def</span> <span class="nf">_front_id_from_idx</span><span class="p">(</span><span class="n">front</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the front ID found in `front` at the given `index`.</span>
+
+<span class="sd">    :param front:               An onset or offset front array of shape [nfrequencies, nsamples]</span>
+<span class="sd">    :index:                     A tuple of the form (frequency index, sample index)</span>
+<span class="sd">    :returns:                   The ID of the front or -1 if not found in `front` and the item at `onsets_or_offsets[index]`</span>
+<span class="sd">                                is not a 1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fidx</span><span class="p">,</span> <span class="n">sidx</span> <span class="o">=</span> <span class="n">index</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">front</span><span class="p">[</span><span class="n">fidx</span><span class="p">,</span> <span class="n">sidx</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">id</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">id</span>
+
+<span class="k">def</span> <span class="nf">_get_front_ids_one_at_a_time</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Yields one onset front ID at a time until they are gone. All the onset fronts from a</span>
+<span class="sd">    frequency channel are yielded, then all of the next channel&#39;s, etc., though one at a time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">yielded_so_far</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">onset_fronts</span><span class="p">:</span>
+        <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">row</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">id</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">yielded_so_far</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="nb">id</span>
+                <span class="n">yielded_so_far</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_get_corresponding_offsets</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets the offsets that occur as close as possible to the onsets in the given onset-front.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">corresponding_offsets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">):</span>
+        <span class="n">offset_fidx</span><span class="p">,</span> <span class="n">offset_sidx</span> <span class="o">=</span> <span class="n">_lookup_offset_by_onset_idx</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">)</span>
+        <span class="n">corresponding_offsets</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">offset_fidx</span><span class="p">,</span> <span class="n">offset_sidx</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">corresponding_offsets</span>
+
+<span class="k">def</span> <span class="nf">_get_all_offset_fronts_from_offsets</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">corresponding_offsets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns all the offset fronts that are composed of at least one of the given offset indexes.</span>
+<span class="sd">    Also returns a dict of the form {offset_front_id: ntimes saw}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">all_offset_fronts_of_interest</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">ids_ntimes_seen</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">offset_index</span> <span class="ow">in</span> <span class="n">corresponding_offsets</span><span class="p">:</span>
+        <span class="n">offset_id</span> <span class="o">=</span> <span class="n">_front_id_from_idx</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offset_index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">offset_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ids_ntimes_seen</span><span class="p">:</span>
+            <span class="n">offset_front_idxs</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">offset_id</span><span class="p">)</span>
+            <span class="n">all_offset_fronts_of_interest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">offset_front_idxs</span><span class="p">)</span>
+            <span class="n">ids_ntimes_seen</span><span class="p">[</span><span class="n">offset_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ids_ntimes_seen</span><span class="p">[</span><span class="n">offset_id</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">all_offset_fronts_of_interest</span><span class="p">,</span> <span class="n">ids_ntimes_seen</span>
+
+<span class="k">def</span> <span class="nf">_remove_overlaps</span><span class="p">(</span><span class="n">segmentation_mask</span><span class="p">,</span> <span class="n">fronts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Removes all points in the fronts that overlap with the segmentation mask.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fidxs</span><span class="p">,</span> <span class="n">sidxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">segmentation_mask</span> <span class="o">!=</span> <span class="n">fronts</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">segmentation_mask</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">fronts</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="n">fronts</span><span class="p">[</span><span class="n">fidxs</span><span class="p">,</span> <span class="n">sidxs</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="k">def</span> <span class="nf">_match_fronts</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a segmentation mask, which looks like this:</span>
+<span class="sd">    frequency 1: 0 0 4 4 4 4 4 0 0 5 5 5</span>
+<span class="sd">    frequency 2: 0 4 4 4 4 4 0 0 0 0 5 5</span>
+<span class="sd">    frequency 3: 0 4 4 4 4 4 4 4 5 5 5 5</span>
+
+<span class="sd">    That is, each item in the array is either a 0 (not part of a segment) or a positive</span>
+<span class="sd">    integer which indicates which segment the sample in that frequency band belongs to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">printd</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c1"># Make copies of everything, so we can do whatever we want with them</span>
+    <span class="n">onset_fronts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">)</span>
+    <span class="n">offset_fronts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">)</span>
+    <span class="n">onsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">onsets</span><span class="p">)</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">offsets</span><span class="p">)</span>
+
+    <span class="c1"># This is what we will return</span>
+    <span class="n">segmentation_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">)</span>
+
+    <span class="c1"># - Take the first frequency in the onset_fronts matrix</span>
+    <span class="c1">#     [ s s s s s s s s s] &lt;-- This frequency</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+
+    <span class="c1"># - Follow it along in time like this:</span>
+
+    <span class="c1">#     first sample    last sample</span>
+    <span class="c1">#       v      --&gt;      v</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+    <span class="c1">#     [ s s s s s s s s s]</span>
+
+    <span class="c1"># until you get to the first onset front in that frequency</span>
+
+    <span class="c1">#     Here it is!</span>
+    <span class="c1">#         v</span>
+    <span class="c1">#     [ . O . . . . . . .]</span>
+    <span class="c1">#     [ . . O . . . . . .]</span>
+    <span class="c1">#     [ . . O . . . . . .]</span>
+    <span class="c1">#     [ . O . . . . . . .]</span>
+    <span class="c1">#     [ O . . . . . . . .]</span>
+
+    <span class="n">resulting_onset_fronts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">)</span>
+    <span class="n">printd</span><span class="p">(</span><span class="s2">&quot;    -&gt; Dealing with onset fronts...&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">onset_front_id</span> <span class="ow">in</span> <span class="n">_get_front_ids_one_at_a_time</span><span class="p">(</span><span class="n">onset_fronts</span><span class="p">):</span>
+        <span class="n">printd</span><span class="p">(</span><span class="s2">&quot;      -&gt; Dealing with onset front&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">onset_front_id</span><span class="p">))</span>
+        <span class="n">front_is_complete</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">front_is_complete</span><span class="p">:</span>
+            <span class="c1"># - Now, starting at this onset front in each frequency, find that onset&#39;s corresponding offset</span>
+
+            <span class="c1">#     [ . O . . . . F . .]</span>
+            <span class="c1">#     [ . . O . . . F . .]</span>
+            <span class="c1">#     [ . . O . F . . . .]</span>
+            <span class="c1">#     [ . O . F . . . . .]</span>
+            <span class="c1">#     [ O F . . . . . . .]</span>
+
+            <span class="n">corresponding_offsets</span> <span class="o">=</span> <span class="n">_get_corresponding_offsets</span><span class="p">(</span><span class="n">resulting_onset_fronts</span><span class="p">,</span> <span class="n">onset_front_id</span><span class="p">,</span> <span class="n">onsets</span><span class="p">,</span> <span class="n">offsets</span><span class="p">)</span>
+
+            <span class="c1"># It is possible that onset_front_id has been removed from resulting_onset_fronts,</span>
+            <span class="c1"># if so, skip it and move on to the next onset front (we are iterating over the original</span>
+            <span class="c1"># to keep the iterator valid)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">corresponding_offsets</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="c1"># - Get all the offset fronts that are composed of at least one of these offset times</span>
+
+            <span class="c1">#     [ . O . . . . 1 . .]</span>
+            <span class="c1">#     [ . . O 3 . . 1 . .]</span>
+            <span class="c1">#     [ . . O 3 F . 1 . .]</span>
+            <span class="c1">#     [ . O . 3 . . . 1 .]</span>
+            <span class="c1">#     [ O F 3 . . . . . .]</span>
+
+            <span class="n">_all_offset_fronts_of_interest</span><span class="p">,</span> <span class="n">ids_ntimes_seen</span> <span class="o">=</span> <span class="n">_get_all_offset_fronts_from_offsets</span><span class="p">(</span><span class="n">offset_fronts</span><span class="p">,</span> <span class="n">corresponding_offsets</span><span class="p">)</span>
+
+            <span class="c1"># - Check how many of these offset times each of the offset fronts are composed of:</span>
+
+            <span class="c1">#     [ . O . . . . Y . .]</span>
+            <span class="c1">#     [ . . O 3 . . Y . .]</span>
+            <span class="c1">#     [ . . O 3 F . 1 . .]</span>
+            <span class="c1">#     [ . O . X . . . 1 .]</span>
+            <span class="c1">#     [ O F 3 . . . . . .]</span>
+
+            <span class="c1"># In this example, offset front 1 is made up of 4 offset times, 2 of which (the Y&#39;s) are offset times</span>
+            <span class="c1"># that correspond to onsets in the onset front we are currently dealing with. Meanwhile, offset</span>
+            <span class="c1"># front 3 is made up of 4 offset times, only one of which (the X) is one of the offsets that corresponds</span>
+            <span class="c1"># to the onset front.</span>
+
+            <span class="c1"># - Choose the offset front which matches the most offset time candidates. In this example, offset front 1</span>
+            <span class="c1">#   is chosen because it has 2 of these offset times.</span>
+            <span class="c1">#   If there is a tie, we choose the ID with the lower number</span>
+            <span class="n">ntimes_seen_sorted</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ids_ntimes_seen</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">tup</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ntimes_seen_sorted</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;We somehow got an empty dict of offset front IDs&quot;</span>
+
+            <span class="c1"># Only use the special final front (the -1, catch-all front composed of final samples in each frequency) if necessary</span>
+            <span class="n">offset_front_id</span><span class="p">,</span> <span class="n">_ntimes_seen</span> <span class="o">=</span> <span class="n">ntimes_seen_sorted</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">offset_front_id</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">ntimes_seen_sorted</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">offset_front_id</span><span class="p">,</span> <span class="n">_ntimes_seen</span> <span class="o">=</span> <span class="n">ntimes_seen_sorted</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">offset_front_id_most_overlap</span> <span class="o">=</span> <span class="n">offset_front_id</span>
+
+            <span class="c1"># - Finally, update the segmentation mask to follow the offset</span>
+            <span class="c1">#   front from where it first overlaps in frequency with the onset front to where it ends or to where</span>
+            <span class="c1">#   the onset front ends, whichever happens first.</span>
+
+            <span class="c1">#     [ . S S S S S S . .]</span>
+            <span class="c1">#     [ . . S S S S S . .]</span>
+            <span class="c1">#     [ . . S S S S S . .]</span>
+            <span class="c1">#     [ . S S S S S S S .]</span>
+            <span class="c1">#     [ O F 3 . . . . . .]  &lt;-- This frequency has not yet been matched with an offset front</span>
+            <span class="n">front_is_complete</span> <span class="o">=</span> <span class="n">_update_segmentation_mask</span><span class="p">(</span><span class="n">segmentation_mask</span><span class="p">,</span>
+                                                            <span class="n">resulting_onset_fronts</span><span class="p">,</span>
+                                                            <span class="n">offset_fronts</span><span class="p">,</span>
+                                                            <span class="n">onset_front_id</span><span class="p">,</span>
+                                                            <span class="n">offset_front_id_most_overlap</span><span class="p">)</span>
+
+            <span class="c1"># Remove any onsets that are covered by the new segmentation mask</span>
+            <span class="n">_remove_overlaps</span><span class="p">(</span><span class="n">segmentation_mask</span><span class="p">,</span> <span class="n">resulting_onset_fronts</span><span class="p">)</span>
+
+            <span class="c1"># Remove any offsets that are covered by the new segmentaion mask</span>
+            <span class="n">_remove_overlaps</span><span class="p">(</span><span class="n">segmentation_mask</span><span class="p">,</span> <span class="n">offset_fronts</span><span class="p">)</span>
+
+            <span class="c1"># - Repeat this algorithm, restarting in the first frequency channel that did not match (the last frequency in</span>
+            <span class="c1">#   the above example). Do this until you have finished with this onset front.</span>
+
+        <span class="c1"># - Repeat for each onset front in the rest of this frequency</span>
+        <span class="c1"># - Repeat for each frequency</span>
+
+    <span class="k">return</span> <span class="n">segmentation_mask</span>
+
+
+<span class="k">def</span> <span class="nf">_remove_fronts_that_are_too_small</span><span class="p">(</span><span class="n">fronts</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Removes all fronts from `fronts` which are strictly smaller than</span>
+<span class="sd">    `size` consecutive frequencies in length.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">fronts</span><span class="p">)</span>
+    <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">id</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">id</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">front</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">fronts</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">front</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">size</span><span class="p">:</span>
+            <span class="n">indexes</span> <span class="o">=</span> <span class="p">([</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">front</span><span class="p">],</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">front</span><span class="p">])</span>
+            <span class="n">fronts</span><span class="p">[</span><span class="n">indexes</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="k">def</span> <span class="nf">_break_poorly_matched_fronts</span><span class="p">(</span><span class="n">fronts</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">threshold_overlap_samples</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For each onset front, for each frequency in that front, break the onset front if the signals</span>
+<span class="sd">    between this frequency&#39;s onset and the next frequency&#39;s onset are not similar enough.</span>
+
+<span class="sd">    Specifically:</span>
+<span class="sd">    If we have the following two frequency channels, and the two O&#39;s are part of the same onset front,</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        [ . O . . . . . . . . . . ]</span>
+<span class="sd">        [ . . . . O . . . . . . . ]</span>
+
+<span class="sd">    We compare the signals x and y:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        [ . x x x x . . . . . . . ]</span>
+<span class="sd">        [ . y y y y . . . . . . . ]</span>
+
+<span class="sd">    And if they are not sufficiently similar (via a DSP correlation algorithm), we break the onset</span>
+<span class="sd">    front between these two channels.</span>
+
+<span class="sd">    Once this is done, remove any onset fronts that are less than 3 channels wide.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">threshold_overlap_samples</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Number of samples of overlap must be greater than zero&quot;</span>
+    <span class="n">breaks_after</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">front_id</span> <span class="ow">in</span> <span class="n">_get_front_ids_one_at_a_time</span><span class="p">(</span><span class="n">fronts</span><span class="p">):</span>
+        <span class="n">front</span> <span class="o">=</span> <span class="n">_get_front_idxs_from_id</span><span class="p">(</span><span class="n">fronts</span><span class="p">,</span> <span class="n">front_id</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">front</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">front</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Get the signal from f, s to f, s+1 and the signal from f+1, s to f+1, s+1</span>
+                <span class="n">next_f</span><span class="p">,</span> <span class="n">next_s</span> <span class="o">=</span> <span class="n">front</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">low_s</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">next_s</span><span class="p">)</span>
+                <span class="n">high_s</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">next_s</span><span class="p">)</span>
+                <span class="n">sig_this_f</span> <span class="o">=</span> <span class="n">fronts</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="n">low_s</span><span class="p">:</span><span class="n">high_s</span><span class="p">]</span>
+                <span class="n">sig_next_f</span> <span class="o">=</span> <span class="n">fronts</span><span class="p">[</span><span class="n">next_f</span><span class="p">,</span> <span class="n">low_s</span><span class="p">:</span><span class="n">high_s</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">sig_next_f</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">sig_this_f</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sig_next_f</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">threshold_overlap_samples</span><span class="p">:</span>
+                    <span class="c1"># If these two signals are not sufficiently close in form, this front should be broken up</span>
+                    <span class="n">correlation</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">sig_this_f</span><span class="p">,</span> <span class="n">sig_next_f</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;same&#39;</span><span class="p">)</span>
+                    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">correlation</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                    <span class="n">correlation</span> <span class="o">=</span> <span class="n">correlation</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">correlation</span> <span class="o">+</span> <span class="mf">1E-9</span><span class="p">)</span>
+                    <span class="n">similarity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">correlation</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">correlation</span><span class="p">)</span>
+                    <span class="c1"># TODO: the above stuff probably needs to be figured out</span>
+                    <span class="k">if</span> <span class="n">similarity</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">front_id</span> <span class="ow">in</span> <span class="n">breaks_after</span><span class="p">:</span>
+                            <span class="n">breaks_after</span><span class="p">[</span><span class="n">front_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="n">s</span><span class="p">))</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">breaks_after</span><span class="p">[</span><span class="n">front_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Now update the fronts matrix by breaking up any fronts at the points we just identified</span>
+    <span class="c1"># and assign the newly created fronts new IDs</span>
+    <span class="n">taken_ids</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">fronts</span><span class="p">))</span>
+    <span class="n">next_id</span> <span class="o">=</span> <span class="n">taken_ids</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">breaks_after</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">breaks_after</span><span class="p">[</span><span class="nb">id</span><span class="p">]:</span>
+            <span class="n">fidxs</span><span class="p">,</span> <span class="n">sidxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">fronts</span> <span class="o">==</span> <span class="nb">id</span><span class="p">)</span>
+            <span class="n">idxs_greater_than_f</span> <span class="o">=</span> <span class="p">[</span><span class="n">fidx</span> <span class="k">for</span> <span class="n">fidx</span> <span class="ow">in</span> <span class="n">fidxs</span> <span class="k">if</span> <span class="n">fidx</span> <span class="o">&gt;</span> <span class="n">f</span><span class="p">]</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sidxs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">idxs_greater_than_f</span><span class="p">)</span>
+            <span class="n">indexes</span> <span class="o">=</span> <span class="p">(</span><span class="n">idxs_greater_than_f</span><span class="p">,</span> <span class="n">sidxs</span><span class="p">[</span><span class="n">start</span><span class="p">:])</span>
+            <span class="n">fronts</span><span class="p">[</span><span class="n">indexes</span><span class="p">]</span> <span class="o">=</span> <span class="n">next_id</span>
+            <span class="n">next_id</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">_remove_fronts_that_are_too_small</span><span class="p">(</span><span class="n">fronts</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_update_segmentation_mask_if_overlap</span><span class="p">(</span><span class="n">toupdate</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">otherid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Merges the segments specified by `id` (found in `toupdate`) and `otherid`</span>
+<span class="sd">    (found in `other`) if they overlap at all. Updates `toupdate` accordingly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># If there is any overlap or touching, merge the two, otherwise just return</span>
+    <span class="n">yourmask</span> <span class="o">=</span> <span class="n">other</span> <span class="o">==</span> <span class="n">otherid</span>
+    <span class="n">mymask</span> <span class="o">=</span> <span class="n">toupdate</span> <span class="o">==</span> <span class="nb">id</span>
+    <span class="n">overlap_exists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">yourmask</span> <span class="o">&amp;</span> <span class="n">mymask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">overlap_exists</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="n">yourfidxs</span><span class="p">,</span> <span class="n">yoursidxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">other</span> <span class="o">==</span> <span class="n">otherid</span><span class="p">)</span>
+    <span class="n">toupdate</span><span class="p">[</span><span class="n">yourfidxs</span><span class="p">,</span> <span class="n">yoursidxs</span><span class="p">]</span> <span class="o">=</span> <span class="nb">id</span>
+
+<span class="k">def</span> <span class="nf">_segments_are_adjacent</span><span class="p">(</span><span class="n">seg1</span><span class="p">,</span> <span class="n">seg2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Checks if seg1 and seg2 are adjacent at any point. Each is a tuple of the form</span>
+<span class="sd">    (fidxs, sidxs).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: This is unnacceptably slow</span>
+    <span class="n">lsf1</span><span class="p">,</span> <span class="n">lss1</span> <span class="o">=</span> <span class="n">seg1</span>
+    <span class="n">lsf2</span><span class="p">,</span> <span class="n">lss2</span> <span class="o">=</span> <span class="n">seg2</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f1</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lsf1</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">f2</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lsf2</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">f1</span> <span class="o">&lt;=</span> <span class="n">f2</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">f1</span> <span class="o">&gt;=</span> <span class="n">f2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Frequencies are a match, are samples?</span>
+                <span class="k">if</span> <span class="n">lss1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">lss2</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">lss1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">lss2</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+<span class="k">def</span> <span class="nf">_merge_adjacent_segments</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Merges all segments in `mask` which are touching.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mask_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nb">id</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="nb">id</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">mask_ids</span><span class="p">:</span>
+        <span class="n">myfidxs</span><span class="p">,</span> <span class="n">mysidxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="nb">id</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">mask_ids</span><span class="p">:</span>  <span class="c1"># Ugh, brute force O(N^2) algorithm.. gross..</span>
+            <span class="k">if</span> <span class="nb">id</span> <span class="o">==</span> <span class="n">other</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">other_fidxs</span><span class="p">,</span> <span class="n">other_sidxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="n">other</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">_segments_are_adjacent</span><span class="p">((</span><span class="n">myfidxs</span><span class="p">,</span> <span class="n">mysidxs</span><span class="p">),</span> <span class="p">(</span><span class="n">other_fidxs</span><span class="p">,</span> <span class="n">other_sidxs</span><span class="p">)):</span>
+                    <span class="n">mask</span><span class="p">[</span><span class="n">other_fidxs</span><span class="p">,</span> <span class="n">other_sidxs</span><span class="p">]</span> <span class="o">=</span> <span class="nb">id</span>  <span class="c1"># This may lead to additional adjacencies, but we only do this once - otherwise too much clustering</span>
+
+<span class="k">def</span> <span class="nf">_integrate_segmentation_masks</span><span class="p">(</span><span class="n">segmasks</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `segmasks` should be in sorted order of [coarsest, ..., finest].</span>
+
+<span class="sd">    Integrates the given list of segmentation masks together to form one segmentation mask</span>
+<span class="sd">    by having each segment subsume ones that exist in the finer masks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">segmasks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">segmasks</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">segmasks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Passed in empty list of segmentation masks&quot;</span>
+    <span class="n">coarse_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">segmasks</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">mask_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nb">id</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">coarse_mask</span><span class="p">)</span> <span class="k">if</span> <span class="nb">id</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">mask_ids</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">mask</span> <span class="ow">in</span> <span class="n">segmasks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">finer_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">finer_id</span> <span class="ow">in</span> <span class="n">finer_ids</span><span class="p">:</span>
+                <span class="n">_update_segmentation_mask_if_overlap</span><span class="p">(</span><span class="n">coarse_mask</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">finer_id</span><span class="p">)</span>
+
+    <span class="c1"># Lastly, merge all adjacent blocks, but just kidding, since this algorithm is waaaay to slow</span>
+    <span class="c1">#_merge_adjacent_segments(coarse_mask)</span>
+    <span class="k">return</span> <span class="n">coarse_mask</span>
+
+<span class="k">def</span> <span class="nf">_separate_masks_task</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>
+    <span class="n">idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="nb">id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+        <span class="n">m</span><span class="p">[</span><span class="n">idxs</span><span class="p">]</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="k">return</span> <span class="n">m</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<span class="k">def</span> <span class="nf">_separate_masks</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.025</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a list of segmentation masks each of the same dimension as the input one,</span>
+<span class="sd">    but where they each have exactly one segment in them and all other samples in them</span>
+<span class="sd">    are zeroed.</span>
+
+<span class="sd">    Only bothers to return segments that are larger in total area than `threshold * mask.size`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ncpus</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+        <span class="n">ncpus</span> <span class="o">=</span> <span class="mi">2</span>
+
+    <span class="k">with</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="n">ncpus</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+        <span class="n">mask_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nb">id</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="nb">id</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">thresholds</span> <span class="o">=</span> <span class="p">[</span><span class="n">threshold</span> <span class="o">*</span> <span class="n">mask</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">))]</span>
+        <span class="n">masks</span> <span class="o">=</span> <span class="p">[</span><span class="n">mask</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">))]</span>
+        <span class="n">ms</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">starmap</span><span class="p">(</span><span class="n">_separate_masks_task</span><span class="p">,</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mask_ids</span><span class="p">,</span> <span class="n">thresholds</span><span class="p">,</span> <span class="n">masks</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">ms</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_get_downsampled_indexes</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
+    <span class="n">fractional_component</span> <span class="o">=</span> <span class="n">factor</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span>
+    <span class="n">indexes_to_keep</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">overflow_counter</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="c1"># if we overflowed, skip this item</span>
+        <span class="k">if</span> <span class="n">overflow_counter</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">overflow_counter</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># if the integer component of the factor is satisfied, skip this item</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">index</span> <span class="o">%</span> <span class="nb">int</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">overflow_counter</span> <span class="o">+=</span> <span class="n">fractional_component</span>
+            <span class="k">continue</span>
+        <span class="k">elif</span> <span class="nb">int</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">overflow_counter</span> <span class="o">+=</span> <span class="n">fractional_component</span>
+
+        <span class="c1"># Otherwise, add this index</span>
+        <span class="n">indexes_to_keep</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">indexes_to_keep</span>
+
+<span class="k">def</span> <span class="nf">_downsample_one_or_the_other</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">mask_indexes</span><span class="p">,</span> <span class="n">stft</span><span class="p">,</span> <span class="n">stft_indexes</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes the given `mask` and `stft`, which must be matrices of shape `frequencies, times`</span>
+<span class="sd">    and downsamples one of them into the other one&#39;s times, so that the time dimensions</span>
+<span class="sd">    are equal. Leaves the frequency dimension untouched.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Expected a two-dimensional `mask`, but got one of </span><span class="si">{}</span><span class="s2"> dimensions.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">stft</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Expected a two-dimensional `stft`, but got one of </span><span class="si">{}</span><span class="s2"> dimensions.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stft</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">stft</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">downsample_factor</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">stft</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="n">_get_downsampled_indexes</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">downsample_factor</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[:,</span> <span class="n">indexes</span><span class="p">]</span>
+        <span class="n">mask_indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indexes</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">stft</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">downsample_factor</span> <span class="o">=</span> <span class="n">stft</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">indexes</span> <span class="o">=</span> <span class="n">_get_downsampled_indexes</span><span class="p">(</span><span class="n">stft</span><span class="p">,</span> <span class="n">downsample_factor</span><span class="p">)</span>
+        <span class="n">stft</span> <span class="o">=</span> <span class="n">stft</span><span class="p">[:,</span> <span class="n">indexes</span><span class="p">]</span>
+        <span class="n">stft_indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indexes</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mask</span><span class="p">,</span> <span class="n">mask_indexes</span><span class="p">,</span> <span class="n">stft</span><span class="p">,</span> <span class="n">stft_indexes</span>
+
+<span class="k">def</span> <span class="nf">_map_segmentation_mask_to_stft_domain</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">stft_times</span><span class="p">,</span> <span class="n">stft_frequencies</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maps the given `mask`, which is in domain (`frequencies`, `times`) to the new domain (`stft_frequencies`, `stft_times`)</span>
+<span class="sd">    and returns the result.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">frequencies</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;Times is shape </span><span class="si">{}</span><span class="s2"> and frequencies is shape </span><span class="si">{}</span><span class="s2">, but mask is shaped </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">frequencies</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span>
+    <span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">stft_frequencies</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stft_times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stft_times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+        <span class="n">all_j</span> <span class="o">=</span> <span class="p">[</span><span class="n">j</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stft_times</span><span class="p">))]</span>
+        <span class="n">idxs</span>  <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">stft_times</span><span class="p">))]</span>
+        <span class="n">all_i</span> <span class="o">=</span> <span class="p">[</span><span class="n">all_j</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">idxs</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">all_i</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">))]</span>
+        <span class="n">idxs</span>  <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stft_times</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">))]</span>
+        <span class="n">all_j</span> <span class="o">=</span> <span class="p">[</span><span class="n">all_i</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">idxs</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">all_i</span><span class="p">,</span> <span class="n">all_j</span><span class="p">):</span>
+        <span class="n">result</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">stft_frequencies</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">mask</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+
+<span class="k">def</span> <span class="nf">_asa_task</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">masks</span><span class="p">,</span> <span class="n">stft</span><span class="p">,</span> <span class="n">sample_width</span><span class="p">,</span> <span class="n">frame_rate</span><span class="p">,</span> <span class="n">nsamples_for_each_fft</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Worker for the ASA algorithm&#39;s multiprocessing step.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert each mask to (1 or 0) rather than (ID or 0)</span>
+    <span class="k">for</span> <span class="n">mask</span> <span class="ow">in</span> <span class="n">masks</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Multiply the masks against STFTs</span>
+    <span class="n">masks</span> <span class="o">=</span> <span class="p">[</span><span class="n">mask</span> <span class="o">*</span> <span class="n">stft</span> <span class="k">for</span> <span class="n">mask</span> <span class="ow">in</span> <span class="n">masks</span><span class="p">]</span>
+
+    <span class="n">nparrs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">dtype_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">}</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype_dict</span><span class="p">[</span><span class="n">sample_width</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">masks</span><span class="p">:</span>
+        <span class="n">_times</span><span class="p">,</span> <span class="n">nparr</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">istft</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">frame_rate</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="n">nsamples_for_each_fft</span><span class="p">)</span>
+        <span class="n">nparr</span> <span class="o">=</span> <span class="n">nparr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">nparrs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nparr</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">nparrs</span><span class="p">:</span>
+        <span class="n">q</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">q</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s2">&quot;DONE&quot;</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright Max Strange (MIT License)
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -43,6 +43,7 @@ if __name__ == "__main__":
     result = subprocess.run(["sphinx-apidoc", "--force", "-o", apipath, "--full", "-H", PROJECT, home, "exclude_pattern", "setup.py", "setup.cfg", "build_the_docs.py", "conf.py"])
     result.check_returncode()
     shutil.copyfile(os.sep.join([home, "audiosegment.py"]), os.sep.join([apipath, "audiosegment.py"]))
+    shutil.copytree(os.sep.join([home, "algorithms"]), os.sep.join([apipath, "algorithms"]))
 
     # get the version from setup.py
     version = None
@@ -116,4 +117,3 @@ if __name__ == "__main__":
         result = subprocess.run(["make", "clean"])
         result = subprocess.run(["make", "html"])
     result.check_returncode()
-

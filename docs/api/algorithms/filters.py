@@ -1,5 +1,5 @@
 """
-Convenience functions for using Numpy/Scipy filters in the audio domain.
+Convencience functions for using Numpy/Scipy filters in the audio domain.
 """
 import numpy as np
 import scipy.signal as signal
