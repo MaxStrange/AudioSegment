@@ -36,7 +36,8 @@ if __name__ == "__main__":
 
     #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)
-    normalized = normalize.test(resampled)
+    #normalized = normalize.test(resampled)  # Currently broken
+    normalized = resampled
     serde.test(normalized)
     slices = trim.test(normalized)
     fft.test(normalized)

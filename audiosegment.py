@@ -29,6 +29,7 @@ import webrtcvad
 from algorithms import asa
 from algorithms import eventdetection as detect
 from algorithms import filters
+from algorithms import util
 
 try:
     import librosa
@@ -39,6 +40,9 @@ except ImportError as e:
 MS_PER_S = 1000
 S_PER_MIN = 60
 MS_PER_MIN = MS_PER_S * S_PER_MIN
+PASCAL_TO_PCM_FUDGE = 1000
+P_REF_PASCAL = 2E-5
+P_REF_PCM = P_REF_PASCAL * PASCAL_TO_PCM_FUDGE
 
 def deprecated(func):
     """
@@ -125,11 +129,30 @@ class AudioSegment:
     @property
     def spl(self):
         """
-        Sound Pressure Level - defined as 20 * log10(abs(value)).
+        Sound Pressure Level - defined as 20 * log10(p/p0),
+        where p is the RMS of the sound wave in Pascals and p0 is
+        20 micro Pascals.
 
-        Returns a numpy array of SPL dB values.
+        Since we would need to know calibration information about the
+        microphone used to record the sound in order to transform
+        the PCM values of this audiosegment into Pascals, we can't really
+        give an accurate SPL measurement.
+
+        However, we can give a reasonable guess that can certainly be used
+        to compare two sounds taken from the same microphone set up.
+
+        Be wary about using this to compare sounds taken under different recording
+        conditions however, except as a simple approximation.
+
+        Returns a scalar float representing the dB SPL of this audiosegment.
         """
-        return 20.0 * np.log10(np.abs(self.to_numpy_array() + 1E-9))
+        arr = self.to_numpy_array()
+        if len(arr) == 0:
+            return 0.0
+        else:
+            rms = np.sqrt(np.sum(np.square(arr)) / len(arr))
+            ratio = rms / P_REF_PCM
+            return 20.0 * np.log10(ratio + 1E-9)  # 1E-9 for numerical stability
 
     def filter_bank(self, lower_bound_hz=50, upper_bound_hz=8E3, nfilters=128, mode='mel'):
         """
@@ -218,7 +241,6 @@ class AudioSegment:
         :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.
         :returns:           List of AudioSegment objects, each of which is from a particular sound source.
         """
-        # TODO: Normalization algorithm doesn't currently work
         normalized = self.normalize_spl_by_average(db=60)
 
         def printd(*args, **kwargs):
@@ -771,33 +793,51 @@ class AudioSegment:
 
     def normalize_spl_by_average(self, db):
         """
-        Normalize the values in the AudioSegment so that its average dB value
-        is `db`.
+        Normalize the values in the AudioSegment so that its `spl` property
+        gives `db`.
 
-        The dB of a value is calculated as 20 * log10(abs(value + 1E-9)).
+        .. note:: This method is currently broken - it returns an AudioSegment whose
+                  values are much smaller than reasonable, yet which yield an SPL value
+                  that equals the given `db`. Such an AudioSegment will not be serializable
+                  as a WAV file, which will also break any method that relies on SOX.
+                  I may remove this method in the future, since the SPL of an AudioSegment is
+                  pretty questionable to begin with.
 
         :param db: The decibels to normalize average to.
         :returns: A new AudioSegment object whose values are changed so that their
                   average is `db`.
+        :raises: ValueError if there are no samples in this AudioSegment.
         """
-        def inverse_spl(val):
-            """Calculates the (positive) 'PCM' value for the given SPl val"""
-            return 10 ** (val / 20.0)
+        arr = self.to_numpy_array().copy()
+        if len(arr) == 0:
+            raise ValueError("Cannot normalize the SPL of an empty AudioSegment")
 
-        # TODO: This doesn't seem to work - the math is right, but the resultant SPL way overshoots the mark
-        #       I must be misunderstanding something... too tired to think about it right now...
-        # Convert dB into 'PCM'
-        db_pcm = inverse_spl(db)
-        # Calculate current 'PCM' average
-        curavg = np.mean(np.abs(self.to_numpy_array()))
-        # Calculate ratio of dB_pcm / curavg_pcm
-        ratio = db_pcm / curavg
-        # Multiply all values by ratio
+        def rms(x):
+            return np.sqrt(np.sum(np.square(x)) / len(x))
+
+        # Figure out what RMS we would like
+        desired_rms = P_REF_PCM * ((10 ** (db/20.0)) - 1E-9)
+
+        # Use successive approximation to solve
+        ## Keep trying different multiplication factors until we get close enough or run out of time
+        max_ntries = 50
+        res_rms = 0.0
+        ntries = 0
+        factor = 0.1
+        left = 0.0
+        right = desired_rms
+        while (ntries < max_ntries) and not util.isclose(res_rms, desired_rms, abs_tol=0.1):
+            res_rms = rms(arr * factor)
+            if res_rms < desired_rms:
+                left = factor
+            else:
+                right = factor
+            factor = 0.5 * (left + right)
+            ntries += 1
+
         dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
         dtype = dtype_dict[self.sample_width]
-        new_seg = from_numpy_array(np.array(self.to_numpy_array() * ratio, dtype=dtype), self.frame_rate)
-        # Check SPL average to see if we are right
-        #assert math.isclose(np.mean(new_seg.spl), db), "new = " + str(np.mean(new_seg.spl)) + " != " + str(db)
+        new_seg = from_numpy_array(np.array(arr * factor, dtype=dtype), self.frame_rate)
         return new_seg
 
     def reduce(self, others):
