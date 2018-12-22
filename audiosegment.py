@@ -796,12 +796,19 @@ class AudioSegment:
         Normalize the values in the AudioSegment so that its `spl` property
         gives `db`.
 
+        .. note:: This method is currently broken - it returns an AudioSegment whose
+                  values are much smaller than reasonable, yet which yield an SPL value
+                  that equals the given `db`. Such an AudioSegment will not be serializable
+                  as a WAV file, which will also break any method that relies on SOX.
+                  I may remove this method in the future, since the SPL of an AudioSegment is
+                  pretty questionable to begin with.
+
         :param db: The decibels to normalize average to.
         :returns: A new AudioSegment object whose values are changed so that their
                   average is `db`.
         :raises: ValueError if there are no samples in this AudioSegment.
         """
-        arr = self.to_numpy_array()
+        arr = self.to_numpy_array().copy()
         if len(arr) == 0:
             raise ValueError("Cannot normalize the SPL of an empty AudioSegment")
 
@@ -814,7 +821,7 @@ class AudioSegment:
         # Use successive approximation to solve
         ## Keep trying different multiplication factors until we get close enough or run out of time
         max_ntries = 50
-        res_rms = math.nan
+        res_rms = 0.0
         ntries = 0
         factor = 0.1
         left = 0.0
