@@ -14,7 +14,7 @@
 #
 # import os
 # import sys
-# sys.path.insert(0, '/home/max/repos/audiosegment')
+# sys.path.insert(0, '/home/maxst/repos/AudioSegment')
 
 
 # -- Project information -----------------------------------------------------

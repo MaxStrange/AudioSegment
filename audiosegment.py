@@ -968,26 +968,34 @@ class AudioSegment:
         if window_length_s is None and window_length_samples is None:
             raise ValueError("You must specify a window length, either in window_length_s or in window_length_samples.")
 
+        # Determine the start sample
         if start_s is None and start_sample is None:
             start_sample = 0
-        if duration_s is None and num_samples is None:
-            num_samples = len(self.get_array_of_samples()) - int(start_sample)
-
-        if duration_s is not None:
-            num_samples = int(round(duration_s * self.frame_rate))
-        if start_s is not None:
+        elif start_s is not None:
             start_sample = int(round(start_s * self.frame_rate))
 
+        # Determine the number of samples
+        if duration_s is None and num_samples is None:
+            num_samples = len(self.get_array_of_samples()) - int(start_sample)
+        elif duration_s is not None:
+            num_samples = int(round(duration_s * self.frame_rate))
+
+        # Determine the number of samples per window
         if window_length_s is not None:
             window_length_samples = int(round(window_length_s * self.frame_rate))
 
+        # Check validity of number of samples
         if start_sample + num_samples > len(self.get_array_of_samples()):
             raise ValueError("The combination of start and duration will run off the end of the AudioSegment object.")
 
-        f, t, sxx = signal.spectrogram(self.to_numpy_array(), self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
+        # Create a Numpy Array out of the correct samples
+        arr = self.to_numpy_array()[start_sample:start_sample+num_samples]
+
+        # Use Scipy spectrogram and return
+        fs, ts, sxx = signal.spectrogram(arr, self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
                                              noverlap=int(round(overlap * window_length_samples)),
                                              mode='magnitude')
-        return f, t, sxx
+        return fs, ts, sxx
 
     def to_numpy_array(self):
         """

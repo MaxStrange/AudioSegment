@@ -89,6 +89,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#module-algorithms.asa">algorithms.asa module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-algorithms.eventdetection">algorithms.eventdetection module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-algorithms.filters">algorithms.filters module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algorithms.util">algorithms.util module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-algorithms">Module contents</a></li>
 </ul>
 </li>
@@ -195,13 +196,13 @@ logic, which has grown to be a little unwieldy in the AudioSegment class.</p>
 <div class="section" id="module-algorithms.eventdetection">
 <span id="algorithms-eventdetection-module"></span><h2>algorithms.eventdetection module<a class="headerlink" href="#module-algorithms.eventdetection" title="Permalink to this headline">¶</a></h2>
 <p>This module contains a bunch of functions that are integral to the
-auditory event detection algorithm used by AudioSegment. We refactor
+auditory event detection algorithm used by AudioSegment. We refactored
 them to here because they aren’t really useful on their own, and they
 take up brainspace by being in the AudioSegment class.</p>
 </div>
 <div class="section" id="module-algorithms.filters">
 <span id="algorithms-filters-module"></span><h2>algorithms.filters module<a class="headerlink" href="#module-algorithms.filters" title="Permalink to this headline">¶</a></h2>
-<p>Convencience functions for using Numpy/Scipy filters in the audio domain.</p>
+<p>Convenience functions for using Numpy/Scipy filters in the audio domain.</p>
 <dl class="function">
 <dt id="algorithms.filters.bandpass_filter">
 <code class="descclassname">algorithms.filters.</code><code class="descname">bandpass_filter</code><span class="sig-paren">(</span><em>data</em>, <em>low</em>, <em>high</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/filters.html#bandpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.filters.bandpass_filter" title="Permalink to this definition">¶</a></dt>
@@ -247,6 +248,16 @@ take up brainspace by being in the AudioSegment class.</p>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algorithms.util">
+<span id="algorithms-util-module"></span><h2>algorithms.util module<a class="headerlink" href="#module-algorithms.util" title="Permalink to this headline">¶</a></h2>
+<p>Utility module for miscellaneous stuff</p>
+<dl class="function">
+<dt id="algorithms.util.isclose">
+<code class="descclassname">algorithms.util.</code><code class="descname">isclose</code><span class="sig-paren">(</span><em>a</em>, <em>b</em>, <em>*</em>, <em>rel_tol=1e-09</em>, <em>abs_tol=0.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/util.html#isclose"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.util.isclose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Python 3.4 does not have math.isclose, so we need to steal it and add it here.</p>
 </dd></dl>
 
 </div>
@@ -300,6 +311,7 @@ take up brainspace by being in the AudioSegment class.</p>
         <script type="text/javascript" src="_static/jquery.js"></script>
         <script type="text/javascript" src="_static/underscore.js"></script>
         <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
     
 
   

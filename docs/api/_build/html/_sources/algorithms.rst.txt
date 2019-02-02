@@ -28,6 +28,14 @@ algorithms.filters module
     :undoc-members:
     :show-inheritance:
 
+algorithms.util module
+----------------------
+
+.. automodule:: algorithms.util
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------

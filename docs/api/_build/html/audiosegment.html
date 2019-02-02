@@ -502,9 +502,17 @@ of the Segment that is cut off (the part will be &lt;= <cite>frame_duration_ms</
 <dl class="method">
 <dt id="audiosegment.AudioSegment.normalize_spl_by_average">
 <code class="descname">normalize_spl_by_average</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.normalize_spl_by_average"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.normalize_spl_by_average" title="Permalink to this definition">¶</a></dt>
-<dd><p>Normalize the values in the AudioSegment so that its average dB value
-is <cite>db</cite>.</p>
-<p>The dB of a value is calculated as 20 * log10(abs(value + 1E-9)).</p>
+<dd><p>Normalize the values in the AudioSegment so that its <cite>spl</cite> property
+gives <cite>db</cite>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This method is currently broken - it returns an AudioSegment whose
+values are much smaller than reasonable, yet which yield an SPL value
+that equals the given <cite>db</cite>. Such an AudioSegment will not be serializable
+as a WAV file, which will also break any method that relies on SOX.
+I may remove this method in the future, since the SPL of an AudioSegment is
+pretty questionable to begin with.</p>
+</div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -513,6 +521,8 @@ is <cite>db</cite>.</p>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A new AudioSegment object whose values are changed so that their
 average is <cite>db</cite>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">ValueError if there are no samples in this AudioSegment.</td>
 </tr>
 </tbody>
 </table>
@@ -644,8 +654,18 @@ both specified or if they are both not specified.</p>
 <dl class="attribute">
 <dt id="audiosegment.AudioSegment.spl">
 <code class="descname">spl</code><a class="headerlink" href="#audiosegment.AudioSegment.spl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Sound Pressure Level - defined as 20 * log10(abs(value)).</p>
-<p>Returns a numpy array of SPL dB values.</p>
+<dd><p>Sound Pressure Level - defined as 20 * log10(p/p0),
+where p is the RMS of the sound wave in Pascals and p0 is
+20 micro Pascals.</p>
+<p>Since we would need to know calibration information about the
+microphone used to record the sound in order to transform
+the PCM values of this audiosegment into Pascals, we can’t really
+give an accurate SPL measurement.</p>
+<p>However, we can give a reasonable guess that can certainly be used
+to compare two sounds taken from the same microphone set up.</p>
+<p>Be wary about using this to compare sounds taken under different recording
+conditions however, except as a simple approximation.</p>
+<p>Returns a scalar float representing the dB SPL of this audiosegment.</p>
 </dd></dl>
 
 <dl class="method">
@@ -832,6 +852,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
         <script type="text/javascript" src="_static/jquery.js"></script>
         <script type="text/javascript" src="_static/underscore.js"></script>
         <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
     
 
   
