@@ -5,8 +5,6 @@
 Wrapper for [pydub](https://github.com/jiaaro/pydub) AudioSegment objects. An audiosegment.AudioSegment object wraps
 a pydub.AudioSegment object. Any methods or properties it has, this also has.
 
-**This is in very active development**, and will likely change over the next few months.
-
 [Docs](http://audiosegment.readthedocs.io/en/latest/audiosegment.html) are hosted by Read The Docs.
 
 ## Notes
@@ -24,7 +22,6 @@ I am writing this library as part of my Master's thesis, and I have a few things
 before I am happy. These are the features that you can expect in the next several months (assuming I can
 manage to get them working):
 
-- Computer-Aided Auditory Scene Analysis - I want to be able to segment an audio stream into different sound sources
 - Better tests and CI integration
 - Remove the SOX dependency (not likely to happen soon, but would be really nice)
 

@@ -56,7 +56,7 @@
             
             
               <div class="version">
-                0.14.0
+                0.16.0
               </div>
             
           
@@ -1117,26 +1117,34 @@
         <span class="k">if</span> <span class="n">window_length_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">window_length_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;You must specify a window length, either in window_length_s or in window_length_samples.&quot;</span><span class="p">)</span>
 
+        <span class="c1"># Determine the start sample</span>
         <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start_sample</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">start_sample</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">start_sample</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">duration_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">start_sample</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">start_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
 
+        <span class="c1"># Determine the number of samples</span>
+        <span class="k">if</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">())</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">start_sample</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">duration_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">duration_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
+
+        <span class="c1"># Determine the number of samples per window</span>
         <span class="k">if</span> <span class="n">window_length_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">window_length_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">window_length_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">))</span>
 
+        <span class="c1"># Check validity of number of samples</span>
         <span class="k">if</span> <span class="n">start_sample</span> <span class="o">+</span> <span class="n">num_samples</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">()):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The combination of start and duration will run off the end of the AudioSegment object.&quot;</span><span class="p">)</span>
 
-        <span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">sxx</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="n">window_length_samples</span><span class="p">,</span>
+        <span class="c1"># Create a Numpy Array out of the correct samples</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()[</span><span class="n">start_sample</span><span class="p">:</span><span class="n">start_sample</span><span class="o">+</span><span class="n">num_samples</span><span class="p">]</span>
+
+        <span class="c1"># Use Scipy spectrogram and return</span>
+        <span class="n">fs</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">sxx</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="n">window_length_samples</span><span class="p">,</span>
                                              <span class="n">noverlap</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="n">window_length_samples</span><span class="p">)),</span>
                                              <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;magnitude&#39;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">sxx</span></div>
+        <span class="k">return</span> <span class="n">fs</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">sxx</span></div>
 
 <div class="viewcode-block" id="AudioSegment.to_numpy_array"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.to_numpy_array">[docs]</a>    <span class="k">def</span> <span class="nf">to_numpy_array</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
