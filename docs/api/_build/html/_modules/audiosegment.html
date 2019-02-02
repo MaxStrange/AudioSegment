@@ -178,6 +178,7 @@
 <span class="kn">from</span> <span class="nn">algorithms</span> <span class="k">import</span> <span class="n">asa</span>
 <span class="kn">from</span> <span class="nn">algorithms</span> <span class="k">import</span> <span class="n">eventdetection</span> <span class="k">as</span> <span class="n">detect</span>
 <span class="kn">from</span> <span class="nn">algorithms</span> <span class="k">import</span> <span class="n">filters</span>
+<span class="kn">from</span> <span class="nn">algorithms</span> <span class="k">import</span> <span class="n">util</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span> <span class="nn">librosa</span>
@@ -188,6 +189,9 @@
 <span class="n">MS_PER_S</span> <span class="o">=</span> <span class="mi">1000</span>
 <span class="n">S_PER_MIN</span> <span class="o">=</span> <span class="mi">60</span>
 <span class="n">MS_PER_MIN</span> <span class="o">=</span> <span class="n">MS_PER_S</span> <span class="o">*</span> <span class="n">S_PER_MIN</span>
+<span class="n">PASCAL_TO_PCM_FUDGE</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">P_REF_PASCAL</span> <span class="o">=</span> <span class="mf">2E-5</span>
+<span class="n">P_REF_PCM</span> <span class="o">=</span> <span class="n">P_REF_PASCAL</span> <span class="o">*</span> <span class="n">PASCAL_TO_PCM_FUDGE</span>
 
 <div class="viewcode-block" id="deprecated"><a class="viewcode-back" href="../audiosegment.html#audiosegment.deprecated">[docs]</a><span class="k">def</span> <span class="nf">deprecated</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -274,11 +278,30 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">spl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Sound Pressure Level - defined as 20 * log10(abs(value)).</span>
+<span class="sd">        Sound Pressure Level - defined as 20 * log10(p/p0),</span>
+<span class="sd">        where p is the RMS of the sound wave in Pascals and p0 is</span>
+<span class="sd">        20 micro Pascals.</span>
 
-<span class="sd">        Returns a numpy array of SPL dB values.</span>
+<span class="sd">        Since we would need to know calibration information about the</span>
+<span class="sd">        microphone used to record the sound in order to transform</span>
+<span class="sd">        the PCM values of this audiosegment into Pascals, we can&#39;t really</span>
+<span class="sd">        give an accurate SPL measurement.</span>
+
+<span class="sd">        However, we can give a reasonable guess that can certainly be used</span>
+<span class="sd">        to compare two sounds taken from the same microphone set up.</span>
+
+<span class="sd">        Be wary about using this to compare sounds taken under different recording</span>
+<span class="sd">        conditions however, except as a simple approximation.</span>
+
+<span class="sd">        Returns a scalar float representing the dB SPL of this audiosegment.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="mf">20.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1E-9</span><span class="p">))</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>
+            <span class="n">ratio</span> <span class="o">=</span> <span class="n">rms</span> <span class="o">/</span> <span class="n">P_REF_PCM</span>
+            <span class="k">return</span> <span class="mf">20.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">ratio</span> <span class="o">+</span> <span class="mf">1E-9</span><span class="p">)</span>  <span class="c1"># 1E-9 for numerical stability</span>
 
 <div class="viewcode-block" id="AudioSegment.filter_bank"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.filter_bank">[docs]</a>    <span class="k">def</span> <span class="nf">filter_bank</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lower_bound_hz</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">upper_bound_hz</span><span class="o">=</span><span class="mf">8E3</span><span class="p">,</span> <span class="n">nfilters</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;mel&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -367,7 +390,6 @@
 <span class="sd">        :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.</span>
 <span class="sd">        :returns:           List of AudioSegment objects, each of which is from a particular sound source.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># TODO: Normalization algorithm doesn&#39;t currently work</span>
         <span class="n">normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_spl_by_average</span><span class="p">(</span><span class="n">db</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 
         <span class="k">def</span> <span class="nf">printd</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -920,33 +942,51 @@
 
 <div class="viewcode-block" id="AudioSegment.normalize_spl_by_average"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.normalize_spl_by_average">[docs]</a>    <span class="k">def</span> <span class="nf">normalize_spl_by_average</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Normalize the values in the AudioSegment so that its average dB value</span>
-<span class="sd">        is `db`.</span>
+<span class="sd">        Normalize the values in the AudioSegment so that its `spl` property</span>
+<span class="sd">        gives `db`.</span>
 
-<span class="sd">        The dB of a value is calculated as 20 * log10(abs(value + 1E-9)).</span>
+<span class="sd">        .. note:: This method is currently broken - it returns an AudioSegment whose</span>
+<span class="sd">                  values are much smaller than reasonable, yet which yield an SPL value</span>
+<span class="sd">                  that equals the given `db`. Such an AudioSegment will not be serializable</span>
+<span class="sd">                  as a WAV file, which will also break any method that relies on SOX.</span>
+<span class="sd">                  I may remove this method in the future, since the SPL of an AudioSegment is</span>
+<span class="sd">                  pretty questionable to begin with.</span>
 
 <span class="sd">        :param db: The decibels to normalize average to.</span>
 <span class="sd">        :returns: A new AudioSegment object whose values are changed so that their</span>
 <span class="sd">                  average is `db`.</span>
+<span class="sd">        :raises: ValueError if there are no samples in this AudioSegment.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">def</span> <span class="nf">inverse_spl</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-            <span class="sd">&quot;&quot;&quot;Calculates the (positive) &#39;PCM&#39; value for the given SPl val&quot;&quot;&quot;</span>
-            <span class="k">return</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">val</span> <span class="o">/</span> <span class="mf">20.0</span><span class="p">)</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot normalize the SPL of an empty AudioSegment&quot;</span><span class="p">)</span>
 
-        <span class="c1"># TODO: This doesn&#39;t seem to work - the math is right, but the resultant SPL way overshoots the mark</span>
-        <span class="c1">#       I must be misunderstanding something... too tired to think about it right now...</span>
-        <span class="c1"># Convert dB into &#39;PCM&#39;</span>
-        <span class="n">db_pcm</span> <span class="o">=</span> <span class="n">inverse_spl</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
-        <span class="c1"># Calculate current &#39;PCM&#39; average</span>
-        <span class="n">curavg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()))</span>
-        <span class="c1"># Calculate ratio of dB_pcm / curavg_pcm</span>
-        <span class="n">ratio</span> <span class="o">=</span> <span class="n">db_pcm</span> <span class="o">/</span> <span class="n">curavg</span>
-        <span class="c1"># Multiply all values by ratio</span>
+        <span class="k">def</span> <span class="nf">rms</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+        <span class="c1"># Figure out what RMS we would like</span>
+        <span class="n">desired_rms</span> <span class="o">=</span> <span class="n">P_REF_PCM</span> <span class="o">*</span> <span class="p">((</span><span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">db</span><span class="o">/</span><span class="mf">20.0</span><span class="p">))</span> <span class="o">-</span> <span class="mf">1E-9</span><span class="p">)</span>
+
+        <span class="c1"># Use successive approximation to solve</span>
+        <span class="c1">## Keep trying different multiplication factors until we get close enough or run out of time</span>
+        <span class="n">max_ntries</span> <span class="o">=</span> <span class="mi">50</span>
+        <span class="n">res_rms</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ntries</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">factor</span> <span class="o">=</span> <span class="mf">0.1</span>
+        <span class="n">left</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">right</span> <span class="o">=</span> <span class="n">desired_rms</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">ntries</span> <span class="o">&lt;</span> <span class="n">max_ntries</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">util</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">res_rms</span><span class="p">,</span> <span class="n">desired_rms</span><span class="p">,</span> <span class="n">abs_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+            <span class="n">res_rms</span> <span class="o">=</span> <span class="n">rms</span><span class="p">(</span><span class="n">arr</span> <span class="o">*</span> <span class="n">factor</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">res_rms</span> <span class="o">&lt;</span> <span class="n">desired_rms</span><span class="p">:</span>
+                <span class="n">left</span> <span class="o">=</span> <span class="n">factor</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">right</span> <span class="o">=</span> <span class="n">factor</span>
+            <span class="n">factor</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">left</span> <span class="o">+</span> <span class="n">right</span><span class="p">)</span>
+            <span class="n">ntries</span> <span class="o">+=</span> <span class="mi">1</span>
+
         <span class="n">dtype_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">}</span>
         <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype_dict</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">]</span>
-        <span class="n">new_seg</span> <span class="o">=</span> <span class="n">from_numpy_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
-        <span class="c1"># Check SPL average to see if we are right</span>
-        <span class="c1">#assert math.isclose(np.mean(new_seg.spl), db), &quot;new = &quot; + str(np.mean(new_seg.spl)) + &quot; != &quot; + str(db)</span>
+        <span class="n">new_seg</span> <span class="o">=</span> <span class="n">from_numpy_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">arr</span> <span class="o">*</span> <span class="n">factor</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">new_seg</span></div>
 
 <div class="viewcode-block" id="AudioSegment.reduce"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">others</span><span class="p">):</span>
@@ -1243,6 +1283,7 @@
         <script type="text/javascript" src="../_static/jquery.js"></script>
         <script type="text/javascript" src="../_static/underscore.js"></script>
         <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
     
 
   

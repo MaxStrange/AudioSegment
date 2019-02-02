@@ -1,6 +1,6 @@
 """
 This module contains a bunch of functions that are integral to the
-auditory event detection algorithm used by AudioSegment. We refactor
+auditory event detection algorithm used by AudioSegment. We refactored
 them to here because they aren't really useful on their own, and they
 take up brainspace by being in the AudioSegment class.
 """
