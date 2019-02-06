@@ -1,8 +1,8 @@
-matplotlib==3.0.2
-sphinx_rtd_theme==0.4.2
-setuptools==39.0.1
-numpy==1.15.4
-webrtcvad==2.0.10
-librosa==0.6.2
-scipy==1.1.0
 pydub==0.23.0
+webrtcvad==2.0.10
+numpy==1.15.4
+scipy==1.1.0
+sphinx_rtd_theme==0.4.2
+librosa==0.6.2
+setuptools==40.7.0
+matplotlib==3.0.2

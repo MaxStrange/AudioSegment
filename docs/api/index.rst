@@ -1,5 +1,5 @@
 .. AudioSegment documentation master file, created by
-   sphinx-quickstart on Sat Feb  2 12:01:42 2019.
+   sphinx-quickstart on Wed Feb  6 12:33:03 2019.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 

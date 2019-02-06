@@ -1062,7 +1062,7 @@
         <span class="p">},</span> <span class="n">protocol</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AudioSegment.spectrogram"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.spectrogram">[docs]</a>    <span class="k">def</span> <span class="nf">spectrogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">window_length_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window_length_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+                    <span class="n">window_length_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window_length_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;tukey&#39;</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">)):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Does a series of FFTs from `start_s` or `start_sample` for `duration_s` or `num_samples`.</span>
 <span class="sd">        Effectively, transforms a slice of the AudioSegment into the frequency domain across different</span>
@@ -1100,6 +1100,13 @@
 <span class="sd">                                spectrogram is not a multiple of the window length in samples, the last window will</span>
 <span class="sd">                                be zero-padded.</span>
 <span class="sd">        :param overlap: The fraction of each window to overlap.</span>
+<span class="sd">        :param window: See Scipy&#39;s spectrogram-function_.</span>
+<span class="sd">                       This parameter is passed as-is directly into the Scipy spectrogram function. It&#39;s documentation is reproduced here:</span>
+<span class="sd">                       Desired window to use. If window is a string or tuple, it is passed to get_window to generate the window values,</span>
+<span class="sd">                       which are DFT-even by default. See get_window for a list of windows and required parameters.</span>
+<span class="sd">                       If window is array_like it will be used directly as the window and its length must be</span>
+<span class="sd">                       `window_length_samples`.</span>
+<span class="sd">                       Defaults to a Tukey window with shape parameter of 0.25.</span>
 <span class="sd">        :returns: Three np.ndarrays: The frequency values in Hz (the y-axis in a spectrogram), the time values starting</span>
 <span class="sd">                  at start time and then increasing by `duration_s` each step (the x-axis in a spectrogram), and</span>
 <span class="sd">                  the dB of each time/frequency bin as a 2D array of shape [len(frequency values), len(duration)].</span>
@@ -1107,6 +1114,8 @@
 <span class="sd">                            specified, if the first window&#39;s duration plus start time lead to running off the end</span>
 <span class="sd">                            of the AudioSegment, or if `window_length_s` and `window_length_samples` are either</span>
 <span class="sd">                            both specified or if they are both not specified.</span>
+
+<span class="sd">        .. _spectrogram-function: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.spectrogram.html</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">start_s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only one of start_s and start_sample may be specified.&quot;</span><span class="p">)</span>
@@ -1143,7 +1152,7 @@
         <span class="c1"># Use Scipy spectrogram and return</span>
         <span class="n">fs</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">sxx</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="n">window_length_samples</span><span class="p">,</span>
                                              <span class="n">noverlap</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="n">window_length_samples</span><span class="p">)),</span>
-                                             <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;magnitude&#39;</span><span class="p">)</span>
+                                             <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;magnitude&#39;</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">fs</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">sxx</span></div>
 
 <div class="viewcode-block" id="AudioSegment.to_numpy_array"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.to_numpy_array">[docs]</a>    <span class="k">def</span> <span class="nf">to_numpy_array</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

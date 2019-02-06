@@ -913,7 +913,7 @@ class AudioSegment:
         }, protocol=-1)
 
     def spectrogram(self, start_s=None, duration_s=None, start_sample=None, num_samples=None,
-                    window_length_s=None, window_length_samples=None, overlap=0.5):
+                    window_length_s=None, window_length_samples=None, overlap=0.5, window=('tukey', 0.25)):
         """
         Does a series of FFTs from `start_s` or `start_sample` for `duration_s` or `num_samples`.
         Effectively, transforms a slice of the AudioSegment into the frequency domain across different
@@ -951,6 +951,13 @@ class AudioSegment:
                                 spectrogram is not a multiple of the window length in samples, the last window will
                                 be zero-padded.
         :param overlap: The fraction of each window to overlap.
+        :param window: See Scipy's spectrogram-function_.
+                       This parameter is passed as-is directly into the Scipy spectrogram function. It's documentation is reproduced here:
+                       Desired window to use. If window is a string or tuple, it is passed to get_window to generate the window values,
+                       which are DFT-even by default. See get_window for a list of windows and required parameters.
+                       If window is array_like it will be used directly as the window and its length must be
+                       `window_length_samples`.
+                       Defaults to a Tukey window with shape parameter of 0.25.
         :returns: Three np.ndarrays: The frequency values in Hz (the y-axis in a spectrogram), the time values starting
                   at start time and then increasing by `duration_s` each step (the x-axis in a spectrogram), and
                   the dB of each time/frequency bin as a 2D array of shape [len(frequency values), len(duration)].
@@ -958,6 +965,8 @@ class AudioSegment:
                             specified, if the first window's duration plus start time lead to running off the end
                             of the AudioSegment, or if `window_length_s` and `window_length_samples` are either
                             both specified or if they are both not specified.
+
+        .. _spectrogram-function: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.spectrogram.html
         """
         if start_s is not None and start_sample is not None:
             raise ValueError("Only one of start_s and start_sample may be specified.")
@@ -994,7 +1003,7 @@ class AudioSegment:
         # Use Scipy spectrogram and return
         fs, ts, sxx = signal.spectrogram(arr, self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
                                              noverlap=int(round(overlap * window_length_samples)),
-                                             mode='magnitude')
+                                             mode='magnitude', window=window)
         return fs, ts, sxx
 
     def to_numpy_array(self):
