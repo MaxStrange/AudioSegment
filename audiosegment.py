@@ -680,7 +680,13 @@ class AudioSegment:
         """
         command = "sox {inputfile} -t wav {outputfile} silence -l 1 0.1 "\
             + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
-        return self._execute_sox_cmd(command)
+        try:
+            result = self._execute_sox_cmd(command)
+        except pydub.exceptions.CouldntDecodeError:
+            warnings.warn("After silence filtering, the resultant WAV file is corrupted, and so its data cannot be retrieved. Perhaps try a smaller threshold value.", stacklevel=2)
+            # Return a copy of us
+            result = AudioSegment(self.seg, self.name)
+        return result
 
     def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):
         """
