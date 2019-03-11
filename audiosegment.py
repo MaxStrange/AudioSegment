@@ -724,7 +724,7 @@ class AudioSegment:
                             specify `duration_s`.
         :param zero_pad: If True and the combination of start and duration result in running off the end of
                          the AudioSegment, the end is zero padded to prevent this.
-        :returns: np.ndarray of frequencies, np.ndarray of amount of each frequency
+        :returns: np.ndarray of frequencies in Hz, np.ndarray of amount of each frequency
         :raises: ValueError If `start_s` and `start_sample` are both specified and/or if both `duration_s` and
                             `num_samples` are specified.
         """
@@ -796,6 +796,35 @@ class AudioSegment:
             seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width,
                                frame_rate=self.frame_rate, channels=self.channels), self.name)
             yield seg, frame.timestamp
+
+    def human_audible(self):
+        """
+        Returns an estimate of whether this AudioSegment is mostly human audible or not.
+        This is done by taking an FFT of the segment and checking if the SPL of the segment
+        falls below the function `f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3`,
+        where x is the most characteristic frequency in the FFT.
+
+        Note that this method is essentially trying to determine if the estimated SPL of the segment
+        falls below the threshold of human hearing, which changes over frequency. If you graph the
+        threshold over different frequencies, you get what is called an audiogram. The equation above
+        is derived as a curve that tries to fit a typical audiogram, specifically as found in
+        Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).
+
+        Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve
+        is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the
+        algorithm uses a characteristic frequency, which is only really going to be a thing for
+        short segments or for segments which are dominated by a single frequency.
+
+        :returns: `True` if we estimate that this sound is mostly human audible. `False` if we think
+                  it is not.
+        """
+        hist_bins, hist_vals = self.fft()
+        hist_vals_real_normed = np.abs(hist_vals) / len(hist_vals)
+        f_characteristic = hist_bins[np.argmax(hist_vals_real_normed)]
+
+        threshold_fc = 40.11453 - (0.01683697 * f_characteristic) + (1.406211e-6 * f_characteristic ** 2) - (2.371512e-11 * f_characteristic ** 3)
+
+        return self.spl >= threshold_fc
 
     def normalize_spl_by_average(self, db):
         """

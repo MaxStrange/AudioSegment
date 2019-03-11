@@ -17,32 +17,34 @@
   
 
   
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
 
-  
-  
     
 
   
-
   <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
-
-  
-  <script src="../_static/js/modernizr.min.js"></script>
-
 </head>
 
 <body class="wy-body-for-nav">
 
    
   <div class="wy-grid-for-nav">
-
     
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search">
+        <div class="wy-side-nav-search" >
           
 
           
@@ -56,7 +58,7 @@
             
             
               <div class="version">
-                0.16.0
+                0.19.0
               </div>
             
           
@@ -829,7 +831,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox </span><span class="si">{inputfile}</span><span class="s2"> -t wav </span><span class="si">{outputfile}</span><span class="s2"> silence -l 1 0.1 &quot;</span>\
             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;% -1 &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">duration_s</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;%&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_sox_cmd</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_sox_cmd</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">pydub</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">CouldntDecodeError</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;After silence filtering, the resultant WAV file is corrupted, and so its data cannot be retrieved. Perhaps try a smaller threshold value.&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="c1"># Return a copy of us</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
 
 <div class="viewcode-block" id="AudioSegment.fft"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -867,7 +875,7 @@
 <span class="sd">                            specify `duration_s`.</span>
 <span class="sd">        :param zero_pad: If True and the combination of start and duration result in running off the end of</span>
 <span class="sd">                         the AudioSegment, the end is zero padded to prevent this.</span>
-<span class="sd">        :returns: np.ndarray of frequencies, np.ndarray of amount of each frequency</span>
+<span class="sd">        :returns: np.ndarray of frequencies in Hz, np.ndarray of amount of each frequency</span>
 <span class="sd">        :raises: ValueError If `start_s` and `start_sample` are both specified and/or if both `duration_s` and</span>
 <span class="sd">                            `num_samples` are specified.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -939,6 +947,35 @@
             <span class="n">seg</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">frame</span><span class="o">.</span><span class="n">bytes</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">,</span>
                                <span class="n">frame_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">yield</span> <span class="n">seg</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">timestamp</span></div>
+
+<div class="viewcode-block" id="AudioSegment.human_audible"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.human_audible">[docs]</a>    <span class="k">def</span> <span class="nf">human_audible</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns an estimate of whether this AudioSegment is mostly human audible or not.</span>
+<span class="sd">        This is done by taking an FFT of the segment and checking if the SPL of the segment</span>
+<span class="sd">        falls below the function `f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3`,</span>
+<span class="sd">        where x is the most characteristic frequency in the FFT.</span>
+
+<span class="sd">        Note that this method is essentially trying to determine if the estimated SPL of the segment</span>
+<span class="sd">        falls below the threshold of human hearing, which changes over frequency. If you graph the</span>
+<span class="sd">        threshold over different frequencies, you get what is called an audiogram. The equation above</span>
+<span class="sd">        is derived as a curve that tries to fit a typical audiogram, specifically as found in</span>
+<span class="sd">        Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).</span>
+
+<span class="sd">        Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve</span>
+<span class="sd">        is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the</span>
+<span class="sd">        algorithm uses a characteristic frequency, which is only really going to be a thing for</span>
+<span class="sd">        short segments or for segments which are dominated by a single frequency.</span>
+
+<span class="sd">        :returns: `True` if we estimate that this sound is mostly human audible. `False` if we think</span>
+<span class="sd">                  it is not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">hist_bins</span><span class="p">,</span> <span class="n">hist_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
+        <span class="n">hist_vals_real_normed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span>
+        <span class="n">f_characteristic</span> <span class="o">=</span> <span class="n">hist_bins</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">hist_vals_real_normed</span><span class="p">)]</span>
+
+        <span class="n">threshold_fc</span> <span class="o">=</span> <span class="mf">40.11453</span> <span class="o">-</span> <span class="p">(</span><span class="mf">0.01683697</span> <span class="o">*</span> <span class="n">f_characteristic</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.406211e-6</span> <span class="o">*</span> <span class="n">f_characteristic</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">2.371512e-11</span> <span class="o">*</span> <span class="n">f_characteristic</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">spl</span> <span class="o">&gt;=</span> <span class="n">threshold_fc</span></div>
 
 <div class="viewcode-block" id="AudioSegment.normalize_spl_by_average"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.normalize_spl_by_average">[docs]</a>    <span class="k">def</span> <span class="nf">normalize_spl_by_average</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1292,26 +1329,16 @@
   
 
 
-  
-
-    
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-        <script type="text/javascript" src="../_static/jquery.js"></script>
-        <script type="text/javascript" src="../_static/underscore.js"></script>
-        <script type="text/javascript" src="../_static/doctools.js"></script>
-        <script type="text/javascript" src="../_static/language_data.js"></script>
-    
-
-  
-
-  <script type="text/javascript" src="../_static/js/theme.js"></script>
-
   <script type="text/javascript">
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+
+  
+  
+    
+   
 
 </body>
 </html>

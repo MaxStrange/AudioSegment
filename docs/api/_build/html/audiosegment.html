@@ -17,33 +17,35 @@
   
 
   
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
 
-  
-  
     
 
   
-
   <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="algorithms package" href="algorithms.html" /> 
-
-  
-  <script src="_static/js/modernizr.min.js"></script>
-
 </head>
 
 <body class="wy-body-for-nav">
 
    
   <div class="wy-grid-for-nav">
-
     
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search">
+        <div class="wy-side-nav-search" >
           
 
           
@@ -57,7 +59,7 @@
             
             
               <div class="version">
-                0.16.0
+                0.19.0
               </div>
             
           
@@ -361,7 +363,7 @@ the AudioSegment, the end is zero padded to prevent this.</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">np.ndarray of frequencies, np.ndarray of amount of each frequency</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">np.ndarray of frequencies in Hz, np.ndarray of amount of each frequency</p>
 </td>
 </tr>
 <tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">ValueError If <cite>start_s</cite> and <cite>start_sample</cite> are both specified and/or if both <cite>duration_s</cite> and
@@ -497,6 +499,33 @@ of the Segment that is cut off (the part will be &lt;= <cite>frame_duration_ms</
 <dt id="audiosegment.AudioSegment.generate_frames_as_segments">
 <code class="descname">generate_frames_as_segments</code><span class="sig-paren">(</span><em>frame_duration_ms</em>, <em>zero_pad=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.generate_frames_as_segments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.generate_frames_as_segments" title="Permalink to this definition">¶</a></dt>
 <dd><p>Does the same thing as <cite>generate_frames</cite>, but yields tuples of (AudioSegment, timestamp) instead of Frames.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="audiosegment.AudioSegment.human_audible">
+<code class="descname">human_audible</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.human_audible"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.human_audible" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns an estimate of whether this AudioSegment is mostly human audible or not.
+This is done by taking an FFT of the segment and checking if the SPL of the segment
+falls below the function <cite>f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3</cite>,
+where x is the most characteristic frequency in the FFT.</p>
+<p>Note that this method is essentially trying to determine if the estimated SPL of the segment
+falls below the threshold of human hearing, which changes over frequency. If you graph the
+threshold over different frequencies, you get what is called an audiogram. The equation above
+is derived as a curve that tries to fit a typical audiogram, specifically as found in
+Hearing Thresholds by Yost and Killion, 1997 (see <a class="reference external" href="https://www.etymotic.com/media/publications/erl-0096-1997.pdf">https://www.etymotic.com/media/publications/erl-0096-1997.pdf</a>).</p>
+<p>Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve
+is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the
+algorithm uses a characteristic frequency, which is only really going to be a thing for
+short segments or for segments which are dominated by a single frequency.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><cite>True</cite> if we estimate that this sound is mostly human audible. <cite>False</cite> if we think
+it is not.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -825,7 +854,7 @@ AudioSegment passed in should be exactly the same number of samples.</p>
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
       
-        <a href="algorithms.html" class="btn btn-neutral" title="algorithms package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="algorithms.html" class="btn btn-neutral float-left" title="algorithms package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   
@@ -851,26 +880,16 @@ AudioSegment passed in should be exactly the same number of samples.</p>
   
 
 
-  
-
-    
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
-    
-
-  
-
-  <script type="text/javascript" src="_static/js/theme.js"></script>
-
   <script type="text/javascript">
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+
+  
+  
+    
+   
 
 </body>
 </html>
