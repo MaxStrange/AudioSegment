@@ -150,7 +150,7 @@ class AudioSegment:
         if len(arr) == 0:
             return 0.0
         else:
-            rms = np.sqrt(np.sum(np.square(arr)) / len(arr))
+            rms = self.rms
             ratio = rms / P_REF_PCM
             return 20.0 * np.log10(ratio + 1E-9)  # 1E-9 for numerical stability
 
@@ -848,7 +848,7 @@ class AudioSegment:
             raise ValueError("Cannot normalize the SPL of an empty AudioSegment")
 
         def rms(x):
-            return np.sqrt(np.sum(np.square(x)) / len(x))
+            return np.sqrt(np.mean(np.square(x)))
 
         # Figure out what RMS we would like
         desired_rms = P_REF_PCM * ((10 ** (db/20.0)) - 1E-9)

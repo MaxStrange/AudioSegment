@@ -14,7 +14,7 @@
 #
 # import os
 # import sys
-# sys.path.insert(0, '/home/maxst/repos/AudioSegment')
+# sys.path.insert(0, '/home/max/repos/audiosegment')
 
 
 # -- Project information -----------------------------------------------------
@@ -24,7 +24,7 @@ copyright = 'Max Strange (MIT License)'
 author = 'Max Strange'
 
 # The short X.Y version
-version = '0.19.0'
+version = '0.19.1'
 # The full version, including alpha/beta/rc tags
 release = ''
 
