@@ -7,6 +7,7 @@ import os
 import casa
 import fft
 import filterbank
+import human_audible
 import normalize
 import read_from_file
 import resample
@@ -33,6 +34,7 @@ if __name__ == "__main__":
     print("Bits per sample:", seg.sample_width * 8)
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
+    print("Is human audible:", human_audible.test(seg))
 
     #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)

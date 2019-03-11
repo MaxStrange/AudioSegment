@@ -680,7 +680,13 @@ class AudioSegment:
         """
         command = "sox {inputfile} -t wav {outputfile} silence -l 1 0.1 "\
             + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
-        return self._execute_sox_cmd(command)
+        try:
+            result = self._execute_sox_cmd(command)
+        except pydub.exceptions.CouldntDecodeError:
+            warnings.warn("After silence filtering, the resultant WAV file is corrupted, and so its data cannot be retrieved. Perhaps try a smaller threshold value.", stacklevel=2)
+            # Return a copy of us
+            result = AudioSegment(self.seg, self.name)
+        return result
 
     def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):
         """
@@ -718,7 +724,7 @@ class AudioSegment:
                             specify `duration_s`.
         :param zero_pad: If True and the combination of start and duration result in running off the end of
                          the AudioSegment, the end is zero padded to prevent this.
-        :returns: np.ndarray of frequencies, np.ndarray of amount of each frequency
+        :returns: np.ndarray of frequencies in Hz, np.ndarray of amount of each frequency
         :raises: ValueError If `start_s` and `start_sample` are both specified and/or if both `duration_s` and
                             `num_samples` are specified.
         """
@@ -790,6 +796,35 @@ class AudioSegment:
             seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width,
                                frame_rate=self.frame_rate, channels=self.channels), self.name)
             yield seg, frame.timestamp
+
+    def human_audible(self):
+        """
+        Returns an estimate of whether this AudioSegment is mostly human audible or not.
+        This is done by taking an FFT of the segment and checking if the SPL of the segment
+        falls below the function `f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3`,
+        where x is the most characteristic frequency in the FFT.
+
+        Note that this method is essentially trying to determine if the estimated SPL of the segment
+        falls below the threshold of human hearing, which changes over frequency. If you graph the
+        threshold over different frequencies, you get what is called an audiogram. The equation above
+        is derived as a curve that tries to fit a typical audiogram, specifically as found in
+        Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).
+
+        Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve
+        is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the
+        algorithm uses a characteristic frequency, which is only really going to be a thing for
+        short segments or for segments which are dominated by a single frequency.
+
+        :returns: `True` if we estimate that this sound is mostly human audible. `False` if we think
+                  it is not.
+        """
+        hist_bins, hist_vals = self.fft()
+        hist_vals_real_normed = np.abs(hist_vals) / len(hist_vals)
+        f_characteristic = hist_bins[np.argmax(hist_vals_real_normed)]
+
+        threshold_fc = 40.11453 - (0.01683697 * f_characteristic) + (1.406211e-6 * f_characteristic ** 2) - (2.371512e-11 * f_characteristic ** 3)
+
+        return self.spl >= threshold_fc
 
     def normalize_spl_by_average(self, db):
         """
@@ -913,7 +948,7 @@ class AudioSegment:
         }, protocol=-1)
 
     def spectrogram(self, start_s=None, duration_s=None, start_sample=None, num_samples=None,
-                    window_length_s=None, window_length_samples=None, overlap=0.5):
+                    window_length_s=None, window_length_samples=None, overlap=0.5, window=('tukey', 0.25)):
         """
         Does a series of FFTs from `start_s` or `start_sample` for `duration_s` or `num_samples`.
         Effectively, transforms a slice of the AudioSegment into the frequency domain across different
@@ -951,6 +986,13 @@ class AudioSegment:
                                 spectrogram is not a multiple of the window length in samples, the last window will
                                 be zero-padded.
         :param overlap: The fraction of each window to overlap.
+        :param window: See Scipy's spectrogram-function_.
+                       This parameter is passed as-is directly into the Scipy spectrogram function. It's documentation is reproduced here:
+                       Desired window to use. If window is a string or tuple, it is passed to get_window to generate the window values,
+                       which are DFT-even by default. See get_window for a list of windows and required parameters.
+                       If window is array_like it will be used directly as the window and its length must be
+                       `window_length_samples`.
+                       Defaults to a Tukey window with shape parameter of 0.25.
         :returns: Three np.ndarrays: The frequency values in Hz (the y-axis in a spectrogram), the time values starting
                   at start time and then increasing by `duration_s` each step (the x-axis in a spectrogram), and
                   the dB of each time/frequency bin as a 2D array of shape [len(frequency values), len(duration)].
@@ -958,6 +1000,8 @@ class AudioSegment:
                             specified, if the first window's duration plus start time lead to running off the end
                             of the AudioSegment, or if `window_length_s` and `window_length_samples` are either
                             both specified or if they are both not specified.
+
+        .. _spectrogram-function: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.spectrogram.html
         """
         if start_s is not None and start_sample is not None:
             raise ValueError("Only one of start_s and start_sample may be specified.")
@@ -994,7 +1038,7 @@ class AudioSegment:
         # Use Scipy spectrogram and return
         fs, ts, sxx = signal.spectrogram(arr, self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
                                              noverlap=int(round(overlap * window_length_samples)),
-                                             mode='magnitude')
+                                             mode='magnitude', window=window)
         return fs, ts, sxx
 
     def to_numpy_array(self):
