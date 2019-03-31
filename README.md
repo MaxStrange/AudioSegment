@@ -18,15 +18,19 @@ You will have to install sox by:
 
 ## TODO
 
-I am writing this library as part of my Master's thesis, and I have a few things I need to get working
-before I am happy. These are the features that you can expect in the next several months (assuming I can
-manage to get them working):
+The following is the list of items I plan on implementing.
 
+- Finish implementing auditory scene analysis
+- Optimize bottlenecks using Cython, C, or Rust
+- Add more examples to README
+- Better voice activity detection
 - Better tests and CI integration
-- Remove the SOX dependency (not likely to happen soon, but would be really nice)
+- Remove the SOX dependency
 
 I am open to other suggestions. Open an issue if you have requests, or better yet, if you can do it yourself and open
 a pull request, I'll take a look and merge in if I think it makes sense.
+
+I finish my master's degree in May (2019), so once that's finally done, I can get started on some of these items.
 
 ## Example Usage
 
