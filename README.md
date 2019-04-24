@@ -20,10 +20,11 @@ You will have to install sox by:
 
 The following is the list of items I plan on implementing.
 
-- Finish implementing auditory scene analysis
+- Finish implementing auditory scene analysis (a.k.a blind source separation)
+- Add voice-pass filtering and make voice activity detection better
+- Add language classification for English and Chinese (and show how to do it for other languages)
 - Optimize bottlenecks using Cython, C, or Rust
-- Add more examples to README
-- Better voice activity detection
+- Add more examples to README (especially filterbank)
 - Better tests and CI integration
 - Remove the SOX dependency
 
@@ -49,7 +50,7 @@ print("Sampling frequency:", seg.frame_rate)
 print("Length:", seg.duration_seconds, "seconds")
 ```
 
-### Voice Detection:
+### Voice Detection
 
 ```python
 # ...
@@ -68,7 +69,7 @@ unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
 unvoiced_segment.export("unvoiced.wav", format="WAV")
 ```
 
-### Silence Removal:
+### Silence Removal
 
 ```python
 import matplotlib.pyplot as plt
