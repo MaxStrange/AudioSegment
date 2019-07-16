@@ -6,7 +6,8 @@ import sys
 import visualize
 
 def test(seg):
-    results = seg.detect_voice(prob_detect_voice=0.7)
+    seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+    results = seg.filter_voice(prob_detect_voice=0.7)
     voiced = [tup[1] for tup in results if tup[0] == 'v']
     unvoiced = [tup[1] for tup in results if tup[0] == 'u']
     print("  |-> reducing voiced segments to a single wav file 'results/voiced.wav'")
@@ -30,6 +31,12 @@ def test(seg):
     if unvoiced_segment is not None:
         unvoiced_segment.export("results/unvoiced.wav", format="WAV")
         visualize.visualize(unvoiced_segment[:min(visualize.VIS_MS, len(unvoiced_segment))], title="Unvoiced Segment")
+
+    if voiced_segment:
+        print("  |-> Voice present in voiced segment:", voiced_segment.detect_voice())
+
+    if unvoiced_segment:
+        print("  |-> Voice present in unvoiced segment:", unvoiced_segment.detect_voice())
 
     return voiced_segment, unvoiced_segment
 

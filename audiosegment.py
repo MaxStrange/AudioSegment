@@ -406,7 +406,26 @@ class AudioSegment:
 
         return results
 
-    def detect_voice(self, prob_detect_voice=0.5):
+    def detect_voice(self):
+        """
+        Returns `True` if voice is detected in this AudioSegment object, `False`
+        if not.
+
+        :returns: `True` if voice is detected. `False` if voice is not detected.
+        """
+        aggressiveness = 2
+        v = webrtcvad.Vad(aggressiveness)
+        threshold_percent = 85  # Fairly arbitrary percent of the 20-ms frames that must test positive to return True
+
+        nvoiced = 0
+        ntotal = 0
+        for seg in self.dice(seconds=0.02, zero_pad=True):
+            if v.is_speech(seg.raw_data, seg.frame_rate):
+                nvoiced += 1
+            ntotal += 1
+        return nvoiced >= ntotal * (threshold_percent / 100.0)
+
+    def filter_voice(self, prob_detect_voice=0.5):
         """
         Returns self as a list of tuples:
         [('v', voiced segment), ('u', unvoiced segment), (etc.)]
@@ -417,7 +436,8 @@ class AudioSegment:
                                   contains voice.
         :returns: The described list.
         """
-        assert self.frame_rate in (48000, 32000, 16000, 8000), "Try resampling to one of the allowed frame rates."
+        allowed_frame_rates = (48000, 32000, 16000, 8000)
+        assert self.frame_rate in allowed_frame_rates, "Try resampling to one of the allowed frame rates: {}.".format(allowed_frame_rates)
         assert self.sample_width == 2, "Try resampling to 16 bit."
         assert self.channels == 1, "Try resampling to one channel."
 
