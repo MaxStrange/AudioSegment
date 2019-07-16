@@ -481,7 +481,7 @@ def unittest_adjacent_segments(seg):
     assert result == True, "Segment 4 and 3 are adjacent, but result is False"
 
 def test(seg):
-    wavs = seg[:20000].auditory_scene_analysis(debug=True, debugplot=False)
+    wavs = seg[:20000].auditory_scene_analysis(debug=True, debugplot=True)
     ntosave = 5
     print("Got", len(wavs), "back. Saving up to the first", ntosave, "of them to disk")
     for i in range(min(ntosave, len(wavs))):
