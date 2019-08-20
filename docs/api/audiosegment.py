@@ -241,15 +241,13 @@ class AudioSegment:
         :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.
         :returns:           List of AudioSegment objects, each of which is from a particular sound source.
         """
-        normalized = self.normalize_spl_by_average(db=60)
-
         def printd(*args, **kwargs):
             if debug:
                 print(*args, **kwargs)
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
         printd("Making filter bank. This takes a little bit.")
-        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
+        spect, frequencies = self.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
@@ -826,55 +824,6 @@ class AudioSegment:
 
         return self.spl >= threshold_fc
 
-    def normalize_spl_by_average(self, db):
-        """
-        Normalize the values in the AudioSegment so that its `spl` property
-        gives `db`.
-
-        .. note:: This method is currently broken - it returns an AudioSegment whose
-                  values are much smaller than reasonable, yet which yield an SPL value
-                  that equals the given `db`. Such an AudioSegment will not be serializable
-                  as a WAV file, which will also break any method that relies on SOX.
-                  I may remove this method in the future, since the SPL of an AudioSegment is
-                  pretty questionable to begin with.
-
-        :param db: The decibels to normalize average to.
-        :returns: A new AudioSegment object whose values are changed so that their
-                  average is `db`.
-        :raises: ValueError if there are no samples in this AudioSegment.
-        """
-        arr = self.to_numpy_array().copy()
-        if len(arr) == 0:
-            raise ValueError("Cannot normalize the SPL of an empty AudioSegment")
-
-        def rms(x):
-            return np.sqrt(np.mean(np.square(x)))
-
-        # Figure out what RMS we would like
-        desired_rms = P_REF_PCM * ((10 ** (db/20.0)) - 1E-9)
-
-        # Use successive approximation to solve
-        ## Keep trying different multiplication factors until we get close enough or run out of time
-        max_ntries = 50
-        res_rms = 0.0
-        ntries = 0
-        factor = 0.1
-        left = 0.0
-        right = desired_rms
-        while (ntries < max_ntries) and not util.isclose(res_rms, desired_rms, abs_tol=0.1):
-            res_rms = rms(arr * factor)
-            if res_rms < desired_rms:
-                left = factor
-            else:
-                right = factor
-            factor = 0.5 * (left + right)
-            ntries += 1
-
-        dtype_dict = {1: np.int8, 2: np.int16, 4: np.int32}
-        dtype = dtype_dict[self.sample_width]
-        new_seg = from_numpy_array(np.array(arr * factor, dtype=dtype), self.frame_rate)
-        return new_seg
-
     def reduce(self, others):
         """
         Reduces others into this one by concatenating all the others onto this one and
@@ -890,20 +839,17 @@ class AudioSegment:
 
         return ret
 
-    def resample(self, sample_rate_Hz=None, sample_width=None, channels=None, console_output=False):
+    def resample(self, sample_rate_Hz=None, sample_width=None, channels=None):
         """
         Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the
         specified characteristics. Any parameter left None will be unchanged.
 
-        .. note:: This method requires that you have the program 'sox' installed.
-
-        .. warning:: This method uses the program 'sox' to perform the task. While this is very fast for a single
-                     function call, the IO may add up for large numbers of AudioSegment objects.
+        This is just a wrapper for calling pydub.AudioSegment's `set_sample_width`, `set_channels`, and
+        `set_frame_rate` methods.
 
         :param sample_rate_Hz: The new sample rate in Hz.
         :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
         :param channels: The new number of channels.
-        :param console_output: Will print the output of sox to the console if True.
         :returns: The newly sampled AudioSegment.
         """
         if sample_rate_Hz is None:
@@ -913,11 +859,7 @@ class AudioSegment:
         if channels is None:
             channels = self.channels
 
-        # TODO: Replace this with librosa's implementation to remove SOX dependency here
-        command = "sox {inputfile} -b " + str(sample_width * 8) + " -r " + str(sample_rate_Hz) \
-            + " -t wav {outputfile} channels " + str(channels)
-
-        return self._execute_sox_cmd(command, console_output=console_output)
+        return self.set_sample_width(sample_width).set_channels(channels).set_frame_rate(sample_rate_Hz)
 
     def __getstate__(self):
         """

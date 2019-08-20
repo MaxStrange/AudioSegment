@@ -241,15 +241,13 @@ class AudioSegment:
         :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.
         :returns:           List of AudioSegment objects, each of which is from a particular sound source.
         """
-        normalized = self.normalize_spl_by_average(db=60)
-
         def printd(*args, **kwargs):
             if debug:
                 print(*args, **kwargs)
 
         # Create a spectrogram from a filterbank: [nfreqs, nsamples]
         printd("Making filter bank. This takes a little bit.")
-        spect, frequencies = normalized.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
+        spect, frequencies = self.filter_bank(nfilters=128)  # TODO: replace with correct number from paper
 
         # Half-wave rectify each frequency channel so that each value is 0 or greater - we are looking to get a temporal
         # envelope in each frequency channel
