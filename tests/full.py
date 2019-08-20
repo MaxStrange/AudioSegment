@@ -8,7 +8,6 @@ import casa
 import fft
 import filterbank
 import human_audible
-import normalize
 import read_from_file
 import resample
 import serde
@@ -38,12 +37,10 @@ if __name__ == "__main__":
 
     #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)
-    #normalized = normalize.test(resampled)  # Currently broken
-    normalized = resampled
-    serde.test(normalized)
-    slices = trim.test(normalized)
-    fft.test(normalized)
-    filterbank.test(normalized)
-    spectrogram.test(normalized)
-    silence.test(normalized)
-    vad.test(normalized)
+    serde.test(resampled)
+    slices = trim.test(resampled)
+    fft.test(resampled)
+    filterbank.test(resampled)
+    spectrogram.test(resampled)
+    silence.test(resampled)
+    vad.test(resampled)

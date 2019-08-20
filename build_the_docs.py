@@ -57,6 +57,9 @@ if __name__ == "__main__":
     # Now write the conf.py file
     with open(os.sep.join([apipath, "conf.py"])) as f:
         lines = [line for line in f]
+    lines.insert(0, "import sys\n")
+    lines.insert(1, "import os\n")
+    lines.insert(2, "sys.path.insert(0, os.path.abspath('../..'))\n")
     for i, line in enumerate(lines):
         if line.startswith("project = "):
             lines[i] = "project = '" + PROJECT + "'" + os.linesep

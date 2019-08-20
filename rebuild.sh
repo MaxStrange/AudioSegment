@@ -1,7 +1,11 @@
+set -e
+
 rm -rf build/
 rm -rf dist/
 rm -rf audiosegment.egg-info/
-pipreqs --force .
+rm -rf docs/api/
+rm -rf algorithms/__pycache__
+rm -rf tests/__pycache__
 python3 build_the_docs.py
 python3 setup.py bdist_wheel
 twine upload dist/*
