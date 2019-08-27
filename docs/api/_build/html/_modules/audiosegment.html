@@ -944,32 +944,34 @@
 
 <div class="viewcode-block" id="AudioSegment.human_audible"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.human_audible">[docs]</a>    <span class="k">def</span> <span class="nf">human_audible</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns an estimate of whether this AudioSegment is mostly human audible or not.</span>
-<span class="sd">        This is done by taking an FFT of the segment and checking if the SPL of the segment</span>
-<span class="sd">        falls below the function `f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3`,</span>
-<span class="sd">        where x is the most characteristic frequency in the FFT.</span>
+<span class="sd">        Returns the number of seconds of human audible audio in this wave form. Note that</span>
+<span class="sd">        I define whether a segment of the wave form is human audible based on doing an FFT</span>
+<span class="sd">        of it and then checking for any peaks within 20 Hz to 20 kHz, a fair rule of thumb</span>
+<span class="sd">        for human hearing thresholds.</span>
 
-<span class="sd">        Note that this method is essentially trying to determine if the estimated SPL of the segment</span>
-<span class="sd">        falls below the threshold of human hearing, which changes over frequency. If you graph the</span>
-<span class="sd">        threshold over different frequencies, you get what is called an audiogram. The equation above</span>
-<span class="sd">        is derived as a curve that tries to fit a typical audiogram, specifically as found in</span>
-<span class="sd">        Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).</span>
+<span class="sd">        Also note that I make no assumptions about the SPL of the sound. This is important because</span>
+<span class="sd">        humans can only hear something if it is loud enough (obviously), but how loud something</span>
+<span class="sd">        needs to be to be heard depends on its frequency. I do not model this with this method.</span>
+<span class="sd">        If you are curious how the SPL threshold changes with frequency, take a look at the</span>
+<span class="sd">        audiogram in Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).</span>
 
-<span class="sd">        Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve</span>
-<span class="sd">        is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the</span>
-<span class="sd">        algorithm uses a characteristic frequency, which is only really going to be a thing for</span>
-<span class="sd">        short segments or for segments which are dominated by a single frequency.</span>
-
-<span class="sd">        :returns: `True` if we estimate that this sound is mostly human audible. `False` if we think</span>
-<span class="sd">                  it is not.</span>
+<span class="sd">        :returns: A floating point value representing the number of seconds (with 100 ms resolution).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">hist_bins</span><span class="p">,</span> <span class="n">hist_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
-        <span class="n">hist_vals_real_normed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span>
-        <span class="n">f_characteristic</span> <span class="o">=</span> <span class="n">hist_bins</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">hist_vals_real_normed</span><span class="p">)]</span>
-
-        <span class="n">threshold_fc</span> <span class="o">=</span> <span class="mf">40.11453</span> <span class="o">-</span> <span class="p">(</span><span class="mf">0.01683697</span> <span class="o">*</span> <span class="n">f_characteristic</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.406211e-6</span> <span class="o">*</span> <span class="n">f_characteristic</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">2.371512e-11</span> <span class="o">*</span> <span class="n">f_characteristic</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">spl</span> <span class="o">&gt;=</span> <span class="n">threshold_fc</span></div>
+        <span class="n">threshold_peak</span> <span class="o">=</span> <span class="mf">0.1</span>
+        <span class="n">threshold_wideband</span> <span class="o">=</span> <span class="mf">3.0</span>
+        <span class="n">frame_duration_s</span> <span class="o">=</span> <span class="mf">0.1</span>
+        <span class="n">n_frames_human_audible</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">subsegment</span><span class="p">,</span> <span class="n">_timestamp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_frames_as_segments</span><span class="p">(</span><span class="n">frame_duration_ms</span><span class="o">=</span><span class="n">frame_duration_s</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">_hist_bins</span><span class="p">,</span> <span class="n">hist_vals</span> <span class="o">=</span> <span class="n">subsegment</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
+            <span class="n">hist_vals_real_normed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist_vals</span><span class="p">)</span>
+            <span class="n">hist_vals_real_normed</span> <span class="o">=</span> <span class="n">hist_vals_real_normed</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">hist_vals_real_normed</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1E-9</span><span class="p">)</span>  <span class="c1"># numerical stability</span>
+            <span class="c1"># If any values between 20 Hz and 20 kHz reaches an 0.x value, let&#39;s call it human audible</span>
+            <span class="n">vals_greater_than_point_2</span> <span class="o">=</span> <span class="n">hist_vals_real_normed</span><span class="p">[</span><span class="n">hist_vals_real_normed</span> <span class="o">&gt;=</span> <span class="n">threshold_peak</span><span class="p">]</span>
+            <span class="c1"># Also, if enough of the energy of the waveform is found in the audible range, we&#39;ll call it human audible</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">vals_greater_than_point_2</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">20000</span><span class="p">])</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">hist_vals_real_normed</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">20000</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">threshold_wideband</span><span class="p">:</span>
+                <span class="n">n_frames_human_audible</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">total_seconds_audible</span> <span class="o">=</span> <span class="n">frame_duration_s</span> <span class="o">*</span> <span class="n">n_frames_human_audible</span>
+        <span class="k">return</span> <span class="n">total_seconds_audible</span></div>
 
 <div class="viewcode-block" id="AudioSegment.reduce"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">others</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>

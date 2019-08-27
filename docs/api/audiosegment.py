@@ -797,32 +797,34 @@ class AudioSegment:
 
     def human_audible(self):
         """
-        Returns an estimate of whether this AudioSegment is mostly human audible or not.
-        This is done by taking an FFT of the segment and checking if the SPL of the segment
-        falls below the function `f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3`,
-        where x is the most characteristic frequency in the FFT.
+        Returns the number of seconds of human audible audio in this wave form. Note that
+        I define whether a segment of the wave form is human audible based on doing an FFT
+        of it and then checking for any peaks within 20 Hz to 20 kHz, a fair rule of thumb
+        for human hearing thresholds.
 
-        Note that this method is essentially trying to determine if the estimated SPL of the segment
-        falls below the threshold of human hearing, which changes over frequency. If you graph the
-        threshold over different frequencies, you get what is called an audiogram. The equation above
-        is derived as a curve that tries to fit a typical audiogram, specifically as found in
-        Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).
+        Also note that I make no assumptions about the SPL of the sound. This is important because
+        humans can only hear something if it is loud enough (obviously), but how loud something
+        needs to be to be heard depends on its frequency. I do not model this with this method.
+        If you are curious how the SPL threshold changes with frequency, take a look at the
+        audiogram in Hearing Thresholds by Yost and Killion, 1997 (see https://www.etymotic.com/media/publications/erl-0096-1997.pdf).
 
-        Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve
-        is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the
-        algorithm uses a characteristic frequency, which is only really going to be a thing for
-        short segments or for segments which are dominated by a single frequency.
-
-        :returns: `True` if we estimate that this sound is mostly human audible. `False` if we think
-                  it is not.
+        :returns: A floating point value representing the number of seconds (with 100 ms resolution).
         """
-        hist_bins, hist_vals = self.fft()
-        hist_vals_real_normed = np.abs(hist_vals) / len(hist_vals)
-        f_characteristic = hist_bins[np.argmax(hist_vals_real_normed)]
-
-        threshold_fc = 40.11453 - (0.01683697 * f_characteristic) + (1.406211e-6 * f_characteristic ** 2) - (2.371512e-11 * f_characteristic ** 3)
-
-        return self.spl >= threshold_fc
+        threshold_peak = 0.1
+        threshold_wideband = 3.0
+        frame_duration_s = 0.1
+        n_frames_human_audible = 0
+        for subsegment, _timestamp in self.generate_frames_as_segments(frame_duration_ms=frame_duration_s * 1000, zero_pad=True):
+            _hist_bins, hist_vals = subsegment.fft()
+            hist_vals_real_normed = np.abs(hist_vals) / len(hist_vals)
+            hist_vals_real_normed = hist_vals_real_normed / (np.max(hist_vals_real_normed) + 1E-9)  # numerical stability
+            # If any values between 20 Hz and 20 kHz reaches an 0.x value, let's call it human audible
+            vals_greater_than_point_2 = hist_vals_real_normed[hist_vals_real_normed >= threshold_peak]
+            # Also, if enough of the energy of the waveform is found in the audible range, we'll call it human audible
+            if np.any(vals_greater_than_point_2[20:20000]) or np.sum(hist_vals_real_normed[20:20000]) > threshold_wideband:
+                n_frames_human_audible += 1
+        total_seconds_audible = frame_duration_s * n_frames_human_audible
+        return total_seconds_audible
 
     def reduce(self, others):
         """

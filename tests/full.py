@@ -33,7 +33,7 @@ if __name__ == "__main__":
     print("Bits per sample:", seg.sample_width * 8)
     print("Sampling frequency:", seg.frame_rate)
     print("Length:", seg.duration_seconds, "seconds")
-    print("Is human audible:", human_audible.test(seg))
+    print("Fraction of audio that is human audible:", human_audible.test(seg) / (len(seg) / 1000))
 
     #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)
