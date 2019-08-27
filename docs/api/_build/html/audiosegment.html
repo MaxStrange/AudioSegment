@@ -470,23 +470,18 @@ of the Segment that is cut off (the part will be &lt;= <cite>frame_duration_ms</
 <dl class="method">
 <dt id="audiosegment.AudioSegment.human_audible">
 <code class="sig-name descname">human_audible</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.human_audible"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.human_audible" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns an estimate of whether this AudioSegment is mostly human audible or not.
-This is done by taking an FFT of the segment and checking if the SPL of the segment
-falls below the function <cite>f(x) = 40.11453 - 0.01683697x + 1.406211e-6x^2 - 2.371512e-11x^3</cite>,
-where x is the most characteristic frequency in the FFT.</p>
-<p>Note that this method is essentially trying to determine if the estimated SPL of the segment
-falls below the threshold of human hearing, which changes over frequency. If you graph the
-threshold over different frequencies, you get what is called an audiogram. The equation above
-is derived as a curve that tries to fit a typical audiogram, specifically as found in
-Hearing Thresholds by Yost and Killion, 1997 (see <a class="reference external" href="https://www.etymotic.com/media/publications/erl-0096-1997.pdf">https://www.etymotic.com/media/publications/erl-0096-1997.pdf</a>).</p>
-<p>Sources of error are: 1) The SPL of an AudioSegment is merely an approximation; 2) this curve
-is not a perfect fit, and besides, it is only an approximation of a typical audiogram; 3) the
-algorithm uses a characteristic frequency, which is only really going to be a thing for
-short segments or for segments which are dominated by a single frequency.</p>
+<dd><p>Returns the number of seconds of human audible audio in this wave form. Note that
+I define whether a segment of the wave form is human audible based on doing an FFT
+of it and then checking for any peaks within 20 Hz to 20 kHz, a fair rule of thumb
+for human hearing thresholds.</p>
+<p>Also note that I make no assumptions about the SPL of the sound. This is important because
+humans can only hear something if it is loud enough (obviously), but how loud something
+needs to be to be heard depends on its frequency. I do not model this with this method.
+If you are curious how the SPL threshold changes with frequency, take a look at the
+audiogram in Hearing Thresholds by Yost and Killion, 1997 (see <a class="reference external" href="https://www.etymotic.com/media/publications/erl-0096-1997.pdf">https://www.etymotic.com/media/publications/erl-0096-1997.pdf</a>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><cite>True</cite> if we estimate that this sound is mostly human audible. <cite>False</cite> if we think
-it is not.</p>
+<dd class="field-odd"><p>A floating point value representing the number of seconds (with 100 ms resolution).</p>
 </dd>
 </dl>
 </dd></dl>
