@@ -615,8 +615,8 @@ conditions however, except as a simple approximation.</p>
 <dl class="method">
 <dt id="audiosegment.AudioSegment.to_numpy_array">
 <code class="sig-name descname">to_numpy_array</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.to_numpy_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.to_numpy_array" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convenience function for <cite>np.array(self.get_array_of_samples())</cite> while
-keeping the appropriate dtype.</p>
+<dd><p>Returns a numpy array. The shape of this array is either (nsamples, nchannels), if nchannels
+is greater than 1, or else just (nsamples,).</p>
 </dd></dl>
 
 <dl class="method">

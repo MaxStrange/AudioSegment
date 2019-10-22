@@ -987,8 +987,8 @@ class AudioSegment:
 
     def to_numpy_array(self):
         """
-        Convenience function for `np.array(self.get_array_of_samples())` while
-        keeping the appropriate dtype.
+        Returns a numpy array. The shape of this array is either (nsamples, nchannels), if nchannels
+        is greater than 1, or else just (nsamples,).
         """
         dtype_dict = {
                         1: np.int8,
@@ -996,7 +996,8 @@ class AudioSegment:
                         4: np.int32
                      }
         dtype = dtype_dict[self.sample_width]
-        return np.array(self.get_array_of_samples(), dtype=dtype)
+        arr = np.array(self.get_array_of_samples(), dtype=dtype)
+        return np.reshape(arr, (-1, self.channels), order='F').squeeze()
 
     def zero_extend(self, duration_s=None, num_samples=None):
         """
@@ -1066,20 +1067,24 @@ def from_numpy_array(nparr, framerate):
     :param nparr: The numpy array to create an AudioSegment from.
     :returns: An AudioSegment created from the given array.
     """
-    # interleave the audio across all channels and collapse
+    # Check args
     if nparr.dtype.itemsize not in (1, 2, 4):
         raise ValueError("Numpy Array must contain 8, 16, or 32 bit values.")
+
+    # Determine nchannels
     if len(nparr.shape) == 1:
-        arrays = [nparr]
+        nchannels = 1
     elif len(nparr.shape) == 2:
-        arrays = [nparr[i,:] for i in range(nparr.shape[0])]
+        nchannels = nparr.shape[1]
     else:
-        raise ValueError("Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels).")
-    interleaved = np.vstack(arrays).reshape((-1,), order='F')
+        raise ValueError("Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels), but is {}.".format(nparr.shape))
+
+    # Flatten into single array with interleaved samples
+    interleaved = np.reshape(nparr, (-1,), order='F')
     dubseg = pydub.AudioSegment(interleaved.tobytes(),
                                 frame_rate=framerate,
                                 sample_width=interleaved.dtype.itemsize,
-                                channels=len(interleaved.shape)
+                                channels=nchannels
                                )
     return AudioSegment(dubseg, "")
 
