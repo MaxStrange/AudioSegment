@@ -1134,8 +1134,8 @@
 
 <div class="viewcode-block" id="AudioSegment.to_numpy_array"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.to_numpy_array">[docs]</a>    <span class="k">def</span> <span class="nf">to_numpy_array</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convenience function for `np.array(self.get_array_of_samples())` while</span>
-<span class="sd">        keeping the appropriate dtype.</span>
+<span class="sd">        Returns a numpy array. The shape of this array is either (nsamples, nchannels), if nchannels</span>
+<span class="sd">        is greater than 1, or else just (nsamples,).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">dtype_dict</span> <span class="o">=</span> <span class="p">{</span>
                         <span class="mi">1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
@@ -1143,7 +1143,8 @@
                         <span class="mi">4</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span>
                      <span class="p">}</span>
         <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype_dict</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span></div>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_array_of_samples</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s1">&#39;F&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="AudioSegment.zero_extend"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.zero_extend">[docs]</a>    <span class="k">def</span> <span class="nf">zero_extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1213,20 +1214,24 @@
 <span class="sd">    :param nparr: The numpy array to create an AudioSegment from.</span>
 <span class="sd">    :returns: An AudioSegment created from the given array.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># interleave the audio across all channels and collapse</span>
+    <span class="c1"># Check args</span>
     <span class="k">if</span> <span class="n">nparr</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Numpy Array must contain 8, 16, or 32 bit values.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Determine nchannels</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">nparr</span><span class="p">]</span>
+        <span class="n">nchannels</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">nparr</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+        <span class="n">nchannels</span> <span class="o">=</span> <span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels).&quot;</span><span class="p">)</span>
-    <span class="n">interleaved</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">arrays</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,),</span> <span class="n">order</span><span class="o">=</span><span class="s1">&#39;F&#39;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels), but is </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nparr</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+
+    <span class="c1"># Flatten into single array with interleaved samples</span>
+    <span class="n">interleaved</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nparr</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,),</span> <span class="n">order</span><span class="o">=</span><span class="s1">&#39;F&#39;</span><span class="p">)</span>
     <span class="n">dubseg</span> <span class="o">=</span> <span class="n">pydub</span><span class="o">.</span><span class="n">AudioSegment</span><span class="p">(</span><span class="n">interleaved</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>
                                 <span class="n">frame_rate</span><span class="o">=</span><span class="n">framerate</span><span class="p">,</span>
                                 <span class="n">sample_width</span><span class="o">=</span><span class="n">interleaved</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span><span class="p">,</span>
-                                <span class="n">channels</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">interleaved</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                                <span class="n">channels</span><span class="o">=</span><span class="n">nchannels</span>
                                <span class="p">)</span>
     <span class="k">return</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="n">dubseg</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
 

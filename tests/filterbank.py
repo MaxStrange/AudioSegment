@@ -12,7 +12,7 @@ import read_from_file
 import sys
 
 def visualize(spect, frequencies, title=""):
-    '''Visualize the result of calling seg.filter_bank() for any number of filters'''
+    """Visualize the result of calling seg.filter_bank() for any number of filters"""
     i = 0
     for freq, (index, row) in zip(frequencies[::-1], enumerate(spect[::-1, :])):
         plt.subplot(spect.shape[0], 1, index + 1)
