@@ -993,8 +993,8 @@
 <span class="sd">        Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the</span>
 <span class="sd">        specified characteristics. Any parameter left None will be unchanged.</span>
 
-<span class="sd">        This is just a wrapper for calling pydub.AudioSegment&#39;s `set_sample_width`, `set_channels`, and</span>
-<span class="sd">        `set_frame_rate` methods.</span>
+<span class="sd">        This is mostly just a wrapper for calling pydub.AudioSegment&#39;s `set_sample_width`, `set_channels`, and</span>
+<span class="sd">        `set_frame_rate` methods, but allows for more channels than the 1 or 2 that Pydub allows.</span>
 
 <span class="sd">        :param sample_rate_Hz: The new sample rate in Hz.</span>
 <span class="sd">        :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.</span>
@@ -1003,12 +1003,36 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">sample_rate_Hz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">sample_rate_Hz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sample_rate_Hz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">))</span>
+
         <span class="k">if</span> <span class="n">sample_width</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">sample_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sample_width</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">sample_width</span><span class="p">))</span>
+
         <span class="k">if</span> <span class="n">channels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">channels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">channels</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_sample_width</span><span class="p">(</span><span class="n">sample_width</span><span class="p">)</span><span class="o">.</span><span class="n">set_channels</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span><span class="o">.</span><span class="n">set_frame_rate</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">)</span></div>
+        <span class="c1"># Check args</span>
+        <span class="k">if</span> <span class="n">sample_rate_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sample rate must be &gt; 0, but is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">sample_width</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sample width must be &gt; 0, but is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sample_width</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Number of channels must be &gt; 0, but is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">channels</span><span class="p">))</span>
+
+        <span class="c1"># If there are more than 2 channels, Pydub throws an exception, so handle this manually here</span>
+        <span class="k">if</span> <span class="n">channels</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="o">=</span><span class="n">sample_rate_Hz</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="n">sample_width</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">seg</span> <span class="o">=</span> <span class="n">from_mono_audiosegments</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">seg</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channels</span><span class="p">)])</span>
+            <span class="k">return</span> <span class="n">seg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_sample_width</span><span class="p">(</span><span class="n">sample_width</span><span class="p">)</span><span class="o">.</span><span class="n">set_channels</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span><span class="o">.</span><span class="n">set_frame_rate</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>

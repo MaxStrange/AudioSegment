@@ -851,6 +851,7 @@ class AudioSegment:
 
         :param sample_rate_Hz: The new sample rate in Hz.
         :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
+                             Note that 3-byte audio will be converted to 4-byte instead by Pydub.
         :param channels: The new number of channels.
         :returns: The newly sampled AudioSegment.
         """
@@ -879,8 +880,25 @@ class AudioSegment:
         if channels <= 0:
             raise ValueError("Number of channels must be > 0, but is {}".format(channels))
 
-        # If there are more than 2 channels, Pydub throws an exception, so handle this manually here
-        if channels > 2:
+        if self.channels > 2:
+            # Pydub does not like audio that has more than 2 channels. Handle it manually here.
+            arr = self.to_numpy_array()
+            dtype = arr.dtype
+            if channels < self.channels:
+                # Downmix by averaging (if we want half as many channels, we average every other channel together, for example)
+                # This is taken from https://stackoverflow.com/questions/30379311/fast-way-to-take-average-of-every-n-rows-in-a-npy-array
+                N = int(self.channels / channels)
+                arr = arr.reshape((self.channels, -1))
+                arr = np.cumsum(arr, 0)[N-1::N]/float(N)
+                arr[1:] = arr[1:] - arr[:-1]
+                arr = arr.astype(dtype).T
+            monos = []
+            for i in range(channels):
+                monoseg = from_numpy_array(arr[:, i % arr.shape[1]], self.frame_rate).set_sample_width(sample_width).set_frame_rate(sample_rate_Hz)
+                monos.append(monoseg)
+            return from_mono_audiosegments(*monos)
+        elif channels > 2:
+            # If there are more than 2 channels, Pydub throws an exception, so handle this manually here
             seg = self.resample(sample_rate_Hz=sample_rate_Hz, sample_width=sample_width, channels=1)
             seg = from_mono_audiosegments(*[seg for _ in range(channels)])
             return seg
