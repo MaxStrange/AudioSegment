@@ -26,15 +26,12 @@ The following is the list of items I plan on implementing.
 - Finish implementing auditory scene analysis (a.k.a blind source separation)
 - Add voice-pass filtering and make voice activity detection better
 - Add language classification for English and Chinese (and show how to do it for other languages)
-- Optimize bottlenecks using Cython, C, or Rust
 - Add more examples to README (especially filterbank)
 - Better tests and CI integration
-- Remove the SOX dependency
+- Finish removing the SOX dependency
 
 I am open to other suggestions. Open an issue if you have requests, or better yet, if you can do it yourself and open
 a pull request, I'll take a look and merge in if I think it makes sense.
-
-I finish my master's degree in May (2019), so once that's finally done, I can get started on some of these items.
 
 ## Example Usage
 
