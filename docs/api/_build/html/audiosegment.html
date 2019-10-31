@@ -506,8 +506,8 @@ returning the result. Does not modify self, instead, makes a copy and returns th
 <code class="sig-name descname">resample</code><span class="sig-paren">(</span><em class="sig-param">sample_rate_Hz=None</em>, <em class="sig-param">sample_width=None</em>, <em class="sig-param">channels=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/audiosegment.html#AudioSegment.resample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#audiosegment.AudioSegment.resample" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the
 specified characteristics. Any parameter left None will be unchanged.</p>
-<p>This is just a wrapper for calling pydub.AudioSegment’s <cite>set_sample_width</cite>, <cite>set_channels</cite>, and
-<cite>set_frame_rate</cite> methods.</p>
+<p>This is mostly just a wrapper for calling pydub.AudioSegment’s <cite>set_sample_width</cite>, <cite>set_channels</cite>, and
+<cite>set_frame_rate</cite> methods, but allows for more channels than the 1 or 2 that Pydub allows.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">

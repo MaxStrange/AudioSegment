@@ -846,8 +846,8 @@ class AudioSegment:
         Returns a new AudioSegment whose data is the same as this one, but which has been resampled to the
         specified characteristics. Any parameter left None will be unchanged.
 
-        This is just a wrapper for calling pydub.AudioSegment's `set_sample_width`, `set_channels`, and
-        `set_frame_rate` methods.
+        This is mostly just a wrapper for calling pydub.AudioSegment's `set_sample_width`, `set_channels`, and
+        `set_frame_rate` methods, but allows for more channels than the 1 or 2 that Pydub allows.
 
         :param sample_rate_Hz: The new sample rate in Hz.
         :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
@@ -856,12 +856,36 @@ class AudioSegment:
         """
         if sample_rate_Hz is None:
             sample_rate_Hz = self.frame_rate
+        else:
+            sample_rate_Hz = int(round(sample_rate_Hz))
+
         if sample_width is None:
             sample_width = self.sample_width
+        else:
+            sample_width = int(round(sample_width))
+
         if channels is None:
             channels = self.channels
+        else:
+            channels = int(round(channels))
 
-        return self.set_sample_width(sample_width).set_channels(channels).set_frame_rate(sample_rate_Hz)
+        # Check args
+        if sample_rate_Hz <= 0:
+            raise ValueError("Sample rate must be > 0, but is {}".format(sample_rate_Hz))
+
+        if sample_width <= 0:
+            raise ValueError("Sample width must be > 0, but is {}".format(sample_width))
+
+        if channels <= 0:
+            raise ValueError("Number of channels must be > 0, but is {}".format(channels))
+
+        # If there are more than 2 channels, Pydub throws an exception, so handle this manually here
+        if channels > 2:
+            seg = self.resample(sample_rate_Hz=sample_rate_Hz, sample_width=sample_width, channels=1)
+            seg = from_mono_audiosegments(*[seg for _ in range(channels)])
+            return seg
+        else:
+            return self.set_sample_width(sample_width).set_channels(channels).set_frame_rate(sample_rate_Hz)
 
     def __getstate__(self):
         """
