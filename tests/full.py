@@ -39,7 +39,7 @@ if __name__ == "__main__":
     #casa.test(seg)  # Test takes too long, so you should really only run this one manually
     resampled = resample.test(seg)
     serde.test(resampled)
-    nparray.test(resampled)
+    nparray.test(resampled.resample(channels=2))
     slices = trim.test(resampled)
     fft.test(resampled)
     filterbank.test(resampled)
