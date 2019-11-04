@@ -7,6 +7,7 @@ import os
 import casa
 import fft
 import filterbank
+import frames
 import human_audible
 import nparray
 import read_from_file
@@ -37,9 +38,11 @@ if __name__ == "__main__":
     print("Fraction of audio that is human audible:", human_audible.test(seg) / (len(seg) / 1000))
 
     #casa.test(seg)  # Test takes too long, so you should really only run this one manually
+    frames.test(seg)
     resampled = resample.test(seg)
     serde.test(resampled)
     nparray.test(resampled.resample(channels=2))
+    nparray.test(resampled.resample(channels=8))
     slices = trim.test(resampled)
     fft.test(resampled)
     filterbank.test(resampled)

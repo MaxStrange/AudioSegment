@@ -15,3 +15,4 @@ script:
   - cd ./tests
   - ls
   - python full.py furelise.wav
+  - python frames.py stereo_furelise.wav

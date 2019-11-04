@@ -770,8 +770,8 @@ class AudioSegment:
         """
         Frame = collections.namedtuple("Frame", "bytes timestamp duration")
 
-        # (samples/sec) * (seconds in a frame) * (bytes/sample)
-        bytes_per_frame = int(self.frame_rate * (frame_duration_ms / 1000) * self.sample_width)
+        # (samples/sec) * (seconds in a frame) * (bytes/sample) * nchannels
+        bytes_per_frame = int(self.frame_rate * (frame_duration_ms / 1000) * self.sample_width * self.channels)
         offset = 0  # where we are so far in self's data (in bytes)
         timestamp = 0.0  # where we are so far in self (in seconds)
         # (bytes/frame) * (sample/bytes) * (sec/samples)
@@ -781,10 +781,14 @@ class AudioSegment:
             timestamp += frame_duration_s
             offset += bytes_per_frame
 
+        rest = self.raw_data[offset:]
+
         if zero_pad:
-            rest = self.raw_data[offset:]
             zeros = bytes(bytes_per_frame - len(rest))
             yield Frame(rest + zeros, timestamp, frame_duration_s)
+        elif len(rest) > 0:
+            ms = (len(rest) / self.frame_rate) / self.sample_width
+            yield Frame(rest, timestamp, ms)
 
     def generate_frames_as_segments(self, frame_duration_ms, zero_pad=True):
         """
