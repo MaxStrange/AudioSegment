@@ -512,7 +512,8 @@ specified characteristics. Any parameter left None will be unchanged.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sample_rate_Hz</strong> – The new sample rate in Hz.</p></li>
-<li><p><strong>sample_width</strong> – The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.</p></li>
+<li><p><strong>sample_width</strong> – The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
+Note that 3-byte audio will be converted to 4-byte instead by Pydub.</p></li>
 <li><p><strong>channels</strong> – The new number of channels.</p></li>
 </ul>
 </dd>

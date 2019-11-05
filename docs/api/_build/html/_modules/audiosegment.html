@@ -917,8 +917,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">Frame</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Frame&quot;</span><span class="p">,</span> <span class="s2">&quot;bytes timestamp duration&quot;</span><span class="p">)</span>
 
-        <span class="c1"># (samples/sec) * (seconds in a frame) * (bytes/sample)</span>
-        <span class="n">bytes_per_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">*</span> <span class="p">(</span><span class="n">frame_duration_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span><span class="p">)</span>
+        <span class="c1"># (samples/sec) * (seconds in a frame) * (bytes/sample) * nchannels</span>
+        <span class="n">bytes_per_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span> <span class="o">*</span> <span class="p">(</span><span class="n">frame_duration_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># where we are so far in self&#39;s data (in bytes)</span>
         <span class="n">timestamp</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># where we are so far in self (in seconds)</span>
         <span class="c1"># (bytes/frame) * (sample/bytes) * (sec/samples)</span>
@@ -928,10 +928,14 @@
             <span class="n">timestamp</span> <span class="o">+=</span> <span class="n">frame_duration_s</span>
             <span class="n">offset</span> <span class="o">+=</span> <span class="n">bytes_per_frame</span>
 
+        <span class="n">rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="n">offset</span><span class="p">:]</span>
+
         <span class="k">if</span> <span class="n">zero_pad</span><span class="p">:</span>
-            <span class="n">rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="n">offset</span><span class="p">:]</span>
             <span class="n">zeros</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">bytes_per_frame</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">rest</span><span class="p">))</span>
-            <span class="k">yield</span> <span class="n">Frame</span><span class="p">(</span><span class="n">rest</span> <span class="o">+</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">frame_duration_s</span><span class="p">)</span></div>
+            <span class="k">yield</span> <span class="n">Frame</span><span class="p">(</span><span class="n">rest</span> <span class="o">+</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">frame_duration_s</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ms</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_width</span>
+            <span class="k">yield</span> <span class="n">Frame</span><span class="p">(</span><span class="n">rest</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">ms</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AudioSegment.generate_frames_as_segments"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.generate_frames_as_segments">[docs]</a>    <span class="k">def</span> <span class="nf">generate_frames_as_segments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_duration_ms</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -998,6 +1002,7 @@
 
 <span class="sd">        :param sample_rate_Hz: The new sample rate in Hz.</span>
 <span class="sd">        :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.</span>
+<span class="sd">                             Note that 3-byte audio will be converted to 4-byte instead by Pydub.</span>
 <span class="sd">        :param channels: The new number of channels.</span>
 <span class="sd">        :returns: The newly sampled AudioSegment.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1026,8 +1031,25 @@
         <span class="k">if</span> <span class="n">channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Number of channels must be &gt; 0, but is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">channels</span><span class="p">))</span>
 
-        <span class="c1"># If there are more than 2 channels, Pydub throws an exception, so handle this manually here</span>
-        <span class="k">if</span> <span class="n">channels</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Pydub does not like audio that has more than 2 channels. Handle it manually here.</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">()</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">dtype</span>
+            <span class="k">if</span> <span class="n">channels</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
+                <span class="c1"># Downmix by averaging (if we want half as many channels, we average every other channel together, for example)</span>
+                <span class="c1"># This is taken from https://stackoverflow.com/questions/30379311/fast-way-to-take-average-of-every-n-rows-in-a-npy-array</span>
+                <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">/</span> <span class="n">channels</span><span class="p">)</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">::</span><span class="n">N</span><span class="p">]</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+                <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">arr</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">monos</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channels</span><span class="p">):</span>
+                <span class="n">monoseg</span> <span class="o">=</span> <span class="n">from_numpy_array</span><span class="p">(</span><span class="n">arr</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">%</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_rate</span><span class="p">)</span><span class="o">.</span><span class="n">set_sample_width</span><span class="p">(</span><span class="n">sample_width</span><span class="p">)</span><span class="o">.</span><span class="n">set_frame_rate</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="p">)</span>
+                <span class="n">monos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">monoseg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">from_mono_audiosegments</span><span class="p">(</span><span class="o">*</span><span class="n">monos</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">channels</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># If there are more than 2 channels, Pydub throws an exception, so handle this manually here</span>
             <span class="n">seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">sample_rate_Hz</span><span class="o">=</span><span class="n">sample_rate_Hz</span><span class="p">,</span> <span class="n">sample_width</span><span class="o">=</span><span class="n">sample_width</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
             <span class="n">seg</span> <span class="o">=</span> <span class="n">from_mono_audiosegments</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">seg</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channels</span><span class="p">)])</span>
             <span class="k">return</span> <span class="n">seg</span>
