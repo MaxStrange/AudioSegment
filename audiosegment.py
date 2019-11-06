@@ -896,11 +896,12 @@ class AudioSegment:
                 arr = np.cumsum(arr, 0)[N-1::N]/float(N)
                 arr[1:] = arr[1:] - arr[:-1]
                 arr = arr.astype(dtype).T
-            monos = []
+            monoarrays = []
             for i in range(channels):
                 monoseg = from_numpy_array(arr[:, i % arr.shape[1]], self.frame_rate).set_sample_width(sample_width).set_frame_rate(sample_rate_Hz)
-                monos.append(monoseg)
-            return from_mono_audiosegments(*monos)
+                monoarrays.append(monoseg.to_numpy_array())
+            monoarray = np.array(monoarrays).T
+            return from_numpy_array(monoarray, sample_rate_Hz)
         elif channels > 2:
             # If there are more than 2 channels, Pydub throws an exception, so handle this manually here
             seg = self.resample(sample_rate_Hz=sample_rate_Hz, sample_width=sample_width, channels=1)
