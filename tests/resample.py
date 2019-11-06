@@ -2,6 +2,7 @@
 Tests the resampling of audiosegment objects by resampling and visualizing
 them in several different ways.
 """
+import numpy as np
 import read_from_file
 import sys
 import visualize
@@ -51,6 +52,11 @@ def test(seg):
 
     seg8_11_8 = seg8_15_8.resample(channels=11)
     _compare(seg8_11_8, 8000, 11, 1)
+
+    # Now ensure that resampling doesn't switch channels around or anything weird like that
+    arr = seg8_11_8.to_numpy_array()
+    arr_resample = seg8_11_8.resample(sample_rate_Hz=seg8_11_8.frame_rate).to_numpy_array()
+    assert np.allclose(arr, arr_resample)
 
     print("Using 32kHz & 16 bit")
 
