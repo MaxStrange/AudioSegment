@@ -1,13 +1,26 @@
 """
 Tests if something is human audible.
 """
-import read_from_file
 import sys
+sys.path.insert(0, '../')
+import audiosegment
+import unittest
 
-def test(seg):
-    return seg.human_audible()
+
+class TestHumanAudible(unittest.TestCase):
+    """
+    Test the human audible method.
+    """
+    def test_should_be_audible(self):
+        seg = audiosegment.from_file("furelise.wav")
+        seconds_audible = seg.human_audible()
+        self.assertGreaterEqual(seconds_audible, seg.duration_seconds * 0.85, "This file should contain at least 85 percent audible sound but does not.")
+
+    def test_should_not_be_audible(self):
+        seg = audiosegment.silent(1000)
+        seconds_audible = seg.human_audible()
+        self.assertLessEqual(seconds_audible, seg.duration_seconds * 0.05, "This segment should not be audible, but is.")
+
 
 if __name__ == "__main__":
-    seg = read_from_file.test(sys.argv[1])
-    seconds_audible = test(seg)
-    print("Fraction of audio that is human audible:", seconds_audible / (len(seg) / 1000))
+    unittest.main()

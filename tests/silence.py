@@ -1,26 +1,33 @@
 """
 Tests doing a spectrogram using an AudioSegment.
 """
-import numpy as np
-import read_from_file
 import sys
-import visualize
+sys.path.insert(0, '../')
+import audiosegment
+import numpy as np
+import pickle
+import unittest
 
-def test(seg):
-    print("Removing silence...")
-    result = seg.filter_silence()
-    outname_silence = "results/nosilence.wav"
-    result.export(outname_silence, format="wav")
-    visualize.visualize(result[:min(visualize.VIS_MS, len(result))], title="After Silence Removal")
-    print("After removal:", outname_silence)
 
-    # Now try again, but with massive threshold for silence removal
-    # This will strip almost every sample in the file, leaving a practically empty
-    # WAV file, which Pydub chokes on.
-    _ = seg.filter_silence(threshold_percentage=99.9)
+class TestSilence(unittest.TestCase):
+    """
+    Test removing silence.
+    """
+    def test_silence_removal(self):
+        """
+        Basic test for exceptions.
+        """
+        seg = audiosegment.from_file("furelise.wav")
+        s = seg.filter_silence()
+        self.assertEqual(seg.channels, s.channels)
+        self.assertEqual(seg.frame_rate, s.frame_rate)
+        self.assertLess(s.duration_seconds, seg.duration_seconds)
 
-    return result
+        # Now try again, but with massive threshold for silence removal
+        # This will strip almost every sample in the file, leaving a practically empty
+        # WAV file, which Pydub chokes on.
+        _ = seg.filter_silence(threshold_percentage=99.9)
+
 
 if __name__ == "__main__":
-    seg = read_from_file.test(sys.argv[1])
-    test(seg)
+    unittest.main()

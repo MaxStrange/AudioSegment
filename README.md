@@ -27,7 +27,6 @@ The following is the list of items I plan on implementing.
 - Add voice-pass filtering and make voice activity detection better
 - Add language classification for English and Chinese (and show how to do it for other languages)
 - Add more examples to README (especially filterbank)
-- Better tests and CI integration
 - Finish removing the SOX dependency
 
 I am open to other suggestions. Open an issue if you have requests, or better yet, if you can do it yourself and open

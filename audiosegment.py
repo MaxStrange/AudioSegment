@@ -1,16 +1,11 @@
 """
 This module simply exposes a wrapper of a pydub.AudioSegment object.
 """
-from __future__ import division
-from __future__ import print_function
-
 # Disable the annoying "cannot import x" pylint
 # pylint: disable=E0401
 
 import collections
 import functools
-import itertools
-import math
 import multiprocessing
 import numpy as np
 import pickle
@@ -18,11 +13,9 @@ import platform
 import pydub
 import os
 import random
-import scipy.interpolate as interpolate
 import scipy.signal as signal
 import string
 import subprocess
-import sys
 import tempfile
 import warnings
 import webrtcvad
@@ -772,12 +765,22 @@ class AudioSegment:
 
         # (samples/sec) * (seconds in a frame) * (bytes/sample) * nchannels
         bytes_per_frame = int(self.frame_rate * (frame_duration_ms / 1000) * self.sample_width * self.channels)
-        offset = 0  # where we are so far in self's data (in bytes)
-        timestamp = 0.0  # where we are so far in self (in seconds)
+
+        # Now round up bytes_per_frame to least common multiple of it and sample_width
+        bytes_per_frame = util.lcm(bytes_per_frame, self.sample_width)
+
+        # where we are so far in self's data (in bytes)
+        offset = 0
+
+        # where we are so far in self (in seconds)
+        timestamp = 0.0
+
         # (bytes/frame) * (sample/bytes) * (sec/samples)
         frame_duration_s = (bytes_per_frame / self.frame_rate) / self.sample_width
+
         while offset + bytes_per_frame < len(self.raw_data):
             yield Frame(self.raw_data[offset:offset + bytes_per_frame], timestamp, frame_duration_s)
+
             timestamp += frame_duration_s
             offset += bytes_per_frame
 
@@ -795,8 +798,7 @@ class AudioSegment:
         Does the same thing as `generate_frames`, but yields tuples of (AudioSegment, timestamp) instead of Frames.
         """
         for frame in self.generate_frames(frame_duration_ms, zero_pad=zero_pad):
-            seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width,
-                               frame_rate=self.frame_rate, channels=self.channels), self.name)
+            seg = AudioSegment(pydub.AudioSegment(data=frame.bytes, sample_width=self.sample_width, frame_rate=self.frame_rate, channels=self.channels), self.name)
             yield seg, frame.timestamp
 
     def human_audible(self):
@@ -890,18 +892,18 @@ class AudioSegment:
             dtype = arr.dtype
             if channels < self.channels:
                 # Downmix by averaging (if we want half as many channels, we average every other channel together, for example)
-                # This is taken from https://stackoverflow.com/questions/30379311/fast-way-to-take-average-of-every-n-rows-in-a-npy-array
+                # This is adapted from https://stackoverflow.com/questions/30379311/fast-way-to-take-average-of-every-n-rows-in-a-npy-array
                 N = int(self.channels / channels)
-                arr = arr.reshape((self.channels, -1))
+                arr = arr.T
                 arr = np.cumsum(arr, 0)[N-1::N]/float(N)
                 arr[1:] = arr[1:] - arr[:-1]
                 arr = arr.astype(dtype).T
-            monoarrays = []
+            monosegs = []
             for i in range(channels):
-                monoseg = from_numpy_array(arr[:, i % arr.shape[1]], self.frame_rate).set_sample_width(sample_width).set_frame_rate(sample_rate_Hz)
-                monoarrays.append(monoseg.to_numpy_array())
-            monoarray = np.array(monoarrays).T
-            return from_numpy_array(monoarray, sample_rate_Hz)
+                targetarr = arr[:, i % arr.shape[1]]
+                monoseg = from_numpy_array(targetarr, self.frame_rate).set_sample_width(sample_width).set_frame_rate(sample_rate_Hz)
+                monosegs.append(monoseg)
+            return from_mono_audiosegments(*monosegs)
         elif channels > 2:
             # If there are more than 2 channels, Pydub throws an exception, so handle this manually here
             seg = self.resample(sample_rate_Hz=sample_rate_Hz, sample_width=sample_width, channels=1)
@@ -1044,7 +1046,7 @@ class AudioSegment:
                      }
         dtype = dtype_dict[self.sample_width]
         arr = np.array(self.get_array_of_samples(), dtype=dtype)
-        return np.reshape(arr, (-1, self.channels), order='F').squeeze()
+        return np.reshape(arr, (-1, self.channels)).squeeze()
 
     def zero_extend(self, duration_s=None, num_samples=None):
         """
@@ -1112,6 +1114,7 @@ def from_numpy_array(nparr, framerate):
     The numpy array must have shape = (num_samples, num_channels).
 
     :param nparr: The numpy array to create an AudioSegment from.
+    :param framerate: The sample rate (Hz) of the segment to generate.
     :returns: An AudioSegment created from the given array.
     """
     # Check args
@@ -1126,14 +1129,17 @@ def from_numpy_array(nparr, framerate):
     else:
         raise ValueError("Numpy Array must be one or two dimensional. Shape must be: (num_samples, num_channels), but is {}.".format(nparr.shape))
 
-    # Flatten into single array with interleaved samples
-    interleaved = np.reshape(nparr, (-1,), order='F')
-    dubseg = pydub.AudioSegment(interleaved.tobytes(),
-                                frame_rate=framerate,
-                                sample_width=interleaved.dtype.itemsize,
-                                channels=nchannels
-                               )
-    return AudioSegment(dubseg, "")
+    # Fix shape if single dimensional
+    nparr = np.reshape(nparr, (-1, nchannels))
+
+    # Create an array of mono audio segments
+    monos = []
+    for i in range(nchannels):
+        m = nparr[:, i]
+        dubseg = pydub.AudioSegment(m.tobytes(), frame_rate=framerate, sample_width=nparr.dtype.itemsize, channels=1)
+        monos.append(dubseg)
+
+    return AudioSegment(pydub.AudioSegment.from_mono_audiosegments(*monos), "")
 
 def silent(duration=1000, frame_rate=11025):
     """

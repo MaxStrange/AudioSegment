@@ -707,7 +707,10 @@ AudioSegment passed in should be exactly the same number of samples.</p>
 <p>The numpy array must have shape = (num_samples, num_channels).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nparr</strong> – The numpy array to create an AudioSegment from.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nparr</strong> – The numpy array to create an AudioSegment from.</p></li>
+<li><p><strong>framerate</strong> – The sample rate (Hz) of the segment to generate.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>An AudioSegment created from the given array.</p>

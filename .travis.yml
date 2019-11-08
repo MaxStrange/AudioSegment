@@ -14,5 +14,13 @@ install:
 script:
   - cd ./tests
   - ls
-  - python full.py furelise.wav
-  - python frames.py stereo_furelise.wav
+  - python fft.py
+  - python filterbank.py
+  - python frames.py
+  - python human_audible.py
+  - python nparray.py
+  - python serde.py
+  - python silence.py
+  - python spectrogram.py
+  - python trim.py
+  - python vad.py
