@@ -148,7 +148,9 @@
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Utility module for miscellaneous stuff</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">fractions</span>
 <span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 
 <div class="viewcode-block" id="isclose"><a class="viewcode-back" href="../../algorithms.html#algorithms.util.isclose">[docs]</a><span class="k">def</span> <span class="nf">isclose</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rel_tol</span><span class="o">=</span><span class="mf">1e-09</span><span class="p">,</span> <span class="n">abs_tol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -168,6 +170,17 @@
             <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># Infinity is only close to itself, and we already handled that case</span>
         <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">diff</span> <span class="o">&lt;=</span> <span class="n">rel_tol</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span><span class="n">diff</span> <span class="o">&lt;=</span> <span class="n">rel_tol</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span><span class="n">diff</span> <span class="o">&lt;=</span> <span class="n">abs_tol</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="lcm"><a class="viewcode-back" href="../../algorithms.html#algorithms.util.lcm">[docs]</a><span class="k">def</span> <span class="nf">lcm</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Python 3.4 and others differ on how to get at the least common multiple.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">major</span><span class="p">,</span> <span class="n">minor</span><span class="p">,</span> <span class="n">_micro</span><span class="p">,</span> <span class="n">_level</span><span class="p">,</span> <span class="n">_serial</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span>
+
+    <span class="k">if</span> <span class="n">major</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="ow">or</span> <span class="n">minor</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span> <span class="o">//</span> <span class="n">math</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span> <span class="o">//</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
 </pre></div>
 
            </div>

@@ -1,7 +1,9 @@
 """
 Utility module for miscellaneous stuff
 """
+import fractions
 import math
+import sys
 
 def isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0):
     """
@@ -21,3 +23,14 @@ def isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0):
             return False  # Infinity is only close to itself, and we already handled that case
         diff = abs(a - b)
         return (diff <= rel_tol * abs(b)) or (diff <= rel_tol * abs(a)) or (diff <= abs_tol)
+
+def lcm(a, b):
+    """
+    Python 3.4 and others differ on how to get at the least common multiple.
+    """
+    major, minor, _micro, _level, _serial = sys.version_info
+
+    if major > 3 or minor > 4:
+        return a * b // math.gcd(a, b)
+    else:
+        return a * b // fractions.gcd(a, b)
