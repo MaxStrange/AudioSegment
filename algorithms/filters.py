@@ -1,8 +1,20 @@
 """
 Convenience functions for using Numpy/Scipy filters in the audio domain.
 """
+import ctypes
 import numpy as np
-import scipy.signal as signal
+import os
+
+_mydir = os.path.dirname(__file__)
+_so_path = os.path.join(_mydir, "signal.so")
+
+# Try to import Scipy. If not present, we can't use these functions.
+try:
+    import scipy.signal as signal
+    scipy_imported = True
+except ImportError:
+    scipy_imported = False
+
 
 def bandpass_filter(data, low, high, fs, order=5):
     """
@@ -15,6 +27,9 @@ def bandpass_filter(data, low, high, fs, order=5):
     :param order: The order of the filter. The higher the order, the tighter the roll-off.
     :returns: Filtered data (numpy array).
     """
+    if not scipy_imported:
+        raise NotImplementedError("This function is unusable without Scipy")
+
     nyq = 0.5 * fs
     low = low / nyq
     high = high / nyq
@@ -32,6 +47,9 @@ def lowpass_filter(data, cutoff, fs, order=5):
     :param order: The order of the filter. The higher the order, the tighter the roll-off.
     :returns: Filtered data (numpy array).
     """
+    if not scipy_imported:
+        raise NotImplementedError("This function is unusable without Scipy")
+
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)

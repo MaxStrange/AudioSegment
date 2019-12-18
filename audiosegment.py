@@ -13,7 +13,6 @@ import platform
 import pydub
 import os
 import random
-import scipy.signal as signal
 import string
 import subprocess
 import tempfile
@@ -26,9 +25,19 @@ from algorithms import util
 
 try:
     import librosa
+    librosa_imported = True
 except ImportError as e:
     print("Could not import librosa: {}".format(e))
-    print("This likely means that you will not be able to use the filterbank method.")
+    print("Some functionality may be disabled.")
+    librosa_imported = False
+
+try:
+    import scipy.signal as signal
+    scipy_imported = True
+except ImportError as e:
+    print("Could not import scipy: {}".format(e))
+    print("Some functionality may be disabled.")
+    scipy_imported = False
 
 MS_PER_S = 1000
 S_PER_MIN = 60
@@ -200,7 +209,9 @@ class AudioSegment:
         """
         # Logspace to get all the frequency channels we are after
         data = self.to_numpy_array()
-        if mode.lower() == 'mel':
+        if mode.lower() == 'mel' and not librosa_imported:
+            raise ValueError("Cannot use 'mel' when librosa not present. Install the librosa python package and try again.")
+        elif mode.lower() == 'mel':
             frequencies = librosa.core.mel_frequencies(n_mels=nfilters, fmin=lower_bound_hz, fmax=upper_bound_hz)
         elif mode.lower() == 'linear':
             frequencies = np.linspace(lower_bound_hz, upper_bound_hz, num=nfilters, endpoint=True)
@@ -234,6 +245,9 @@ class AudioSegment:
         :param debugplot:   If `True` will use Matplotlib to plot the resulting spectrogram masks in Mel frequency scale.
         :returns:           List of AudioSegment objects, each of which is from a particular sound source.
         """
+        if not scipy_imported:
+            raise NotImplementedError("This method requires the STFT, which requires scipy. But scipy could not be found on this system.")
+
         def printd(*args, **kwargs):
             if debug:
                 print(*args, **kwargs)
@@ -1028,11 +1042,24 @@ class AudioSegment:
         # Create a Numpy Array out of the correct samples
         arr = self.to_numpy_array()[start_sample:start_sample+num_samples]
 
-        # Use Scipy spectrogram and return
-        fs, ts, sxx = signal.spectrogram(arr, self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
-                                             noverlap=int(round(overlap * window_length_samples)),
-                                             mode='magnitude', window=window)
-        return fs, ts, sxx
+        # If Scipy is present, let's use its spectrogram method, as it is much faster
+        if scipy_imported:
+            fs, ts, sxx = signal.spectrogram(arr, self.frame_rate, scaling='spectrum', nperseg=window_length_samples,
+                                                noverlap=int(round(overlap * window_length_samples)),
+                                                mode='magnitude', window=window)
+            return fs, ts, sxx
+        else:
+            starts = []
+            next_start = start_sample
+            while next_start < len(self.get_array_of_samples()):
+                starts.append(next_start)
+                next_start = next_start + int(round(overlap * window_length_samples))
+
+            rets = [self.fft(start_sample=start, num_samples=window_length_samples, zero_pad=True) for start in starts]
+            bins = rets[0][0]
+            values = [ret[1] for ret in rets]
+            times = [start_sample / self.frame_rate for start_sample in starts]
+            return np.array(bins), np.array(times), np.array(values)
 
     def to_numpy_array(self):
         """
