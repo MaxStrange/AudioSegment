@@ -4,8 +4,12 @@ logic, which has grown to be a little unwieldy in the AudioSegment class.
 """
 import multiprocessing
 import numpy as np
-import scipy.signal as signal
+try:
+    import scipy.signal as signal
+except ImportError:
+    print("Could not import Scipy. Will not be able to use ASA")
 import sys
+
 
 def _plot(frequencies, spect, title, fn=None):
     import matplotlib.pyplot as plt
