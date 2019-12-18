@@ -22,21 +22,21 @@ from algorithms import asa
 from algorithms import eventdetection as detect
 from algorithms import filters
 from algorithms import util
+import logging
+logging.basicConfig()
 
 try:
     import librosa
     librosa_imported = True
 except ImportError as e:
-    print("Could not import librosa: {}".format(e))
-    print("Some functionality may be disabled.")
+    logging.warning("Could not import librosa: {}. Some functionality may be disabled.".format(e))
     librosa_imported = False
 
 try:
     import scipy.signal as signal
     scipy_imported = True
 except ImportError as e:
-    print("Could not import scipy: {}".format(e))
-    print("Some functionality may be disabled.")
+    logging.warning("Could not import scipy: {}. Some functionality may be disabled.".format(e))
     scipy_imported = False
 
 MS_PER_S = 1000
