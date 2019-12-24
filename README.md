@@ -19,6 +19,27 @@ You will have to install sox by:
 - Mac OS X: `brew install sox`
 - Windows: `choco install sox`
 
+Also, I use [librosa](https://github.com/librosa/librosa) and [scipy](https://www.scipy.org/), for some of the functionality.
+These dependencies are hefty, and I have decided to make them optional. If you do not install them, you may get warnings
+when using audiosegment.
+
+So, a full installation on Debian/Ubuntu would like like this:
+
+```bash
+sudo apt-get install sox
+pip3 install --user audiosegment
+
+# To get scipy, you will need some lapack/blas resources:
+sudo apt-get install libatlas-base-dev gfortran
+pip3 install --user scipy
+
+# To get librosa, you will need numba, which requires LLVMlite, which requires LLVM.
+sudo apt-get install llvm
+pip3 install --user librosa
+```
+
+Make suitable adjustments to fit your own OS's package management system.
+
 ## TODO
 
 The following is the list of items I plan on implementing.
