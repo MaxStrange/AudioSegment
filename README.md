@@ -5,7 +5,10 @@
 Wrapper for [pydub](https://github.com/jiaaro/pydub) AudioSegment objects. An audiosegment.AudioSegment object wraps
 a pydub.AudioSegment object. Any methods or properties it has, this also has.
 
-[Docs](https://maxstrange.github.io/AudioSegment/) are hosted by GitHub Pages.
+[Docs](https://maxstrange.github.io/AudioSegment/) are hosted by GitHub Pages, but are currently hideous. I've got to do
+something about them as soon as I find some time. You can also try [Read The Docs](https://audiosegment.readthedocs.io/en/latest/),
+though the docs there don't seem to be building for some reason.... also something I need to look into. Up-to-date docs
+are also built and pushed and are in the docs folder of this repository.
 
 ## Notes
 
