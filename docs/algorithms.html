@@ -1,0 +1,314 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>algorithms package &mdash; AudioSegment  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="audiosegment module" href="audiosegment.html" />
+    <link rel="prev" title="Welcome to AudioSegment’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> AudioSegment
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">algorithms package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algorithms.asa">algorithms.asa module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algorithms.eventdetection">algorithms.eventdetection module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algorithms.filters">algorithms.filters module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algorithms.util">algorithms.util module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algorithms">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="audiosegment.html">audiosegment module</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">AudioSegment</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>algorithms package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/algorithms.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="algorithms-package">
+<h1>algorithms package<a class="headerlink" href="#algorithms-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-algorithms.asa">
+<span id="algorithms-asa-module"></span><h2>algorithms.asa module<a class="headerlink" href="#module-algorithms.asa" title="Permalink to this headline">¶</a></h2>
+<p>This module extracts out a bunch of the Auditory Scene Analysis (ASA)
+logic, which has grown to be a little unwieldy in the AudioSegment class.</p>
+<dl class="function">
+<dt id="algorithms.asa.visualize">
+<code class="sig-prename descclassname">algorithms.asa.</code><code class="sig-name descname">visualize</code><span class="sig-paren">(</span><em class="sig-param">spect</em>, <em class="sig-param">frequencies</em>, <em class="sig-param">title=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/asa.html#visualize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.asa.visualize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="algorithms.asa.visualize_fronts">
+<code class="sig-prename descclassname">algorithms.asa.</code><code class="sig-name descname">visualize_fronts</code><span class="sig-paren">(</span><em class="sig-param">onsets</em>, <em class="sig-param">offsets</em>, <em class="sig-param">spect</em>, <em class="sig-param">frequencies</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/asa.html#visualize_fronts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.asa.visualize_fronts" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="algorithms.asa.visualize_peaks_and_valleys">
+<code class="sig-prename descclassname">algorithms.asa.</code><code class="sig-name descname">visualize_peaks_and_valleys</code><span class="sig-paren">(</span><em class="sig-param">peaks</em>, <em class="sig-param">valleys</em>, <em class="sig-param">spect</em>, <em class="sig-param">frequencies</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/asa.html#visualize_peaks_and_valleys"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.asa.visualize_peaks_and_valleys" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="algorithms.asa.visualize_segmentation_mask">
+<code class="sig-prename descclassname">algorithms.asa.</code><code class="sig-name descname">visualize_segmentation_mask</code><span class="sig-paren">(</span><em class="sig-param">segmentation</em>, <em class="sig-param">spect</em>, <em class="sig-param">frequencies</em>, <em class="sig-param">mode='new'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/asa.html#visualize_segmentation_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.asa.visualize_segmentation_mask" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="algorithms.asa.visualize_time_domain">
+<code class="sig-prename descclassname">algorithms.asa.</code><code class="sig-name descname">visualize_time_domain</code><span class="sig-paren">(</span><em class="sig-param">seg</em>, <em class="sig-param">title=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/asa.html#visualize_time_domain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.asa.visualize_time_domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-algorithms.eventdetection">
+<span id="algorithms-eventdetection-module"></span><h2>algorithms.eventdetection module<a class="headerlink" href="#module-algorithms.eventdetection" title="Permalink to this headline">¶</a></h2>
+<p>This module contains a bunch of functions that are integral to the
+auditory event detection algorithm used by AudioSegment. We refactored
+them to here because they aren’t really useful on their own, and they
+take up brainspace by being in the AudioSegment class.</p>
+</div>
+<div class="section" id="module-algorithms.filters">
+<span id="algorithms-filters-module"></span><h2>algorithms.filters module<a class="headerlink" href="#module-algorithms.filters" title="Permalink to this headline">¶</a></h2>
+<p>Convenience functions for using Numpy/Scipy filters in the audio domain.</p>
+<dl class="function">
+<dt id="algorithms.filters.bandpass_filter">
+<code class="sig-prename descclassname">algorithms.filters.</code><code class="sig-name descname">bandpass_filter</code><span class="sig-paren">(</span><em class="sig-param">data</em>, <em class="sig-param">low</em>, <em class="sig-param">high</em>, <em class="sig-param">fs</em>, <em class="sig-param">order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/filters.html#bandpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.filters.bandpass_filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Does a bandpass filter over the given data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The data (numpy array) to be filtered.</p></li>
+<li><p><strong>low</strong> – The low cutoff in Hz.</p></li>
+<li><p><strong>high</strong> – The high cutoff in Hz.</p></li>
+<li><p><strong>fs</strong> – The sample rate (in Hz) of the data.</p></li>
+<li><p><strong>order</strong> – The order of the filter. The higher the order, the tighter the roll-off.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Filtered data (numpy array).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="algorithms.filters.lowpass_filter">
+<code class="sig-prename descclassname">algorithms.filters.</code><code class="sig-name descname">lowpass_filter</code><span class="sig-paren">(</span><em class="sig-param">data</em>, <em class="sig-param">cutoff</em>, <em class="sig-param">fs</em>, <em class="sig-param">order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/filters.html#lowpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.filters.lowpass_filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Does a lowpass filter over the given data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The data (numpy array) to be filtered.</p></li>
+<li><p><strong>cutoff</strong> – The high cutoff in Hz.</p></li>
+<li><p><strong>fs</strong> – The sample rate in Hz of the data.</p></li>
+<li><p><strong>order</strong> – The order of the filter. The higher the order, the tighter the roll-off.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Filtered data (numpy array).</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algorithms.util">
+<span id="algorithms-util-module"></span><h2>algorithms.util module<a class="headerlink" href="#module-algorithms.util" title="Permalink to this headline">¶</a></h2>
+<p>Utility module for miscellaneous stuff</p>
+<dl class="function">
+<dt id="algorithms.util.isclose">
+<code class="sig-prename descclassname">algorithms.util.</code><code class="sig-name descname">isclose</code><span class="sig-paren">(</span><em class="sig-param">a</em>, <em class="sig-param">b</em>, <em class="sig-param">*</em>, <em class="sig-param">rel_tol=1e-09</em>, <em class="sig-param">abs_tol=0.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/util.html#isclose"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.util.isclose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Python 3.4 does not have math.isclose, so we need to steal it and add it here.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="algorithms.util.lcm">
+<code class="sig-prename descclassname">algorithms.util.</code><code class="sig-name descname">lcm</code><span class="sig-paren">(</span><em class="sig-param">a</em>, <em class="sig-param">b</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/algorithms/util.html#lcm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#algorithms.util.lcm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Python 3.4 and others differ on how to get at the least common multiple.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algorithms">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-algorithms" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="audiosegment.html" class="btn btn-neutral float-right" title="audiosegment module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to AudioSegment’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright Max Strange (MIT License)
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

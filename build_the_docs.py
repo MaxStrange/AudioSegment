@@ -120,3 +120,14 @@ if __name__ == "__main__":
         result = subprocess.run(["make", "clean"])
         result = subprocess.run(["make", "html"])
     result.check_returncode()
+
+    # Now splat the html directory into docs folder for GitHub pages
+    htmlpath = os.path.join(apipath, "_build", "html")
+    docspath = os.path.join(home, "docs")
+
+    for fname in os.listdir(htmlpath):
+        fpath = os.path.join(htmlpath, fname)
+        if os.path.isfile(fpath):
+            shutil.copy(fpath, os.path.join(docspath, fname))
+        else:
+            shutil.copytree(fpath, os.path.join(docspath, fname))
