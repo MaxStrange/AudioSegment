@@ -436,7 +436,9 @@ be stripped.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>A copy of this AudioSegment, but whose silence has been removed.</p>
+<dd class="field-even"><p>A copy of this AudioSegment, but whose silence has been removed. Note that if the arguments
+to this method result in it removing all samples from the audio, we issue a warning and return
+a copy of the original, unchanged audio.</p>
 </dd>
 </dl>
 </dd></dl>

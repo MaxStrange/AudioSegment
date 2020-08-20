@@ -681,7 +681,9 @@ class AudioSegment:
         :param threshold_percentage: Silence is defined as any samples whose absolute value is below
                                      `threshold_percentage * max(abs(samples in this segment))`.
         :param console_output: If True, will pipe all sox output to the console.
-        :returns: A copy of this AudioSegment, but whose silence has been removed.
+        :returns: A copy of this AudioSegment, but whose silence has been removed. Note that if the arguments
+                  to this method result in it removing all samples from the audio, we issue a warning and return
+                  a copy of the original, unchanged audio.
         """
         command = "sox {inputfile} -t wav {outputfile} silence -l 1 0.1 "\
             + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
@@ -691,6 +693,12 @@ class AudioSegment:
             warnings.warn("After silence filtering, the resultant WAV file is corrupted, and so its data cannot be retrieved. Perhaps try a smaller threshold value.", stacklevel=2)
             # Return a copy of us
             result = AudioSegment(self.seg, self.name)
+
+        # Also check if the audio no longer has any data in it. If so, it's not terribly useful. Warn and return a copy of us.
+        if len(result.to_numpy_array()) == 0:
+            warnings.warn("After silence filtering, the resultant WAV file has no samples in it. Perhaps try a smaller threshold value.", stacklevel=2)
+            result = AudioSegment(self.seg, self.name)
+
         return result
 
     def fft(self, start_s=None, duration_s=None, start_sample=None, num_samples=None, zero_pad=False):

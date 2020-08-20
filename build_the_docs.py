@@ -130,4 +130,4 @@ if __name__ == "__main__":
         if os.path.isfile(fpath):
             shutil.copy(fpath, os.path.join(docspath, fname))
         else:
-            shutil.copytree(fpath, os.path.join(docspath, fname))
+            shutil.copytree(fpath, os.path.join(docspath, fname), dirs_exist_ok=True)
