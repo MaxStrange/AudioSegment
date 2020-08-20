@@ -828,7 +828,9 @@
 <span class="sd">        :param threshold_percentage: Silence is defined as any samples whose absolute value is below</span>
 <span class="sd">                                     `threshold_percentage * max(abs(samples in this segment))`.</span>
 <span class="sd">        :param console_output: If True, will pipe all sox output to the console.</span>
-<span class="sd">        :returns: A copy of this AudioSegment, but whose silence has been removed.</span>
+<span class="sd">        :returns: A copy of this AudioSegment, but whose silence has been removed. Note that if the arguments</span>
+<span class="sd">                  to this method result in it removing all samples from the audio, we issue a warning and return</span>
+<span class="sd">                  a copy of the original, unchanged audio.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sox </span><span class="si">{inputfile}</span><span class="s2"> -t wav </span><span class="si">{outputfile}</span><span class="s2"> silence -l 1 0.1 &quot;</span>\
             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;% -1 &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">duration_s</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threshold_percentage</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;%&quot;</span>
@@ -838,6 +840,12 @@
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;After silence filtering, the resultant WAV file is corrupted, and so its data cannot be retrieved. Perhaps try a smaller threshold value.&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
             <span class="c1"># Return a copy of us</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Also check if the audio no longer has any data in it. If so, it&#39;s not terribly useful. Warn and return a copy of us.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_numpy_array</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;After silence filtering, the resultant WAV file has no samples in it. Perhaps try a smaller threshold value.&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">AudioSegment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">result</span></div>
 
 <div class="viewcode-block" id="AudioSegment.fft"><a class="viewcode-back" href="../audiosegment.html#audiosegment.AudioSegment.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_sample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zero_pad</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
